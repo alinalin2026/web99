@@ -13,6 +13,7 @@ import { fileURLToPath } from "node:url";
 import { config } from "./site.config.mjs";
 import { faqs } from "./src/content/faq.mjs";
 import { included } from "./src/content/included.mjs";
+import { examples } from "./src/content/examples.mjs";
 
 const root = dirname(fileURLToPath(import.meta.url));
 const src = join(root, "src");
@@ -143,6 +144,20 @@ function inclusionList(list, extraClass) {
   return `<ul class="incl${extraClass ? " " + extraClass : ""}">\n${items}\n      </ul>`;
 }
 
+function exampleGrid() {
+  const cards = examples
+    .map(
+      (e) => `        <figure class="shot">
+          <div class="shot__frame">
+            <img src="/assets/img/examples/${e.file}" alt="${esc(e.alt)}" width="1040" height="770" loading="lazy" decoding="async" />
+          </div>
+          <figcaption class="shot__cap"><strong>${e.trade}</strong><span>${e.line}</span></figcaption>
+        </figure>`
+    )
+    .join("\n");
+  return `<div class="shots">\n${cards}\n      </div>`;
+}
+
 function counterBand() {
   if (!config.counterEnabled) return "<!-- counter band switched off in site.config.mjs -->";
   return `<section class="counter" aria-label="Businesses brought online">
@@ -250,6 +265,7 @@ async function build() {
     counterBand: counterBand(),
     testimonialBlock: testimonialBlock(),
     heroCard: heroCard(),
+    exampleGrid: exampleGrid(),
     receiptRows: receiptRows(),
     totalValue: totalValue(),
     includedTop: inclusionList(included.filter((i) => i.top)),

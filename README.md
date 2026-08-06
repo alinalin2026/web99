@@ -46,6 +46,8 @@ src/
   partials/            header, footer, icon sprite, the decorative arcs
   pages/               one file per route, with its title/description on top
   content/faq.mjs      the FAQ, shared by the front page and /faq/
+  content/included.mjs the twelve things the €99 buys
+  content/examples.mjs the sample designs shown on the front page
   assets/              css, js, images — copied to dist/ as-is
 site.config.mjs        every placeholder value, in one place
 ```
@@ -80,6 +82,9 @@ built, so they can't drift.
       André Reis. It shows a real barber at work, but it is a customer rather
       than the owner, and it is not Irish. An owned photo of a real Irish
       customer is the single biggest upgrade available to this page.
+- [ ] Replace the sample designs with real customer sites once there are
+      some, with their permission. The four on the front page are demo
+      builds and the copy says so — do not describe them as client work.
 - [ ] Turn the counter on once the number is real. It is off-by-default in the
       sense that it reads `0` until you set it.
 

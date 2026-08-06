@@ -369,7 +369,15 @@ async function build() {
   /* GitHub Pages otherwise runs the output through Jekyll */
   await writeFile(join(dist, ".nojekyll"), "", "utf8");
 
-  console.log(`\nBuilt ${pages.length} pages -> dist/`);
+  /* Publish to the repo root as well. The built HTML is committed, so any
+     static host serves the site with no build step and no configuration —
+     which is how this site worked before it had a build at all. dist/ stays
+     as the clean build target; the root copy is what actually ships. */
+  for (const entry of await readdir(dist)) {
+    await cp(join(dist, entry), join(root, entry), { recursive: true });
+  }
+
+  console.log(`\nBuilt ${pages.length} pages -> dist/ and repo root`);
 }
 
 build().catch((err) => {

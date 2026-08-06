@@ -45,9 +45,9 @@ export const config = {
     { item: "AI assistant setup", value: 200 },
     { item: "Written content for your pages", value: 150 },
     { item: "Booking and enquiry system", value: 100 },
-    { item: "Business email and automatic replies", value: 90 },
+    { item: "Business email and auto-replies", value: 90 },
     { item: "10 articles, written with photos", value: 250 },
-    { item: "Facebook page and 10 scheduled posts", value: 120 },
+    { item: "Facebook page and 10 posts", value: 120 },
   ],
 
   /* --- Contact ---------------------------------------------------------- */

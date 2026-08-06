@@ -23,26 +23,8 @@
 
     <div class="hero__visual">
       {{arcHero}}
-      <div class="hero__panel">
-        {{heroImage}}
-      </div>
-      <div class="hero__chip">
-        <span class="dot-live" aria-hidden="true"></span>
-        <span>Your website is live<small>Nothing paid yet</small></span>
-      </div>
+      {{heroCard}}
     </div>
-  </div>
-</section>
-
-<!-- ============ trust strip ============ -->
-<section class="trustbar" aria-label="What's included">
-  <div class="wrap">
-    <ul>
-      <li><svg width="21" height="21" aria-hidden="true"><use href="#i-globe"/></svg> Free domain (1 year)</li>
-      <li><svg width="21" height="21" aria-hidden="true"><use href="#i-server"/></svg> Free hosting (1 year)</li>
-      <li><svg width="21" height="21" aria-hidden="true"><use href="#i-key"/></svg> You own everything</li>
-      <li><svg width="21" height="21" aria-hidden="true"><use href="#i-pin"/></svg> Built in Dublin</li>
-    </ul>
   </div>
 </section>
 
@@ -50,8 +32,8 @@
 <section class="section" id="included">
   <div class="wrap">
     <div class="section-head rise">
-      <p class="eyebrow">What's included</p>
-      <h2 class="h2">Everything you get for <span class="price-tag">€99</span>.</h2>
+      <p class="eyebrow">In more detail</p>
+      <h2 class="h2">What each of those actually means.</h2>
     </div>
 
     {{includedTop}}
@@ -167,32 +149,6 @@
     <div class="cap-footer rise">
       <strong>All of it. Included. For €99.</strong>
       <a class="textlink" href="/features/">See the full list <svg width="17" height="17" aria-hidden="true"><use href="#i-arrow"/></svg></a>
-    </div>
-  </div>
-</section>
-
-<!-- ============ 4. VALUE STACK ============ -->
-<section class="section" id="value">
-  <div class="wrap">
-    <div class="section-head section-head--center rise">
-      <p class="eyebrow eyebrow--center">What it's worth</p>
-      <h2 class="h2">Here's what you'd normally pay for this.</h2>
-    </div>
-
-    <div class="receipt rise">
-      <div class="receipt__head"><span>Your website, itemised</span></div>
-
-{{receiptRows}}
-
-      <hr />
-
-      <p class="rtotal"><span>Total value</span><span>{{totalValue}}</span></p>
-      <p class="rpay"><span class="rpay__label">You pay</span><span class="rpay__fig">€99</span></p>
-    </div>
-
-    <div class="receipt__after rise">
-      <p>And you don't pay until you've seen it.</p>
-      <a class="btn btn--lg" href="/start/">Build My Website <svg class="btn__arrow" width="21" height="21" aria-hidden="true"><use href="#i-arrow"/></svg></a>
     </div>
   </div>
 </section>

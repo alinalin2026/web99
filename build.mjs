@@ -101,6 +101,36 @@ function totalValue() {
   return "€" + sum.toLocaleString("en-IE");
 }
 
+/* The hero card. Same valueStack source as the pricing receipt, so the two
+   can never disagree. */
+function heroCard() {
+  const rows = config.valueStack
+    .map(
+      (r) =>
+        `        <div class="rrow"><span class="rrow__name">${r.item}</span>` +
+        `<span class="rrow__dots"></span>` +
+        `<span class="rrow__val">€${r.value.toLocaleString("en-IE")}</span></div>`
+    )
+    .join("\n");
+
+  return `<div class="receipt receipt--hero">
+        <div class="receipt__head">
+          <strong>What's included</strong>
+          <span>And what it would normally cost you</span>
+        </div>
+
+${rows}
+
+        <hr />
+
+        <p class="rtotal"><span>Total value</span><span>${totalValue()}</span></p>
+        <p class="rpay"><span class="rpay__label">You pay</span><span class="rpay__fig">€99</span></p>
+
+        <a class="btn btn--block receipt__cta" href="/start/">Start building <svg class="btn__arrow" width="19" height="19" aria-hidden="true"><use href="#i-arrow"/></svg></a>
+        <p class="micro receipt__micro">No credit card. You only pay once you've seen it.</p>
+      </div>`;
+}
+
 function inclusionList(list, extraClass) {
   const items = list
     .map(
@@ -217,9 +247,9 @@ async function build() {
     sprite,
     arcHero,
     arcFinale,
-    heroImage: heroImage(),
     counterBand: counterBand(),
     testimonialBlock: testimonialBlock(),
+    heroCard: heroCard(),
     receiptRows: receiptRows(),
     totalValue: totalValue(),
     includedTop: inclusionList(included.filter((i) => i.top)),

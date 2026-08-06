@@ -569,7 +569,7 @@ section[id] {
 .hero {
   position: relative;
   overflow: hidden;
-  padding-block: clamp(48px, 7vw, 92px) clamp(0px, 2vw, 24px);
+  padding-block: clamp(44px, 6vw, 84px) clamp(52px, 7vw, 92px);
 }
 
 .hero__grid {
@@ -582,8 +582,8 @@ section[id] {
 
 @media (min-width: 940px) {
   .hero__grid {
-    grid-template-columns: 1.06fr 0.94fr;
-    gap: 56px;
+    grid-template-columns: 1.04fr 0.96fr;
+    gap: clamp(48px, 5vw, 72px);
   }
 }
 
@@ -632,175 +632,13 @@ section[id] {
   }
 }
 
-/* hero visual panel */
+/* the hero card column — also the anchor the signature arc is drawn around */
 .hero__visual {
   position: relative;
   isolation: isolate;
 }
 
-.hero__panel {
-  position: relative;
-  z-index: 2;
-  border-radius: var(--r-lg);
-  overflow: hidden;
-  aspect-ratio: 4 / 4.4;
-  box-shadow: var(--shadow-md);
-  background: linear-gradient(150deg, #ece6ff 0%, #ddd2ff 60%, #cfc0ff 100%);
-}
-
-.hero__panel img {
-  width: 100%;
-  height: 100%;
-  object-fit: cover;
-  /* lift the blacks a little and warm the mid-tones */
-  filter: saturate(1.06) contrast(0.94) brightness(1.08);
-}
-
-/* Grading pass: warm highlights, violet pushed into the shadows, so the
-   photograph belongs to the same palette as everything around it. */
-.hero__panel:has(img)::after {
-  content: "";
-  position: absolute;
-  inset: 0;
-  background:
-    linear-gradient(205deg, rgba(255, 176, 32, 0.16) 0%, rgba(255, 176, 32, 0) 45%),
-    linear-gradient(205deg, rgba(91, 63, 232, 0) 40%, rgba(91, 63, 232, 0.42) 100%);
-  mix-blend-mode: soft-light;
-  pointer-events: none;
-}
-
-@media (min-width: 940px) {
-  .hero__chip {
-    left: -14px;
-  }
-}
-
-@media (max-width: 939px) {
-  .hero__panel {
-    aspect-ratio: 4 / 3.1;
-  }
-}
-
-/* the designed stand-in that shows until a real photograph is dropped in */
-.photoslot {
-  position: absolute;
-  inset: 0;
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  justify-content: center;
-  gap: 14px;
-  text-align: center;
-  padding: 32px;
-  color: var(--violet-ink);
-}
-
-.photoslot svg {
-  opacity: 0.5;
-}
-
-.photoslot p {
-  font-size: 0.92rem;
-  font-weight: 700;
-  max-width: 22ch;
-  line-height: 1.4;
-  opacity: 0.72;
-}
-
-/* floating "live preview" chip on the hero panel */
-.hero__chip {
-  position: absolute;
-  z-index: 4;
-  left: 12px;
-  bottom: 26px;
-  display: flex;
-  align-items: center;
-  gap: 12px;
-  background: #fff;
-  border-radius: 14px;
-  padding: 14px 20px 14px 16px;
-  box-shadow: 0 16px 34px -14px rgba(20, 16, 51, 0.42);
-  font-weight: 700;
-  font-size: 0.95rem;
-  line-height: 1.25;
-}
-
-.hero__chip small {
-  display: block;
-  font-weight: 600;
-  font-size: 0.8rem;
-  color: var(--muted);
-}
-
-.dot-live {
-  width: 10px;
-  height: 10px;
-  border-radius: 50%;
-  background: #22c55e;
-  flex: none;
-  box-shadow: 0 0 0 4px rgba(34, 197, 94, 0.18);
-}
-
-/* --- 9. Trust strip ----------------------------------------------------- */
-
-.trustbar {
-  background: var(--lav);
-  border-block: 1px solid var(--lav-line);
-  position: relative;
-  z-index: 3;
-}
-
-.trustbar ul {
-  display: grid;
-  grid-template-columns: repeat(2, 1fr);
-}
-
-.trustbar li {
-  display: flex;
-  align-items: center;
-  gap: 11px;
-  padding: 18px 16px;
-  font-size: 0.95rem;
-  font-weight: 700;
-  line-height: 1.25;
-  border-right: 1px solid var(--lav-line);
-  border-bottom: 1px solid var(--lav-line);
-}
-
-.trustbar li:nth-child(2n) {
-  border-right: 0;
-}
-
-.trustbar li:nth-child(n + 3) {
-  border-bottom: 0;
-}
-
-.trustbar svg {
-  flex: none;
-  color: var(--violet);
-}
-
-@media (min-width: 800px) {
-  .trustbar ul {
-    grid-template-columns: repeat(4, 1fr);
-  }
-
-  .trustbar li {
-    justify-content: center;
-    padding: 22px 14px;
-    border-bottom: 0;
-  }
-
-  .trustbar li:nth-child(2n) {
-    border-right: 1px solid var(--lav-line);
-  }
-
-  .trustbar li:last-child {
-    border-right: 0;
-  }
-}
-
-/* --- 10. Steps ---------------------------------------------------------- */
+/* --- 9. Steps ---------------------------------------------------------- */
 
 .steps {
   display: grid;
@@ -1199,7 +1037,8 @@ section[id] {
   color: var(--muted);
   text-decoration: line-through;
   text-decoration-color: var(--amber);
-  text-decoration-thickness: 2px;
+  text-decoration-thickness: 3px;
+  text-underline-offset: 0;
   white-space: nowrap;
 }
 
@@ -1222,7 +1061,7 @@ section[id] {
 .rtotal span:last-child {
   text-decoration: line-through;
   text-decoration-color: var(--amber);
-  text-decoration-thickness: 2px;
+  text-decoration-thickness: 3px;
   font-variant-numeric: tabular-nums;
 }
 
@@ -1259,6 +1098,69 @@ section[id] {
   font-weight: 700;
   margin-bottom: 22px;
   font-size: 1.06rem;
+}
+
+/* Hero variant: same receipt, tightened so it sits beside the headline. */
+.receipt--hero {
+  position: relative;
+  z-index: 2;
+  max-width: none;
+  margin: 0;
+  padding: clamp(24px, 3vw, 34px) clamp(22px, 3vw, 32px) clamp(26px, 3vw, 32px);
+}
+
+.receipt--hero .receipt__head {
+  text-align: left;
+  margin-bottom: 14px;
+  padding-bottom: 14px;
+  border-bottom: 1px solid var(--lav-line);
+}
+
+.receipt--hero .receipt__head strong {
+  display: block;
+  font-size: 1.24rem;
+  font-weight: 800;
+  letter-spacing: -0.02em;
+  margin-bottom: 4px;
+}
+
+.receipt--hero .receipt__head span {
+  font-size: 0.9rem;
+  font-weight: 600;
+  letter-spacing: 0;
+  text-transform: none;
+  color: var(--muted);
+}
+
+.receipt--hero .rrow {
+  padding-block: 7.5px;
+  font-size: 0.97rem;
+}
+
+.receipt--hero hr {
+  margin-block: 16px;
+}
+
+.receipt--hero .rtotal {
+  font-size: 1rem;
+}
+
+.receipt--hero .rpay {
+  margin-top: 12px;
+}
+
+.receipt--hero .rpay__fig {
+  font-size: clamp(3rem, 6vw, 3.9rem);
+}
+
+.receipt__cta {
+  margin-top: 20px;
+}
+
+.receipt__micro {
+  text-align: center;
+  margin-top: 12px;
+  font-size: 0.88rem;
 }
 
 /* --- 13. Reassurance grid ----------------------------------------------- */

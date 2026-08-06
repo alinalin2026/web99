@@ -83,6 +83,24 @@ const businessJsonLd = `<script type="application/ld+json">${JSON.stringify({
   },
 })}</script>`;
 
+/* The receipt. Rows and total both come from config.valueStack, so the
+   total is arithmetic rather than a number somebody has to remember. */
+function receiptRows() {
+  return config.valueStack
+    .map(
+      (r) =>
+        `      <div class="rrow"><span class="rrow__name">${r.item}</span>` +
+        `<span class="rrow__dots"></span>` +
+        `<span class="rrow__val">€${r.value.toLocaleString("en-IE")}</span></div>`
+    )
+    .join("\n");
+}
+
+function totalValue() {
+  const sum = config.valueStack.reduce((t, r) => t + r.value, 0);
+  return "€" + sum.toLocaleString("en-IE");
+}
+
 function inclusionList(list, extraClass) {
   const items = list
     .map(
@@ -202,6 +220,8 @@ async function build() {
     heroImage: heroImage(),
     counterBand: counterBand(),
     testimonialBlock: testimonialBlock(),
+    receiptRows: receiptRows(),
+    totalValue: totalValue(),
     includedTop: inclusionList(included.filter((i) => i.top)),
     includedRest: inclusionList(included.filter((i) => !i.top), "incl--rest"),
     includedAll: inclusionList(included),

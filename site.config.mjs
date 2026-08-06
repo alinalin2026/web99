@@ -34,6 +34,22 @@ export const config = {
      Shape: { quote: "...", name: "...", business: "...", town: "..." }     */
   testimonials: [],
 
+  /* --- The value stack (the receipt) -------------------------------------
+     What each part would normally cost. The total is added up from these
+     rows at build time, so it can never disagree with the list above it.
+     Adjust any figure here and the receipt and the total both follow.      */
+  valueStack: [
+    { item: "Professionally designed website", value: 500 },
+    { item: "Domain name, first year", value: 15 },
+    { item: "Hosting, first year", value: 120 },
+    { item: "AI assistant setup", value: 200 },
+    { item: "Written content for your pages", value: 150 },
+    { item: "Booking and enquiry system", value: 100 },
+    { item: "Business email and automatic replies", value: 90 },
+    { item: "10 articles, written with photos", value: 250 },
+    { item: "Facebook page and 10 scheduled posts", value: 120 },
+  ],
+
   /* --- Contact ---------------------------------------------------------- */
   email: "hello@web99.ie",
   location: "Dublin, Ireland",

@@ -14,6 +14,7 @@ import { config } from "./site.config.mjs";
 import { faqs } from "./src/content/faq.mjs";
 import { included } from "./src/content/included.mjs";
 import { examples } from "./src/content/examples.mjs";
+import { facebookExamples } from "./src/content/facebookExamples.mjs";
 
 const root = dirname(fileURLToPath(import.meta.url));
 const src = join(root, "src");
@@ -134,12 +135,16 @@ ${rows}
 
 function inclusionList(list, extraClass) {
   const items = list
-    .map(
-      (i) => `        <li class="incl__item">
+    .map((i) => {
+      const link = i.href
+        ? `\n          <a class="incl__link" href="${i.href}">${i.hrefLabel || "Find out more"} ` +
+          `<svg width="15" height="15" aria-hidden="true"><use href="#i-arrow"/></svg></a>`
+        : "";
+      return `        <li class="incl__item">
           <span class="incl__ic"><svg width="22" height="22" aria-hidden="true"><use href="#${i.icon}"/></svg></span>
-          <div><h3 class="h3">${i.title}</h3><p>${i.line}</p></div>
-        </li>`
-    )
+          <div><h3 class="h3">${i.title}</h3><p>${i.line}</p>${link}</div>
+        </li>`;
+    })
     .join("\n");
   return `<ul class="incl${extraClass ? " " + extraClass : ""}">\n${items}\n      </ul>`;
 }
@@ -150,6 +155,20 @@ function exampleGrid() {
       (e) => `        <figure class="shot">
           <div class="shot__frame">
             <img src="/assets/img/examples/${e.file}" alt="${esc(e.alt)}" width="1040" height="770" loading="lazy" decoding="async" />
+          </div>
+          <figcaption class="shot__cap"><strong>${e.trade}</strong><span>${e.line}</span></figcaption>
+        </figure>`
+    )
+    .join("\n");
+  return `<div class="shots">\n${cards}\n      </div>`;
+}
+
+function facebookExampleGrid() {
+  const cards = facebookExamples
+    .map(
+      (e) => `        <figure class="shot">
+          <div class="shot__frame">
+            <img src="/assets/img/facebook/${e.file}" alt="${esc(e.alt)}" width="1040" height="776" loading="lazy" decoding="async" />
           </div>
           <figcaption class="shot__cap"><strong>${e.trade}</strong><span>${e.line}</span></figcaption>
         </figure>`
@@ -266,6 +285,7 @@ async function build() {
     testimonialBlock: testimonialBlock(),
     heroCard: heroCard(),
     exampleGrid: exampleGrid(),
+    facebookExampleGrid: facebookExampleGrid(),
     receiptRows: receiptRows(),
     totalValue: totalValue(),
     includedTop: inclusionList(included.filter((i) => i.top)),

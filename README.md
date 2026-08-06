@@ -48,6 +48,7 @@ src/
   content/faq.mjs      the FAQ, shared by the front page and /faq/
   content/included.mjs the twelve things the €99 buys
   content/examples.mjs the sample designs shown on the front page
+  content/facebookExamples.mjs the sample Facebook pages on /facebook/
   assets/              css, js, images — copied to dist/ as-is
 site.config.mjs        every placeholder value, in one place
 ```
@@ -66,7 +67,7 @@ built, so they can't drift.
 ## Routes
 
 `/` · `/start/` · `/how-it-works/` · `/features/` · `/pricing/` · `/faq/` ·
-`/contact/` · `/terms/` · `/privacy/` · plus a styled 404.
+`/facebook/` · `/contact/` · `/terms/` · `/privacy/` · plus a styled 404.
 
 ## Still to do before this takes real money
 

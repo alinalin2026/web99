@@ -806,6 +806,32 @@ section[id] {
   line-height: 1.55;
 }
 
+.incl__link {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  margin-top: 9px;
+  color: var(--violet);
+  font-weight: 700;
+  font-size: 0.94rem;
+  text-decoration: none;
+  border-bottom: 2px solid var(--lav-line);
+  padding-bottom: 1px;
+  transition: border-color 0.16s ease;
+}
+
+.incl__link:hover {
+  border-color: var(--violet);
+}
+
+.incl__link svg {
+  transition: transform 0.16s ease;
+}
+
+.incl__link:hover svg {
+  transform: translateX(3px);
+}
+
 /* the reveal. A <details> so it works with JavaScript switched off. */
 .incl-more {
   margin-top: 40px;
@@ -1869,6 +1895,75 @@ details[open] .faq__sign::after {
 .start__reassure svg {
   color: var(--violet);
   flex: none;
+}
+
+/* --- 20b. Sticky CTA bar -------------------------------------------------
+   Fixed to the bottom of the viewport, appears once the reader has scrolled
+   past roughly the halfway point of the page and hides again near the
+   footer so it never sits on top of the page's own final CTA. */
+
+.sticky-cta {
+  position: fixed;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  z-index: 50;
+  transform: translateY(100%);
+  opacity: 0;
+  pointer-events: none;
+  transition:
+    transform 0.32s cubic-bezier(0.22, 0.61, 0.36, 1),
+    opacity 0.28s ease;
+}
+
+.sticky-cta.is-visible {
+  transform: translateY(0);
+  opacity: 1;
+  pointer-events: auto;
+}
+
+.sticky-cta__bar {
+  background: rgba(255, 255, 255, 0.92);
+  backdrop-filter: saturate(1.6) blur(12px);
+  border-top: 1px solid var(--lav-line);
+  box-shadow: 0 -14px 30px -20px rgba(20, 16, 51, 0.4);
+  padding: 14px var(--gut);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 18px;
+}
+
+.sticky-cta__text {
+  font-weight: 800;
+  font-size: 1.02rem;
+  letter-spacing: -0.01em;
+}
+
+.sticky-cta__text small {
+  display: block;
+  font-weight: 600;
+  color: var(--muted);
+  font-size: 0.86rem;
+  margin-top: 1px;
+}
+
+.sticky-cta .btn {
+  width: auto;
+  flex: none;
+  padding: 13px 26px;
+  font-size: 0.97rem;
+  white-space: nowrap;
+}
+
+@media (max-width: 560px) {
+  .sticky-cta__bar {
+    justify-content: space-between;
+  }
+
+  .sticky-cta__text small {
+    display: none;
+  }
 }
 
 /* --- 21. Motion --------------------------------------------------------- */

@@ -121,6 +121,42 @@
     }
   }
 
+  /* --- sticky CTA bar -----------------------------------------------------
+     Percentage-of-page-scrolled rather than a fixed pixel value, so "around
+     half page" holds true regardless of how long the page is. Hides again
+     near the very bottom so it never sits on top of the page's own CTA. */
+  var stickyBars = document.querySelectorAll(".sticky-cta");
+  if (stickyBars.length) {
+    var ticking = false;
+
+    var updateSticky = function () {
+      ticking = false;
+      var doc = document.documentElement;
+      var scrollable = doc.scrollHeight - window.innerHeight;
+      var pct = scrollable > 0 ? window.scrollY / scrollable : 0;
+      var show = pct > 0.42 && pct < 0.94;
+
+      Array.prototype.forEach.call(stickyBars, function (bar) {
+        bar.classList.toggle("is-visible", show);
+        if (show) {
+          bar.removeAttribute("inert");
+        } else {
+          bar.setAttribute("inert", "");
+        }
+      });
+    };
+
+    var onScroll = function () {
+      if (ticking) return;
+      ticking = true;
+      requestAnimationFrame(updateSticky);
+    };
+
+    updateSticky();
+    window.addEventListener("scroll", onScroll, { passive: true });
+    window.addEventListener("resize", onScroll);
+  }
+
   /* --- /start composer ---------------------------------------------------
      Deliberately unwired. The markup and the submit hook are here so a chat
      interface drops straight in: render turns into #chatThread and post the

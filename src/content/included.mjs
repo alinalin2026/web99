@@ -3,7 +3,7 @@
    "See everything included". Order here is the order on the page. */
 
 export const included = [
-  /* --- the first six. The fastest possible read of:
+  /* --- shown immediately. The fastest possible read of:
          this is safe, this is fast, this is yours. ------------------------- */
   {
     top: true,
@@ -25,6 +25,12 @@ export const included = [
   },
   {
     top: true,
+    icon: "i-mail",
+    title: "Business email, set up for you",
+    line: "you@yourbusiness.ie, with an instant reply going out to every enquiry.",
+  },
+  {
+    top: true,
     icon: "i-key",
     title: "You own the files and the domain",
     line: "Both in your name. Leave whenever you like, and take the lot with you.",
@@ -43,12 +49,6 @@ export const included = [
   },
 
   /* --- the rest. Reasons to say yes once somebody is already leaning in. --- */
-  {
-    top: false,
-    icon: "i-mail",
-    title: "Professional email, set up for you",
-    line: "you@yourbusiness.ie, with an instant reply going out to every enquiry.",
-  },
   {
     top: false,
     icon: "i-share",

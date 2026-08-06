@@ -6,6 +6,7 @@
    =========================================================================== */
 
 import { readFile, writeFile, mkdir, readdir, cp, rm } from "node:fs/promises";
+import { createHash } from "node:crypto";
 import { existsSync } from "node:fs";
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
@@ -298,6 +299,13 @@ async function build() {
   const pages = (await readdir(join(src, "pages"))).filter((f) => f.endsWith(".html"));
   const routes = [];
 
+  /* Assets are served immutable for a year, so their URLs must change when
+     their contents do — otherwise browsers keep an old stylesheet forever. */
+  const stamp = async (p) =>
+    createHash("sha1").update(await readFile(join(src, p))).digest("hex").slice(0, 8);
+  const cssV = await stamp("assets/css/site.css");
+  const jsV = await stamp("assets/js/site.js");
+
   for (const file of pages) {
     const raw = await read(join("pages", file));
     const [meta, content] = frontMatter(raw);
@@ -322,7 +330,10 @@ async function build() {
 
     /* two passes: content tokens first, then the page inside the layout */
     map.content = fill(fill(content, map), map);
-    const html = fill(fill(layout, map), map);
+    let html = fill(fill(layout, map), map);
+    html = html
+      .replace("/assets/css/site.css", `/assets/css/site.css?v=${cssV}`)
+      .replace("/assets/js/site.js", `/assets/js/site.js?v=${jsV}`);
 
     /* Directory-per-route: "/pricing/index.html". Works unchanged on GitHub
        Pages, Vercel, Netlify or a plain file server — no rewrite rules. */

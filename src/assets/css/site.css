@@ -1938,6 +1938,7 @@ details[open] .faq__sign::after {
   font-weight: 800;
   font-size: 1.02rem;
   letter-spacing: -0.01em;
+  min-width: 0;
 }
 
 .sticky-cta__text small {
@@ -1956,13 +1957,20 @@ details[open] .faq__sign::after {
   white-space: nowrap;
 }
 
-@media (max-width: 560px) {
+/* On a phone the bar is just the button — a label plus sub-label could not
+   fit beside it and overflowed the viewport in both directions. */
+@media (max-width: 620px) {
   .sticky-cta__bar {
-    justify-content: space-between;
+    padding: 10px var(--gut) calc(10px + env(safe-area-inset-bottom));
+    gap: 0;
   }
 
-  .sticky-cta__text small {
+  .sticky-cta__text {
     display: none;
+  }
+
+  .sticky-cta .btn {
+    width: 100%;
   }
 }
 

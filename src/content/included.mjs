@@ -55,7 +55,7 @@ export const included = [
     title: "Facebook page, 3 months of content",
     line: "We set up the page and write and schedule your posts for three months.",
     href: "/facebook/",
-    hrefLabel: "See how it works",
+    hrefLabel: "See Facebook pages",
   },
   {
     top: false,

@@ -39,7 +39,8 @@ export const faqs = [
     home: true,
     q: "What if I need to change something later?",
     a: [
-      "Message us and we'll change it. A new phone number, different opening hours, a few new photos — those take us minutes and we do them for you.",
+      "Message us and we'll change it. Three changes are included after you pay — a new phone number, different opening hours, a few new photos, whatever isn't right.",
+      "After those three, small edits are still quick and we'll always tell you what it costs before we touch anything. Nothing gets charged without you agreeing to it first.",
       "If you'd rather make small edits yourself, we'll show you how. It takes about five minutes to learn.",
     ],
   },

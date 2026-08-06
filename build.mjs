@@ -12,6 +12,7 @@ import { fileURLToPath } from "node:url";
 
 import { config } from "./site.config.mjs";
 import { faqs } from "./src/content/faq.mjs";
+import { included } from "./src/content/included.mjs";
 
 const root = dirname(fileURLToPath(import.meta.url));
 const src = join(root, "src");
@@ -81,6 +82,18 @@ const businessJsonLd = `<script type="application/ld+json">${JSON.stringify({
     description: "Complete website, free domain and hosting for one year, ready in 24 hours.",
   },
 })}</script>`;
+
+function inclusionList(list, extraClass) {
+  const items = list
+    .map(
+      (i) => `        <li class="incl__item">
+          <span class="incl__ic"><svg width="22" height="22" aria-hidden="true"><use href="#${i.icon}"/></svg></span>
+          <div><h3 class="h3">${i.title}</h3><p>${i.line}</p></div>
+        </li>`
+    )
+    .join("\n");
+  return `<ul class="incl${extraClass ? " " + extraClass : ""}">\n${items}\n      </ul>`;
+}
 
 function counterBand() {
   if (!config.counterEnabled) return "<!-- counter band switched off in site.config.mjs -->";
@@ -189,6 +202,9 @@ async function build() {
     heroImage: heroImage(),
     counterBand: counterBand(),
     testimonialBlock: testimonialBlock(),
+    includedTop: inclusionList(included.filter((i) => i.top)),
+    includedRest: inclusionList(included.filter((i) => !i.top), "incl--rest"),
+    includedAll: inclusionList(included),
     faqList: faqAccordion(faqs.filter((f) => f.home)),
     faqListAll: faqAccordion(faqs),
   };

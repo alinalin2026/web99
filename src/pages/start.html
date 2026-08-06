@@ -1,0 +1,47 @@
+<!--@ title: Tell us about your business — Web99.ie
+    description: Two minutes. Describe your business in your own words and we'll build your website. No credit card, nothing to pay until you've seen it.
+    ogTitle: Tell us about your business
+    ogDescription: Two minutes of talking. Your website live in 24 hours. Pay nothing until you've seen it.
+    path: /start
+-->
+
+<section class="start">
+  {{arcHero}}
+  <div class="wrap">
+    <div class="chat">
+      <div class="chat__head">
+        <p class="eyebrow">Step one of one</p>
+        <h1 class="h2">Tell us about your business.</h1>
+      </div>
+
+      <!-- Thread renders here once the conversation logic is wired up. -->
+      <div class="chat__thread" id="chatThread" aria-live="polite"></div>
+
+      <div class="chat__intro">
+        <span class="avatar" aria-hidden="true">S</span>
+        <p class="bubble" id="sarahPrompt">Hi, I'm Sarah. Tell me about your business — what do you do?</p>
+      </div>
+
+      <form class="composer" id="startForm" method="post" action="#" novalidate>
+        <label class="skip" for="businessStory">Tell us about your business</label>
+        <textarea
+          id="businessStory"
+          name="story"
+          rows="5"
+          placeholder="For example: I'm a barber in Drumcondra. Been going 12 years. Two chairs, walk-ins and bookings, closed Mondays."
+          autocomplete="off"></textarea>
+
+        <div class="composer__foot">
+          <p class="composer__hint">No credit card. Nothing to pay today.</p>
+          <button class="btn" type="submit">Send <svg class="btn__arrow" width="19" height="19" aria-hidden="true"><use href="#i-arrow"/></svg></button>
+        </div>
+      </form>
+
+      <p class="start__reassure">
+        <span><svg width="18" height="18" aria-hidden="true"><use href="#i-clock"/></svg> Ready in 24 hours</span>
+        <span><svg width="18" height="18" aria-hidden="true"><use href="#i-eye"/></svg> You see it before you pay</span>
+        <span><svg width="18" height="18" aria-hidden="true"><use href="#i-key"/></svg> You own everything</span>
+      </p>
+    </div>
+  </div>
+</section>

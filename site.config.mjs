@@ -1,0 +1,52 @@
+/* ===========================================================================
+   WEB99.IE — SINGLE SOURCE OF TRUTH FOR EVERY PLACEHOLDER VALUE
+   ---------------------------------------------------------------------------
+   Everything in this file is stitched into the HTML at build time.
+   Edit here, run `npm run build`, and every page updates. Nothing else to hunt.
+   =========================================================================== */
+
+export const config = {
+  /* --- Business ------------------------------------------------------- */
+  siteName: "Web99.ie",
+  domain: "https://web99.ie",
+  price: "€99",
+
+  /* --- WhatsApp -------------------------------------------------------- */
+  /* TODO: REPLACE. Full international format, digits only, no + and no spaces.
+     Irish mobile 087 123 4567  ->  353871234567                             */
+  whatsappNumber: "353000000000",
+  whatsappPrefill: "Hi, I saw Web99 and I'd like a website for my business.",
+
+  /* --- Live counter (Section 7) ---------------------------------------- */
+  /* TODO: REPLACE with the real figure. This is the ONLY place it lives.
+     Set counterEnabled to false to hide the whole band until it's true.    */
+  counterEnabled: true,
+  counterValue: 0,
+  counterLabel: "Irish businesses brought online.",
+
+  /* --- Year two renewal (FAQ + pricing) -------------------------------- */
+  /* TODO: REPLACE with the real confirmed figure, e.g. "€79 a year".       */
+  renewalPrice: "€[XX] a year",
+
+  /* --- Testimonials ----------------------------------------------------- */
+  /* Leave empty until there are REAL customers who have agreed to be named.
+     Empty array = styled empty slots render. Do not invent entries.
+     Shape: { quote: "...", name: "...", business: "...", town: "..." }     */
+  testimonials: [],
+
+  /* --- Contact ---------------------------------------------------------- */
+  email: "hello@web99.ie",
+  location: "Dublin, Ireland",
+
+  /* --- Hero photograph --------------------------------------------------- */
+  /* Drop the real photo at src/assets/img/hero.jpg and set heroImage below.
+     Until then the hero renders its designed graphic panel instead.
+     Brief: a real Irish business owner, 35-55, in their own workplace,
+     looking at a phone, warm natural light, violet somewhere in frame.     */
+  /* Currently a free Unsplash photo by André Reis (barbershop). It is a real
+     workplace, but it shows a customer rather than the owner, and it is not
+     Irish. Swap it for an owned photo of a real Irish customer at work — that
+     is the single biggest upgrade available to this page. */
+  heroImage: "/assets/img/hero-barber.webp",
+  heroImageAlt: "A barber at work in his shop, finishing a customer's cut",
+};

@@ -1,4 +1,6 @@
 {
+  "buildCommand": "echo 'Site is prebuilt and committed at the repo root; nothing to build.'",
+  "outputDirectory": ".",
   "cleanUrls": true,
   "trailingSlash": false,
   "headers": [

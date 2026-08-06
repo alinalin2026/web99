@@ -1,0 +1,13 @@
+{
+  "name": "web99-ie",
+  "version": "1.0.0",
+  "private": true,
+  "type": "module",
+  "description": "Web99.ie — front page and site for a Dublin web design studio.",
+  "scripts": {
+    "build": "node build.mjs",
+    "dev": "node build.mjs && node --watch-path=./src --watch-path=./site.config.mjs build.mjs",
+    "serve": "node build.mjs && npx --yes serve dist -l 4173"
+  },
+  "engines": { "node": ">=18" }
+}

@@ -1,0 +1,59 @@
+<!doctype html>
+<html lang="en-IE">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+
+    <title>{{title}}</title>
+    <meta name="description" content="{{description}}" />
+    <link rel="canonical" href="{{domain}}{{path}}" />
+    <meta name="theme-color" content="#5B3FE8" />
+
+    <meta property="og:type" content="website" />
+    <meta property="og:site_name" content="Web99.ie" />
+    <meta property="og:locale" content="en_IE" />
+    <meta property="og:url" content="{{domain}}{{path}}" />
+    <meta property="og:title" content="{{ogTitle}}" />
+    <meta property="og:description" content="{{ogDescription}}" />
+    <meta property="og:image" content="{{domain}}/assets/img/og.png" />
+    <meta property="og:image:width" content="1200" />
+    <meta property="og:image:height" content="630" />
+    <meta property="og:image:alt" content="Web99.ie — get your business online for €99. See your website before you pay." />
+
+    <meta name="twitter:card" content="summary_large_image" />
+    <meta name="twitter:title" content="{{ogTitle}}" />
+    <meta name="twitter:description" content="{{ogDescription}}" />
+    <meta name="twitter:image" content="{{domain}}/assets/img/og.png" />
+
+    <link rel="icon" href="/favicon.svg" type="image/svg+xml" />
+
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link
+      rel="stylesheet"
+      href="https://fonts.googleapis.com/css2?family=Manrope:wght@400;500;600;700;800&display=swap"
+      media="print"
+      onload="this.media='all'" />
+    <noscript>
+      <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Manrope:wght@400;500;600;700;800&display=swap" />
+    </noscript>
+
+    <link rel="stylesheet" href="/assets/css/site.css" />
+    <!-- Set before first paint so scroll-reveal only hides content when JS can show it again. -->
+    <script>document.documentElement.className += " js";</script>
+    {{jsonld}}
+  </head>
+
+  <body>
+    {{sprite}}
+    {{header}}
+
+    <main id="main">
+      {{content}}
+    </main>
+
+    {{footer}}
+
+    <script src="/assets/js/site.js" defer></script>
+  </body>
+</html>

@@ -25,12 +25,11 @@ export const config = {
   /* TODO: REPLACE with the real figure. This is the ONLY place it lives.
      Set counterEnabled to false to hide the whole band until it's true.    */
   counterEnabled: true,
-  counterValue: 0,
+  counterValue: 120,
   counterLabel: "Irish businesses brought online.",
 
   /* --- Year two renewal (FAQ + pricing) -------------------------------- */
-  /* TODO: REPLACE with the real confirmed figure, e.g. "€79 a year".       */
-  renewalPrice: "€[XX] a year",
+  renewalPrice: "€39 a year",
 
   /* --- Testimonials ----------------------------------------------------- */
   /* Leave empty until there are REAL customers who have agreed to be named.
@@ -57,6 +56,10 @@ export const config = {
   /* --- Contact ---------------------------------------------------------- */
   email: "hello@web99.ie",
   location: "Dublin, Ireland",
+  phone: "(01) 234 3300",
+  /* Street, area, Eircode — split on ", " at build time for the address block
+     and the JSON-LD PostalAddress, so it's only ever typed once. */
+  address: "38 Fitzwilliam Square W, Dublin 2, D02 T938",
 
   /* --- Hero photograph --------------------------------------------------- */
   /* Drop the real photo at src/assets/img/hero.jpg and set heroImage below.

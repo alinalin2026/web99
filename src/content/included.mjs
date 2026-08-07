@@ -87,4 +87,10 @@ export const included = [
     title: "WhatsApp button on your site",
     line: "One tap and the customer is talking to you.",
   },
+  {
+    top: false,
+    icon: "i-globe",
+    title: "Built in any language",
+    line: "English, Irish, or whatever your customers read in. We write and build the site itself in it — not just a translated template.",
+  },
 ];

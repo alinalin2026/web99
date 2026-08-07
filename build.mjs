@@ -383,8 +383,16 @@ async function build() {
   /* Publish to the repo root as well. The built HTML is committed, so any
      static host serves the site with no build step and no configuration —
      which is how this site worked before it had a build at all. dist/ stays
-     as the clean build target; the root copy is what actually ships. */
-  for (const entry of await readdir(dist)) {
+     as the clean build target; the root copy is what actually ships.
+
+     Stale files (a removed page, a swapped-out image) must not survive a
+     rebuild, so each known output entry is removed before being replaced —
+     an add-only copy previously left deleted images sitting in git. */
+  const outputEntries = await readdir(dist);
+  for (const entry of outputEntries) {
+    await rm(join(root, entry), { recursive: true, force: true });
+  }
+  for (const entry of outputEntries) {
     await cp(join(dist, entry), join(root, entry), { recursive: true });
   }
 

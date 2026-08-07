@@ -60,11 +60,25 @@ overrides everything including a customer asking directly.
 ```bash
 cp .env.example .env.local     # fill it in
 npm install
-npm run db:init                # creates the tables
+npm run db:init                # creates the tables (needs psql — see below)
 npm run dev
 ```
 
 Node 20+. Postgres anywhere (Neon, Supabase, RDS).
+
+### First-time setup from a phone, no terminal
+
+`npm run db:init` needs `psql`, which isn't an option from a phone browser.
+Once the app is deployed and every environment variable in `.env.example` is
+set, log into the dashboard, then visit:
+
+```
+https://<your-deployment>/api/setup
+```
+
+in the same browser tab. It creates the tables and says so on the page.
+Gated by `ADMIN_PASSWORD` like everything else, and safe to visit more than
+once — hitting it twice by mistake does nothing harmful.
 
 ## DNS: the wildcard, explained
 

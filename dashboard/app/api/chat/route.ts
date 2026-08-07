@@ -4,6 +4,7 @@ import { sarahSystemPrompt, extractionPrompt, sarahOpener } from "@/lib/prompts/
 import { sql, jsonb, getOrder, setState, logEvent } from "@/lib/db";
 import { analyse } from "@/lib/pipeline";
 import { onTheWay, send } from "@/lib/email";
+import { corsPreflight, withCors } from "@/lib/cors";
 
 export const runtime = "nodejs";
 export const maxDuration = 60;
@@ -43,9 +44,13 @@ const REQUIRED: (keyof Brief)[] = [
   "email",
 ];
 
-export async function GET() {
+export async function OPTIONS(req: NextRequest) {
+  return corsPreflight(req);
+}
+
+export async function GET(req: NextRequest) {
   /* Lets the front end render Sarah's opener without hardcoding it twice. */
-  return NextResponse.json({ opener: sarahOpener });
+  return withCors(req, NextResponse.json({ opener: sarahOpener }));
 }
 
 export async function POST(req: NextRequest) {
@@ -53,13 +58,15 @@ export async function POST(req: NextRequest) {
   try {
     body = await req.json();
   } catch {
-    return NextResponse.json({ error: "Bad JSON" }, { status: 400 });
+    return withCors(req, NextResponse.json({ error: "Bad JSON" }, { status: 400 }));
   }
 
   const message = (body.message ?? "").trim();
-  if (!message) return NextResponse.json({ error: "Empty message" }, { status: 400 });
+  if (!message) {
+    return withCors(req, NextResponse.json({ error: "Empty message" }, { status: 400 }));
+  }
   if (message.length > 4000) {
-    return NextResponse.json({ error: "Message too long" }, { status: 400 });
+    return withCors(req, NextResponse.json({ error: "Message too long" }, { status: 400 }));
   }
 
   /* --- find or create the order ------------------------------------------ */
@@ -71,19 +78,24 @@ export async function POST(req: NextRequest) {
       VALUES ('collecting', '[]'::jsonb)
       RETURNING id`;
     order = await getOrder(created.id);
-    if (!order) return NextResponse.json({ error: "Could not create order" }, { status: 500 });
+    if (!order) {
+      return withCors(req, NextResponse.json({ error: "Could not create order" }, { status: 500 }));
+    }
   }
 
   /* Once it's past collecting, Sarah is done — don't let a stray message
      reopen an order that's already building or live. */
   if (order.state !== "collecting") {
-    return NextResponse.json({
-      orderId: order.id,
-      reply:
-        "Thanks — I've got everything and your website is being built. Keep an eye on your email, it'll be with you tomorrow.",
-      missing: [],
-      readyToBuild: true,
-    });
+    return withCors(
+      req,
+      NextResponse.json({
+        orderId: order.id,
+        reply:
+          "Thanks — I've got everything and your website is being built. Keep an eye on your email, it'll be with you tomorrow.",
+        missing: [],
+        readyToBuild: true,
+      })
+    );
   }
 
   const turns = [
@@ -97,15 +109,18 @@ export async function POST(req: NextRequest) {
     reply = await chat(sarahSystemPrompt(), turns, MODELS.sarah);
   } catch (err) {
     await logEvent(order.id, "error", { step: "sarah", message: (err as Error).message });
-    return NextResponse.json(
-      {
-        orderId: order.id,
-        reply:
-          "Sorry — something went wrong my end. Give me a second and try that again, or ring us on (01) 234 3300.",
-        missing: [],
-        readyToBuild: false,
-      },
-      { status: 200 }
+    return withCors(
+      req,
+      NextResponse.json(
+        {
+          orderId: order.id,
+          reply:
+            "Sorry — something went wrong my end. Give me a second and try that again, or ring us on (01) 234 3300.",
+          missing: [],
+          readyToBuild: false,
+        },
+        { status: 200 }
+      )
     );
   }
 
@@ -170,5 +185,5 @@ export async function POST(req: NextRequest) {
     void analyse(order.id).catch(() => {});
   }
 
-  return NextResponse.json({ orderId: order.id, reply, missing, readyToBuild: ready });
+  return withCors(req, NextResponse.json({ orderId: order.id, reply, missing, readyToBuild: ready }));
 }

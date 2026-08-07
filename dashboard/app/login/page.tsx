@@ -23,6 +23,16 @@ function LoginForm() {
     if (res.ok) {
       router.push(params.get("next") || "/");
       router.refresh();
+      return;
+    }
+
+    /* A wrong password and a broken deployment look identical from a plain
+       "That's not it" — which is exactly the ambiguity that made this bug
+       hard to diagnose remotely. Show what the server actually said. */
+    if (res.status === 503) {
+      setError(
+        "The dashboard doesn't have an operator key configured on this deployment at all — this isn't a wrong password, ADMIN_PASSWORD isn't set (or isn't set for this Environment) in Vercel. Check Settings → Environment Variables, then redeploy."
+      );
     } else {
       setError("That's not it.");
     }

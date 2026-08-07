@@ -5,18 +5,29 @@ import { isOperator } from "@/lib/auth";
    buy/choose pages is operator-only. Enforced here as well as in each route
    so a new dashboard page can't be added without a gate by accident. */
 
+/* Every one of these needs BOTH the page/route itself and its API route
+   listed separately — "/choose" does not cover "/api/choose/*", they're
+   unrelated path prefixes. Missing the /api one is exactly the bug that
+   locked out login: the page loaded, but the endpoint it called was
+   silently gated behind the very auth check the page exists to satisfy. */
 const PUBLIC = [
   "/api/chat",
   "/api/stripe",
+  "/api/login",
   "/login",
   "/buy",
   "/choose",
+  "/api/choose",
 ];
+
+export function isPublicPath(pathname: string): boolean {
+  return PUBLIC.some((p) => pathname === p || pathname.startsWith(p + "/"));
+}
 
 export async function middleware(req: NextRequest) {
   const { pathname } = req.nextUrl;
 
-  if (PUBLIC.some((p) => pathname === p || pathname.startsWith(p + "/"))) {
+  if (isPublicPath(pathname)) {
     return NextResponse.next();
   }
 

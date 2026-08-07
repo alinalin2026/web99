@@ -46,18 +46,18 @@ async function constantTimeEqual(a: string, b: string): Promise<boolean> {
 
 /** What goes in the cookie: an HMAC of the secret, never the secret itself. */
 export async function sessionToken(): Promise<string> {
-  const secret = process.env.OPERATOR_SECRET ?? "";
+  const secret = process.env.ADMIN_PASSWORD ?? "";
   return hmacHex(secret, "web99-operator-v1");
 }
 
 export async function checkSecret(candidate: string): Promise<boolean> {
-  const secret = process.env.OPERATOR_SECRET ?? "";
+  const secret = process.env.ADMIN_PASSWORD ?? "";
   if (!secret) return false;
   return constantTimeEqual(candidate, secret);
 }
 
 export async function isOperator(req: NextRequest): Promise<boolean> {
-  if (!process.env.OPERATOR_SECRET) return false;
+  if (!process.env.ADMIN_PASSWORD) return false;
 
   const auth = req.headers.get("authorization");
   if (auth?.startsWith("Bearer ") && (await checkSecret(auth.slice(7)))) {
@@ -74,9 +74,9 @@ export async function isOperator(req: NextRequest): Promise<boolean> {
 
 /** Returns a response when the caller isn't an operator, or null when they are. */
 export async function requireOperator(req: NextRequest): Promise<NextResponse | null> {
-  if (!process.env.OPERATOR_SECRET) {
+  if (!process.env.ADMIN_PASSWORD) {
     return NextResponse.json(
-      { error: "OPERATOR_SECRET is not set — the dashboard is locked until it is." },
+      { error: "ADMIN_PASSWORD is not set — the dashboard is locked until it is." },
       { status: 503 }
     );
   }

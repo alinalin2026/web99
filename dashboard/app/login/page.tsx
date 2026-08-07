@@ -30,7 +30,10 @@ function LoginForm() {
 
   return (
     <form className="card" onSubmit={submit} style={{ maxWidth: 380, margin: "80px auto" }}>
-      <h1 style={{ fontSize: 20, marginTop: 0 }}>Web99</h1>
+      <h1 style={{ fontSize: 20, marginTop: 0, display: "flex", alignItems: "center", gap: 8 }}>
+        <img src="/brand/icon-192.png" alt="" width={26} height={26} />
+        Web99
+      </h1>
       <label htmlFor="secret">Operator key</label>
       <input
         id="secret"

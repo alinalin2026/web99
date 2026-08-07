@@ -3,6 +3,7 @@ import type { ReactNode } from "react";
 export const metadata = {
   title: "Web99 — orders",
   description: "The build queue.",
+  icons: { icon: "/brand/favicon-32.png" },
 };
 
 export default function RootLayout({ children }: { children: ReactNode }) {

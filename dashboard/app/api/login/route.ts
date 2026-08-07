@@ -4,8 +4,8 @@ import { checkSecret, sessionToken, OPERATOR_COOKIE } from "@/lib/auth";
 export const runtime = "nodejs";
 
 export async function POST(req: NextRequest) {
-  if (!process.env.OPERATOR_SECRET) {
-    return NextResponse.json({ error: "OPERATOR_SECRET is not set." }, { status: 503 });
+  if (!process.env.ADMIN_PASSWORD) {
+    return NextResponse.json({ error: "ADMIN_PASSWORD is not set." }, { status: 503 });
   }
 
   const { secret } = (await req.json()) as { secret?: string };

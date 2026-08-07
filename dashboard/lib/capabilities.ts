@@ -242,13 +242,18 @@ export const capabilities: Capability[] = [
     price: null,
   },
 
-  /* --- recurring. Where the actual business is. -------------------------- */
+  /* --- recurring. Where the actual business is. ---------------------------
+     Channel split, on purpose: WhatsApp is pre-sale — Sarah, enquiries, the
+     three free changes. The Telegram bot is post-purchase — it's tied to one
+     paying customer's one order, so it's the right place to gate paid
+     features and take card payment for an add-on, which a shared WhatsApp
+     number isn't set up to do cleanly. See dashboard/README.md. ---------- */
   {
     id: "content-assistant",
     status: "planned",
     label: "Your own assistant that writes and posts for you",
     detail:
-      "They send a photo or a voice note on WhatsApp — 'new arrivals in today' — and it writes the post, puts it on the site and on Facebook. Monthly. IMPORTANT: it drafts and THEY approve with one tap before anything publishes. An AI publishing unreviewed to a real business's public page is the single biggest support-hassle generator there is, and the approval tap costs the customer two seconds.",
+      "Through the Telegram bot: they send a photo or a voice note — 'new arrivals in today' — and it writes the post, puts it on the site and on Facebook. Monthly. IMPORTANT: it drafts and THEY approve with one tap before anything publishes. An AI publishing unreviewed to a real business's public page is the single biggest support-hassle generator there is, and the approval tap costs the customer two seconds.",
     price: null,
   },
   {
@@ -264,7 +269,23 @@ export const capabilities: Capability[] = [
     status: "planned",
     label: "Care plan — hosting, backups and edits",
     detail:
-      "Flat monthly. Hosting, backups, and edits by WhatsApp without counting them. Deliberately NOT cheap: this is the one item that consumes real time, so it must be priced so that a chatty customer is still profitable.",
+      "Flat monthly. Hosting, backups, and edits through the Telegram bot without counting them. Deliberately NOT cheap: this is the one item that consumes real time, so it must be priced so that a chatty customer is still profitable.",
+    price: null,
+  },
+  {
+    id: "seo",
+    status: "planned",
+    label: "SEO — ongoing search work",
+    detail:
+      "Not scoped yet. Flagged here because it was raised as a likely Telegram-bot upsell — do not let Sarah or the bot offer it until it has a defined deliverable and a price. 'SEO' sold vaguely is the classic way a web studio ends up owing a customer something undefined forever.",
+    price: null,
+  },
+  {
+    id: "articles",
+    status: "planned",
+    label: "Extra written articles for the site",
+    detail:
+      "One-off, bought through the Telegram bot. Same facts rule as everything else: written from what the owner actually tells the assistant, nothing invented.",
     price: null,
   },
 

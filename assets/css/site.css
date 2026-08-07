@@ -387,13 +387,20 @@ section[id] {
 
 .logo {
   display: inline-flex;
-  align-items: baseline;
-  gap: 1px;
+  align-items: center;
+  gap: 9px;
   font-weight: 800;
   font-size: 1.35rem;
   letter-spacing: -0.04em;
   text-decoration: none;
   color: var(--ink);
+}
+
+.logo__mark {
+  width: 30px;
+  height: 30px;
+  flex: none;
+  display: block;
 }
 
 .logo b {

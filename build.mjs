@@ -370,6 +370,9 @@ async function build() {
   if (existsSync(join(src, "favicon.svg"))) {
     await cp(join(src, "favicon.svg"), join(dist, "favicon.svg"));
   }
+  if (existsSync(join(src, "site.webmanifest"))) {
+    await cp(join(src, "site.webmanifest"), join(dist, "site.webmanifest"));
+  }
 
   /* sitemap + robots, generated from the routes we actually built */
   const today = new Date().toISOString().slice(0, 10);

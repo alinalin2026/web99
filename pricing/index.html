@@ -25,7 +25,13 @@
     <meta name="twitter:description" content="A complete website, a free domain and free hosting for a year. One payment, and only after you've seen it." />
     <meta name="twitter:image" content="https://web99.ie/assets/img/og.png" />
 
-    <link rel="icon" href="/favicon.svg" type="image/svg+xml" />
+    <!-- favicon.svg (the old "99" mark) is retired in favour of the new
+         browser+chat-bubble mark below, so only one logo shows across
+         browsers instead of two different ones depending on icon support. -->
+    <link rel="icon" href="/assets/img/brand/favicon-32.png" sizes="32x32" type="image/png" />
+    <link rel="icon" href="/assets/img/brand/favicon-48.png" sizes="48x48" type="image/png" />
+    <link rel="apple-touch-icon" href="/assets/img/brand/apple-touch-icon.png" />
+    <link rel="manifest" href="/site.webmanifest" />
 
     <link rel="preconnect" href="https://fonts.googleapis.com" />
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
@@ -38,7 +44,7 @@
       <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Manrope:wght@400;500;600;700;800&display=swap" />
     </noscript>
 
-    <link rel="stylesheet" href="/assets/css/site.css?v=3c4c4c05" />
+    <link rel="stylesheet" href="/assets/css/site.css?v=1f6323a2" />
     <!-- Set before first paint so scroll-reveal only hides content when JS can show it again. -->
     <script>document.documentElement.className += " js";</script>
     
@@ -134,7 +140,10 @@
     <a class="skip" href="#main">Skip to content</a>
 <header class="hdr" id="siteHeader">
   <div class="wrap hdr__in">
-    <a class="logo" href="/" aria-label="Web99.ie home">Web<b>99</b><span>.ie</span></a>
+    <a class="logo" href="/" aria-label="Web99.ie home">
+      <img class="logo__mark" src="/assets/img/brand/icon-192.png" width="30" height="30" alt="" />
+      Web<b>99</b><span>.ie</span>
+    </a>
 
     <button class="burger" id="navToggle" type="button" aria-expanded="false" aria-controls="siteNav">
       <span class="burger__box" aria-hidden="true"><span></span><span></span><span></span></span>
@@ -241,7 +250,10 @@
   <div class="wrap">
     <div class="ftr__grid">
       <div>
-        <a class="logo" href="/" aria-label="Web99.ie home">Web<b>99</b><span>.ie</span></a>
+        <a class="logo" href="/" aria-label="Web99.ie home">
+          <img class="logo__mark" src="/assets/img/brand/icon-192.png" width="30" height="30" alt="" />
+          Web<b>99</b><span>.ie</span>
+        </a>
         <p class="ftr__blurb">We build a complete website for your business for €99. You see it finished and live before you pay anything at all.</p>
         <a class="wa" href="https://wa.me/353000000000?text=Hi%2C%20I%20saw%20Web99%20and%20I'd%20like%20a%20website%20for%20my%20business." rel="noopener">
           <svg width="20" height="20" aria-hidden="true"><use href="#i-whatsapp"/></svg>

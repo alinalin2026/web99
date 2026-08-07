@@ -44,20 +44,27 @@ async function constantTimeEqual(a: string, b: string): Promise<boolean> {
   return diff === 0;
 }
 
+/* Trimmed on the way in. A stray trailing space or newline from copy-pasting
+   a secret into Vercel's env var UI (or into the login box) is by far the
+   most common reason this stops matching, and it isn't a security-relevant
+   difference worth failing login over. */
+function configuredSecret(): string {
+  return (process.env.ADMIN_PASSWORD ?? "").trim();
+}
+
 /** What goes in the cookie: an HMAC of the secret, never the secret itself. */
 export async function sessionToken(): Promise<string> {
-  const secret = process.env.ADMIN_PASSWORD ?? "";
-  return hmacHex(secret, "web99-operator-v1");
+  return hmacHex(configuredSecret(), "web99-operator-v1");
 }
 
 export async function checkSecret(candidate: string): Promise<boolean> {
-  const secret = process.env.ADMIN_PASSWORD ?? "";
+  const secret = configuredSecret();
   if (!secret) return false;
-  return constantTimeEqual(candidate, secret);
+  return constantTimeEqual(candidate.trim(), secret);
 }
 
 export async function isOperator(req: NextRequest): Promise<boolean> {
-  if (!process.env.ADMIN_PASSWORD) return false;
+  if (!configuredSecret()) return false;
 
   const auth = req.headers.get("authorization");
   if (auth?.startsWith("Bearer ") && (await checkSecret(auth.slice(7)))) {
@@ -74,7 +81,7 @@ export async function isOperator(req: NextRequest): Promise<boolean> {
 
 /** Returns a response when the caller isn't an operator, or null when they are. */
 export async function requireOperator(req: NextRequest): Promise<NextResponse | null> {
-  if (!process.env.ADMIN_PASSWORD) {
+  if (!configuredSecret()) {
     return NextResponse.json(
       { error: "ADMIN_PASSWORD is not set — the dashboard is locked until it is." },
       { status: 503 }

@@ -29,7 +29,41 @@ function ago(iso: string): string {
 }
 
 export default async function Queue() {
-  const [orders, counts] = await Promise.all([listOrders(), stateCounts()]);
+  let orders: Order[];
+  let counts: Record<string, number>;
+
+  try {
+    [orders, counts] = await Promise.all([listOrders(), stateCounts()]);
+  } catch (err) {
+    /* The most common way anyone hits this: first deployment, before
+       /api/setup has ever been run, so the `orders` table doesn't exist
+       yet. A raw stack trace tells an operator nothing — this tells them
+       the two things actually worth checking. */
+    return (
+      <main className="wrap">
+        <h1>Orders</h1>
+        <div className="warn" style={{ background: "#fdeceb", borderColor: "#f5c6c2" }}>
+          <strong>Can't reach the database.</strong>
+          <p style={{ margin: "8px 0 0" }}>
+            If this is a brand new deployment, the tables probably haven't
+            been created yet — visit{" "}
+            <a href="/api/setup" style={{ fontWeight: 700 }}>
+              /api/setup
+            </a>{" "}
+            first.
+          </p>
+          <p style={{ margin: "8px 0 0" }}>
+            If that doesn't fix it, check <code>DATABASE_URL</code> is set
+            correctly in Vercel for this project and redeploy.
+          </p>
+          <p style={{ margin: "12px 0 0", fontSize: 13 }} className="muted">
+            What the database actually said: {(err as Error).message}
+          </p>
+        </div>
+      </main>
+    );
+  }
+
   const sorted = [...orders].sort(
     (a, b) => (ORDER[a.state] ?? 99) - (ORDER[b.state] ?? 99)
   );

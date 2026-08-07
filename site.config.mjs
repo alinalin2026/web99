@@ -17,8 +17,16 @@ export const config = {
 
   /* --- The dashboard app ------------------------------------------------- */
   /* Where /start/ sends the conversation. The app lives in dashboard/ and is
-     deployed separately from this static site. Leave empty for same-origin. */
-  dashboardUrl: "https://dash.web99.ie",
+     deployed separately from this static site. Leave empty for same-origin.
+     TODO: switch to https://dash.web99.ie once that DNS record actually
+     exists — until then it doesn't resolve at all, so this MUST stay
+     pointed at the real, currently-live Vercel URL, or every message to
+     Sarah fails before it leaves the page. This is the opposite direction
+     from dashboard/lib/cors.ts's MARKETING_URL: this value is where THIS
+     site sends the request TO; MARKETING_URL is which origin (this site's
+     own domain, https://web99.ie) the dashboard allows the request FROM.
+     Both need to be correct, independently, for the chat to work at all. */
+  dashboardUrl: "https://web99dashboard.vercel.app",
 
   /* --- WhatsApp -------------------------------------------------------- */
   /* TODO: REPLACE. Full international format, digits only, no + and no spaces.

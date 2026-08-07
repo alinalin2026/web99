@@ -28,7 +28,10 @@ import { pushSite } from "./github";
    =========================================================================== */
 
 const PREVIEW_DOMAIN = process.env.PREVIEW_DOMAIN ?? "web99.ie";
-const PREVIEW_DAYS = Number(process.env.PREVIEW_EXPIRY_DAYS ?? 30);
+/* The marketing site and the Terms of Service both say "48 hours" — this
+   must match that number, not an arbitrary default. If the promise ever
+   changes, change it in site.config.mjs's copy AND here, together. */
+const PREVIEW_DAYS = Number(process.env.PREVIEW_EXPIRY_DAYS ?? 2);
 
 /* --- step one: the analyst ------------------------------------------------ */
 

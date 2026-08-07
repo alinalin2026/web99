@@ -18,6 +18,10 @@ const PUBLIC = [
   "/buy",
   "/choose",
   "/api/choose",
+  /* Triggered by Vercel's scheduler, not a logged-in operator — it can't
+     carry the operator cookie, so it guards itself with CRON_SECRET
+     instead (same shape as /api/stripe guarding itself by signature). */
+  "/api/cron",
 ];
 
 export function isPublicPath(pathname: string): boolean {

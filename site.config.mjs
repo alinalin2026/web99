@@ -15,6 +15,11 @@ export const config = {
   /* Stripe Payment Link for the €99 website package (live mode). */
   stripePaymentLink: "https://buy.stripe.com/3cIaEZ9UUgj014Z5o1cs800",
 
+  /* --- The dashboard app ------------------------------------------------- */
+  /* Where /start/ sends the conversation. The app lives in dashboard/ and is
+     deployed separately from this static site. Leave empty for same-origin. */
+  dashboardUrl: "https://dash.web99.ie",
+
   /* --- WhatsApp -------------------------------------------------------- */
   /* TODO: REPLACE. Full international format, digits only, no + and no spaces.
      Irish mobile 087 123 4567  ->  353871234567                             */

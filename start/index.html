@@ -38,7 +38,7 @@
       <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Manrope:wght@400;500;600;700;800&display=swap" />
     </noscript>
 
-    <link rel="stylesheet" href="/assets/css/site.css?v=627a2e59" />
+    <link rel="stylesheet" href="/assets/css/site.css?v=3c4c4c05" />
     <!-- Set before first paint so scroll-reveal only hides content when JS can show it again. -->
     <script>document.documentElement.className += " js";</script>
     
@@ -181,15 +181,20 @@
         <h1 class="h2">Tell us about your business.</h1>
       </div>
 
-      <!-- Thread renders here once the conversation logic is wired up. -->
       <div class="chat__thread" id="chatThread" aria-live="polite"></div>
 
-      <div class="chat__intro">
-        <span class="avatar" aria-hidden="true">S</span>
-        <p class="bubble" id="sarahPrompt">Hi, I'm Sarah. Tell me about your business — what do you do?</p>
+      <div class="chat__intro" id="sarahIntro">
+        <span class="avatar">
+          <img src="/assets/img/sarah.svg" alt="" width="52" height="52" />
+        </span>
+        <div>
+          <p class="bubble" id="sarahPrompt">Hi, I'm Sarah — I'm the assistant here at Web99. Tell me about your business: what do you do, and whereabouts are you?</p>
+          <span class="chat__who">Sarah is Web99's AI assistant. A person reads every website before it reaches you.</span>
+        </div>
       </div>
 
-      <form class="composer" id="startForm" method="post" action="#" novalidate>
+      <form class="composer" id="startForm" method="post" action="#" novalidate
+            data-api="https://dash.web99.ie" data-whatsapp="https://wa.me/353000000000?text=Hi%2C%20I%20saw%20Web99%20and%20I'd%20like%20a%20website%20for%20my%20business.">
         <label class="skip" for="businessStory">Tell us about your business</label>
         <textarea
           id="businessStory"
@@ -256,7 +261,7 @@
 </footer>
 
 
-    <script src="/assets/js/site.js?v=7ba9029c" defer></script>
+    <script src="/assets/js/site.js?v=e4e047d8" defer></script>
   </body>
 </html>
 

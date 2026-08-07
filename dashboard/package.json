@@ -1,0 +1,32 @@
+{
+  "name": "web99-dashboard",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Web99 order pipeline — Sarah's backend, the build queue, and the review gate.",
+  "scripts": {
+    "dev": "next dev -p 3000",
+    "build": "next build",
+    "start": "next start",
+    "typecheck": "tsc --noEmit",
+    "test": "tsx --test test/*.test.mjs",
+    "db:init": "psql \"$DATABASE_URL\" -f db/schema.sql"
+  },
+  "dependencies": {
+    "next": "^15.1.0",
+    "openai": "^4.77.0",
+    "postgres": "^3.4.5",
+    "react": "^19.0.0",
+    "react-dom": "^19.0.0",
+    "resend": "^4.0.1",
+    "stripe": "^17.5.0"
+  },
+  "devDependencies": {
+    "@types/node": "^22.10.2",
+    "@types/react": "^19.0.2",
+    "tsx": "^4.23.10",
+    "typescript": "^5.7.2"
+  },
+  "engines": {
+    "node": ">=20"
+  }
+}

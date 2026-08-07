@@ -147,8 +147,11 @@ still just a status flip in one file, same as everywhere.
 - [ ] **Domain registration.** Still manual. The €99 includes a domain in the
       customer's name, and nothing here registers it yet.
 - [ ] **Stripe webhook** — see above.
-- [ ] **Preview expiry.** `expires_at` is set but nothing acts on it yet — a
-      cron needs to move stale `sent` orders to `lost`.
+- [x] **Preview expiry.** `/api/cron/expire-previews`, scheduled daily in
+      `vercel.json`. Set `CRON_SECRET` (any long random string) for it to run —
+      Vercel sends it back as `Authorization: Bearer <value>` automatically once
+      it's set. Once daily is Vercel Hobby's cron limit, so "48 hours" is
+      enforced to within about a day, not to the minute.
 - [ ] **The nudge email.** Written (`lib/email.ts`) but nothing schedules it.
 - [ ] **The Telegram bot** — see above.
 - [ ] **Per-person logins.** Access is currently one shared key

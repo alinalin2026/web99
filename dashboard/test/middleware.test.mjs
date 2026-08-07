@@ -32,6 +32,10 @@ const routes = [
   // Stripe's webhook — Stripe, not a browser, calls this; it can't log in.
   ["/api/stripe", true, "Stripe's webhook, authenticated by signature not cookie"],
 
+  // Vercel's scheduler calls this daily — also can't log in, guards itself
+  // with CRON_SECRET the same way /api/stripe guards itself by signature.
+  ["/api/cron/expire-previews", true, "Vercel Cron, authenticated by CRON_SECRET not cookie"],
+
   // Everything operator-only must be gated. If any of these ever turns up
   // in PUBLIC, customer data or the ability to push a site is exposed.
   ["/", false, "the order queue"],

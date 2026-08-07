@@ -25,7 +25,13 @@
     <meta name="twitter:description" content="What we collect, why we collect it, and how to have it deleted." />
     <meta name="twitter:image" content="https://web99.ie/assets/img/og.png" />
 
-    <link rel="icon" href="/favicon.svg" type="image/svg+xml" />
+    <!-- favicon.svg (the old "99" mark) is retired in favour of the new
+         browser+chat-bubble mark below, so only one logo shows across
+         browsers instead of two different ones depending on icon support. -->
+    <link rel="icon" href="/assets/img/brand/favicon-32.png" sizes="32x32" type="image/png" />
+    <link rel="icon" href="/assets/img/brand/favicon-48.png" sizes="48x48" type="image/png" />
+    <link rel="apple-touch-icon" href="/assets/img/brand/apple-touch-icon.png" />
+    <link rel="manifest" href="/site.webmanifest" />
 
     <link rel="preconnect" href="https://fonts.googleapis.com" />
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
@@ -38,7 +44,7 @@
       <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Manrope:wght@400;500;600;700;800&display=swap" />
     </noscript>
 
-    <link rel="stylesheet" href="/assets/css/site.css?v=627a2e59" />
+    <link rel="stylesheet" href="/assets/css/site.css?v=1f6323a2" />
     <!-- Set before first paint so scroll-reveal only hides content when JS can show it again. -->
     <script>document.documentElement.className += " js";</script>
     
@@ -134,7 +140,10 @@
     <a class="skip" href="#main">Skip to content</a>
 <header class="hdr" id="siteHeader">
   <div class="wrap hdr__in">
-    <a class="logo" href="/" aria-label="Web99.ie home">Web<b>99</b><span>.ie</span></a>
+    <a class="logo" href="/" aria-label="Web99.ie home">
+      <img class="logo__mark" src="/assets/img/brand/icon-192.png" width="30" height="30" alt="" />
+      Web<b>99</b><span>.ie</span>
+    </a>
 
     <button class="burger" id="navToggle" type="button" aria-expanded="false" aria-controls="siteNav">
       <span class="burger__box" aria-hidden="true"><span></span><span></span><span></span></span>
@@ -211,7 +220,10 @@
   <div class="wrap">
     <div class="ftr__grid">
       <div>
-        <a class="logo" href="/" aria-label="Web99.ie home">Web<b>99</b><span>.ie</span></a>
+        <a class="logo" href="/" aria-label="Web99.ie home">
+          <img class="logo__mark" src="/assets/img/brand/icon-192.png" width="30" height="30" alt="" />
+          Web<b>99</b><span>.ie</span>
+        </a>
         <p class="ftr__blurb">We build a complete website for your business for €99. You see it finished and live before you pay anything at all.</p>
         <a class="wa" href="https://wa.me/353000000000?text=Hi%2C%20I%20saw%20Web99%20and%20I'd%20like%20a%20website%20for%20my%20business." rel="noopener">
           <svg width="20" height="20" aria-hidden="true"><use href="#i-whatsapp"/></svg>
@@ -235,19 +247,20 @@
           <li><a href="/terms/">Terms</a></li>
           <li><a href="/privacy/">Privacy</a></li>
           <li><a href="mailto:hello@web99.ie">hello@web99.ie</a></li>
-          <li>Dublin, Ireland</li>
+          <li><a href="tel:+35312343300">(01) 234 3300</a></li>
+          <li>38 Fitzwilliam Square W, Dublin 2, D02 T938</li>
         </ul>
       </div>
     </div>
     <div class="ftr__base">
-      <span>Web99.ie — a design studio in Dublin, Ireland.</span>
+      <span>A design studio in Dublin, Ireland.</span>
       <span>&copy; 2026 Web99.ie</span>
     </div>
   </div>
 </footer>
 
 
-    <script src="/assets/js/site.js?v=7ba9029c" defer></script>
+    <script src="/assets/js/site.js?v=e4e047d8" defer></script>
   </body>
 </html>
 

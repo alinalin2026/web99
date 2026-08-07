@@ -31,9 +31,18 @@ const whatsappUrl =
   `https://wa.me/${config.whatsappNumber}?text=` +
   encodeURIComponent(config.whatsappPrefill);
 
+/* "(01) 234 3300" -> "+35312343300": strip everything but digits, drop the
+   domestic trunk 0, prefix the country code. */
+const telHref = "+353" + config.phone.replace(/\D/g, "").replace(/^0/, "");
+
+const [addressStreet, addressLocality, addressPostcode] = config.address
+  .split(",")
+  .map((s) => s.trim());
+
 const globals = {
   ...config,
   whatsappUrl,
+  telHref,
   year: new Date().getFullYear(),
   counterValue: String(config.counterValue),
 };
@@ -76,8 +85,15 @@ const businessJsonLd = `<script type="application/ld+json">${JSON.stringify({
     "A Dublin web design studio that builds a complete website for any small business for €99. See the finished website live before paying.",
   url: config.domain,
   areaServed: "IE",
-  address: { "@type": "PostalAddress", addressLocality: "Dublin", addressCountry: "IE" },
+  address: {
+    "@type": "PostalAddress",
+    streetAddress: addressStreet,
+    addressLocality: addressLocality,
+    postalCode: addressPostcode,
+    addressCountry: "IE",
+  },
   email: config.email,
+  telephone: telHref,
   offers: {
     "@type": "Offer",
     price: "99",
@@ -183,7 +199,7 @@ function counterBand() {
   return `<section class="counter" aria-label="Businesses brought online">
   <span class="dots" aria-hidden="true"></span>
   <div class="wrap">
-    <p class="counter__fig" data-count-to="${esc(config.counterValue)}">${esc(config.counterValue)}</p>
+    <p class="counter__fig"><span data-count-to="${esc(config.counterValue)}">${esc(config.counterValue)}</span>+</p>
     <p class="counter__lbl">${esc(config.counterLabel)}</p>
   </div>
 </section>`;
@@ -353,6 +369,9 @@ async function build() {
   await cp(join(src, "assets"), join(dist, "assets"), { recursive: true });
   if (existsSync(join(src, "favicon.svg"))) {
     await cp(join(src, "favicon.svg"), join(dist, "favicon.svg"));
+  }
+  if (existsSync(join(src, "site.webmanifest"))) {
+    await cp(join(src, "site.webmanifest"), join(dist, "site.webmanifest"));
   }
 
   /* sitemap + robots, generated from the routes we actually built */

@@ -157,13 +157,29 @@
     window.addEventListener("resize", onScroll);
   }
 
-  /* --- /start composer ---------------------------------------------------
-     Deliberately unwired. The markup and the submit hook are here so a chat
-     interface drops straight in: render turns into #chatThread and post the
-     text wherever it needs to go. Right now it just guards empty submits. */
+  /* --- /start conversation -----------------------------------------------
+     Talks to the dashboard's /api/chat. The order id comes back on the first
+     reply and is kept in sessionStorage, so a refresh mid-conversation picks
+     up where they left off instead of starting a stranger's order.
+
+     Degrades honestly: if the API can't be reached, the composer is replaced
+     with the WhatsApp number rather than swallowing what they typed. */
   var startForm = document.getElementById("startForm");
   if (startForm) {
     var field = document.getElementById("businessStory");
+    var thread = document.getElementById("chatThread");
+    var intro = document.getElementById("sarahIntro");
+    var sendBtn = startForm.querySelector("button[type=submit]");
+    var api = startForm.getAttribute("data-api") || "";
+    var KEY = "web99:orderId";
+    var orderId = null;
+    var sending = false;
+
+    try {
+      orderId = window.sessionStorage.getItem(KEY);
+    } catch (err) {
+      /* private browsing — the conversation still works, it just won't resume */
+    }
 
     /* grow the box as they type, so nothing scrolls out of sight */
     field.addEventListener("input", function () {
@@ -171,17 +187,131 @@
       field.style.height = Math.max(128, field.scrollHeight) + "px";
     });
 
+    var el = function (tag, cls, text) {
+      var n = document.createElement(tag);
+      if (cls) n.className = cls;
+      if (text != null) n.textContent = text;
+      return n;
+    };
+
+    var addTurn = function (who, text) {
+      var turn = el("div", "turn turn--" + who);
+      var av = el("span", "avatar avatar--sm");
+
+      if (who === "sarah") {
+        var img = document.createElement("img");
+        img.src = "/assets/img/sarah.svg";
+        img.alt = "";
+        img.width = 38;
+        img.height = 38;
+        av.appendChild(img);
+      } else {
+        av.textContent = "You";
+        av.style.fontSize = "0.7rem";
+      }
+
+      var body = el("div", "turn__body");
+      if (text === null) {
+        var dots = el("span", "turn__dots");
+        dots.appendChild(el("i"));
+        dots.appendChild(el("i"));
+        dots.appendChild(el("i"));
+        body.appendChild(dots);
+        turn.setAttribute("data-pending", "true");
+      } else {
+        body.textContent = text;
+      }
+
+      turn.appendChild(av);
+      turn.appendChild(body);
+      thread.appendChild(turn);
+      turn.scrollIntoView({ block: "nearest", behavior: reduced ? "auto" : "smooth" });
+      return turn;
+    };
+
+    var finish = function () {
+      startForm.remove();
+      var done = el("div", "chat__done");
+      done.appendChild(el("h2", null, "That's everything — thanks."));
+      done.appendChild(
+        el("p", null, "Your website is being built now. We'll email you the link tomorrow.")
+      );
+      done.appendChild(
+        el("p", null, "You'll see the whole thing before you decide. Nothing has been charged.")
+      );
+      thread.parentNode.insertBefore(done, thread.nextSibling);
+      done.scrollIntoView({ block: "nearest", behavior: reduced ? "auto" : "smooth" });
+    };
+
+    var breakDown = function () {
+      var wrap = el("div", "chat__done");
+      wrap.appendChild(el("h2", null, "Something went wrong our end."));
+      wrap.appendChild(
+        el("p", null, "Sorry about that. Message us on WhatsApp and we'll take it from there — you won't have to type it all again.")
+      );
+      var a = el("a", "btn", "Message us on WhatsApp");
+      a.href = startForm.getAttribute("data-whatsapp") || "/contact/";
+      a.rel = "noopener";
+      wrap.appendChild(a);
+      startForm.replaceWith(wrap);
+    };
+
     startForm.addEventListener("submit", function (e) {
       e.preventDefault();
+      if (sending) return;
+
       var story = field.value.trim();
       if (!story) {
         field.focus();
         return;
       }
-      /* TODO: hand `story` to the conversation backend. */
-      window.dispatchEvent(
-        new CustomEvent("web99:story", { detail: { story: story } })
-      );
+
+      /* Sarah's opening bubble becomes part of the thread once it's underway. */
+      if (intro && intro.parentNode) {
+        addTurn("sarah", document.getElementById("sarahPrompt").textContent);
+        intro.remove();
+        intro = null;
+      }
+
+      addTurn("them", story);
+      field.value = "";
+      field.style.height = "auto";
+
+      sending = true;
+      if (sendBtn) sendBtn.disabled = true;
+      var pending = addTurn("sarah", null);
+
+      fetch(api + "/api/chat", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ orderId: orderId, message: story }),
+      })
+        .then(function (r) {
+          if (!r.ok) throw new Error("HTTP " + r.status);
+          return r.json();
+        })
+        .then(function (data) {
+          pending.remove();
+          sending = false;
+          if (sendBtn) sendBtn.disabled = false;
+
+          if (data.orderId && data.orderId !== orderId) {
+            orderId = data.orderId;
+            try {
+              window.sessionStorage.setItem(KEY, orderId);
+            } catch (err) {}
+          }
+
+          addTurn("sarah", data.reply);
+          if (data.readyToBuild) finish();
+          else field.focus();
+        })
+        .catch(function () {
+          pending.remove();
+          sending = false;
+          if (sendBtn) sendBtn.disabled = false;
+          breakDown();
+        });
     });
   }
 })();

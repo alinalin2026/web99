@@ -25,7 +25,13 @@
     <meta name="twitter:description" content="{{ogDescription}}" />
     <meta name="twitter:image" content="{{domain}}/assets/img/og.png" />
 
-    <link rel="icon" href="/favicon.svg" type="image/svg+xml" />
+    <!-- favicon.svg (the old "99" mark) is retired in favour of the new
+         browser+chat-bubble mark below, so only one logo shows across
+         browsers instead of two different ones depending on icon support. -->
+    <link rel="icon" href="/assets/img/brand/favicon-32.png" sizes="32x32" type="image/png" />
+    <link rel="icon" href="/assets/img/brand/favicon-48.png" sizes="48x48" type="image/png" />
+    <link rel="apple-touch-icon" href="/assets/img/brand/apple-touch-icon.png" />
+    <link rel="manifest" href="/site.webmanifest" />
 
     <link rel="preconnect" href="https://fonts.googleapis.com" />
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />

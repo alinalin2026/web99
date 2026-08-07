@@ -11,6 +11,10 @@ export const config = {
   domain: "https://web99.ie",
   price: "€99",
 
+  /* --- Payments ---------------------------------------------------------- */
+  /* Stripe Payment Link for the €99 website package (live mode). */
+  stripePaymentLink: "https://buy.stripe.com/3cIaEZ9UUgj014Z5o1cs800",
+
   /* --- WhatsApp -------------------------------------------------------- */
   /* TODO: REPLACE. Full international format, digits only, no + and no spaces.
      Irish mobile 087 123 4567  ->  353871234567                             */

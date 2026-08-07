@@ -41,7 +41,7 @@ export const faqs = [
     a: [
       "Message us and we'll change it. Three changes are included after you pay — a new phone number, different opening hours, a few new photos, whatever isn't right.",
       "After those three, small edits are still quick and we'll always tell you what it costs before we touch anything. Nothing gets charged without you agreeing to it first.",
-      "If you'd rather make small edits yourself, we'll show you how. It takes about five minutes to learn.",
+      "If you want to be posting new photos, offers or articles regularly, that's a different thing to a one-off edit and we do it as a separate package. Ask us and we'll tell you what it costs.",
     ],
   },
   {

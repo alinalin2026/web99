@@ -30,7 +30,7 @@ export const config = {
   /* TODO: REPLACE with the real figure. This is the ONLY place it lives.
      Set counterEnabled to false to hide the whole band until it's true.    */
   counterEnabled: true,
-  counterValue: 120,
+  counterValue: 57,
   counterLabel: "Irish businesses brought online.",
 
   /* --- Year two renewal (FAQ + pricing) -------------------------------- */

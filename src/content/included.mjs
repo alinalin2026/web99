@@ -63,17 +63,15 @@ export const included = [
     title: "No tech knowledge needed",
     line: "If you can send a text message, you can do this.",
   },
+  /* One bounded promise, not two. These were previously separate items and
+     the WhatsApp one read as unlimited free edits forever, which is not what
+     the €99 buys. Ongoing updates are a paid extra — see the upsell catalogue
+     in dashboard/lib/capabilities.ts. */
   {
     top: false,
     icon: "i-refresh",
-    title: "Three changes after you pay",
-    line: "Something not right? Tell us and we'll fix it. Three times, no charge.",
-  },
-  {
-    top: false,
-    icon: "i-chat",
-    title: "Update your site from WhatsApp",
-    line: "Need something changed later? Message us. No dashboard, no login, no learning anything.",
+    title: "Three changes after you pay, by WhatsApp",
+    line: "Something not right? Message us like you'd text anyone — no dashboard, no login, nothing to learn. Three times, no charge.",
   },
   {
     top: false,

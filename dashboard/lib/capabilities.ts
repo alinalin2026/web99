@@ -119,7 +119,7 @@ export const capabilities: Capability[] = [
     status: "included",
     label: "Three changes after they pay, free",
     detail:
-      "Anything not right — hours, phone number, photos, wording. Three rounds, no charge, no argument.",
+      "Anything not right — hours, phone number, photos, wording. Three rounds, no charge, no argument. THREE, not ongoing. Regular posting, new articles or weekly photo updates are not this — they are the content assistant, which is a separate paid thing.",
   },
   {
     id: "ownership",
@@ -159,25 +159,116 @@ export const capabilities: Capability[] = [
     price: "€39 a year",
   },
 
-  /* --- not built yet. Invisible to Sarah and the generator. ---------------
-     Move to "addon" with a price the day it is genuinely deliverable, and it
-     becomes offerable everywhere. Until then no model can promise it. ------ */
+  /* =========================================================================
+     THE UPSELL CATALOGUE — all "planned", so no model can offer them yet.
+     -------------------------------------------------------------------------
+     Set a price and flip to "addon" and it becomes offerable everywhere at
+     once. Leave it here and it stays invisible.
+
+     One rule ran the design of every item below: it has to deliver without
+     anybody's presence. Anything needing a human on the day is priced as a
+     project or not sold at all — that's the difference between a business
+     that scales and a job that eats weekends.
+
+     The trap to avoid: "AI makes it hands-off" is not true by itself. AI logo
+     generation is hands-off right up until somebody wants a fourth revision.
+     What keeps it hands-off is the PRODUCT SHAPE — a fixed number of options,
+     self-serve regeneration, and no bespoke revision promise. Design the
+     boundary in, don't assume the tool provides it.
+     ========================================================================= */
+
+  /* --- one-off, self-serve. The launch pack. ----------------------------- */
+  {
+    id: "logo",
+    status: "planned",
+    label: "A logo for the business",
+    detail:
+      "Generated to a brief, several options, they pick one and get the files in every format they need. Self-serve regeneration if they don't like the batch. NO bespoke revision rounds — that's what turns this into a job.",
+    price: null,
+  },
+  {
+    id: "brand-pack",
+    status: "planned",
+    label: "Matching business cards and print files",
+    detail:
+      "Print-ready PDFs using their logo and colours. They take them to any printer. We don't print, post or proof anything.",
+    price: null,
+  },
+  {
+    id: "email-templates",
+    status: "planned",
+    label: "Branded email templates and a signature",
+    detail:
+      "Quote, invoice, booking confirmation and follow-up templates in their brand, plus an email signature. Delivered as files, set up in their email once.",
+    price: null,
+  },
+  {
+    id: "social-art",
+    status: "planned",
+    label: "Social profile artwork",
+    detail:
+      "Facebook and Instagram cover images and profile pictures, matched to the site. Generated, not designed to order.",
+    price: null,
+  },
+  {
+    id: "extra-language",
+    status: "planned",
+    label: "The site in another language",
+    detail:
+      "A second full language version, written properly rather than machine-translated. Fully automated once the first site exists.",
+    price: null,
+  },
+  {
+    id: "extra-pages",
+    status: "planned",
+    label: "Extra pages",
+    detail: "More pages on the same site, built the same way. Priced per page.",
+    price: null,
+  },
+  {
+    id: "google-profile",
+    status: "planned",
+    label: "Google Business Profile set up",
+    detail:
+      "Created and filled in from the site's own content so the two agree. Note: Google's verification step needs the OWNER to receive a postcard or call — we cannot do that part for them, and Sarah must say so.",
+    price: null,
+  },
+  {
+    id: "launch-bundle",
+    status: "planned",
+    label: "The full launch pack — everything a new business needs, in one",
+    detail:
+      "Site, logo, print files, email templates, social artwork and Google profile as a single bundle. This is the headline upsell: one price, one decision, nothing for the customer to assemble.",
+    price: null,
+  },
+
+  /* --- recurring. Where the actual business is. -------------------------- */
+  {
+    id: "content-assistant",
+    status: "planned",
+    label: "Your own assistant that writes and posts for you",
+    detail:
+      "They send a photo or a voice note on WhatsApp — 'new arrivals in today' — and it writes the post, puts it on the site and on Facebook. Monthly. IMPORTANT: it drafts and THEY approve with one tap before anything publishes. An AI publishing unreviewed to a real business's public page is the single biggest support-hassle generator there is, and the approval tap costs the customer two seconds.",
+    price: null,
+  },
+  {
+    id: "facebook-ongoing",
+    status: "planned",
+    label: "Facebook posts continuing after the first three months",
+    detail:
+      "The scheduled posting carries on instead of stopping. Monthly, cancel any time, no notice period.",
+    price: null,
+  },
   {
     id: "care-plan",
     status: "planned",
-    label: "Care plan — edits by WhatsApp, hosting, backups",
+    label: "Care plan — hosting, backups and edits",
     detail:
-      "Flat monthly. Covers hosting, unlimited reasonable edits by WhatsApp, backups and updates. Replaces per-edit charging after the three free changes are used.",
+      "Flat monthly. Hosting, backups, and edits by WhatsApp without counting them. Deliberately NOT cheap: this is the one item that consumes real time, so it must be priced so that a chatty customer is still profitable.",
     price: null,
   },
-  {
-    id: "growth-plan",
-    status: "planned",
-    label: "Growth plan — care plan plus ongoing content",
-    detail:
-      "Care plan, plus Facebook content continuing past the first three months, Google Business Profile management, and a monthly one-page report.",
-    price: null,
-  },
+
+  /* --- not offered. Kept here so the answer is written down. -------------- */
   {
     id: "photography",
     status: "planned",

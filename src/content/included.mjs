@@ -71,6 +71,12 @@ export const included = [
   },
   {
     top: false,
+    icon: "i-chat",
+    title: "Update your site from WhatsApp",
+    line: "Need something changed later? Message us. No dashboard, no login, no learning anything.",
+  },
+  {
+    top: false,
     icon: "i-euro",
     title: "One payment. No contracts",
     line: "€99 once. No subscription, no direct debit, nothing that renews behind your back.",

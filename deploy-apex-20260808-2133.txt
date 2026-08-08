@@ -1,0 +1,1 @@
+Trigger a fresh Vercel production build from the current main branch after the previous build-rate-limit failures. Latest Apex rebuild is already present in src/pages/apex-signs.html and related assets/pages.

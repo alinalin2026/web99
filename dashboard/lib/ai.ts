@@ -1,10 +1,4 @@
-/* Thin wrapper over Anthropic's Messages API. Kept in one file so the model
-   choice per step is visible in a single place and can be changed without
-   hunting through the app.
-
-   Sarah and extraction use Haiku because they are latency-sensitive. The
-   analyst and generator use Sonnet because their output becomes a real
-   business's public website and benefits from the stronger model. */
+/* Anthropic wrapper for Sarah, extraction and the operator's build plan. */
 
 const ANTHROPIC_MESSAGES_URL = "https://api.anthropic.com/v1/messages";
 const ANTHROPIC_VERSION = "2023-06-01";
@@ -13,7 +7,6 @@ export const MODELS = {
   sarah: process.env.SARAH_MODEL ?? "claude-haiku-4-5-20251001",
   extract: process.env.EXTRACT_MODEL ?? "claude-haiku-4-5-20251001",
   analyst: process.env.ANALYST_MODEL ?? "claude-sonnet-4-6",
-  generator: process.env.GENERATOR_MODEL ?? "claude-sonnet-4-6",
 } as const;
 
 export interface Turn {
@@ -32,20 +25,17 @@ interface AnthropicResponse {
 }
 
 function apiKey(): string {
-  /* Prefer the correctly named variable. During the provider migration we
-     also accept the existing OPENAI_API_KEY slot because the live Vercel
-     project may already contain the user's sk-ant-* key there. Either way,
-     the key is sent only to Anthropic — never to OpenAI. */
-  const key =
-    process.env.ANTHROPIC_API_KEY?.trim() ||
-    process.env.OPENAI_API_KEY?.trim();
+  const proper = process.env.ANTHROPIC_API_KEY?.trim();
+  if (proper) return proper;
 
-  if (!key) {
-    throw new Error(
-      "ANTHROPIC_API_KEY is not set (legacy OPENAI_API_KEY fallback is also empty)."
-    );
-  }
-  return key;
+  /* Temporary migration compatibility only: if the old OPENAI_API_KEY slot
+     still visibly contains an Anthropic key, Sarah may use it. The moment a
+     real OpenAI key is put there this fallback stops, so the two providers can
+     never accidentally receive each other's credentials. */
+  const legacy = process.env.OPENAI_API_KEY?.trim();
+  if (legacy?.startsWith("sk-ant-")) return legacy;
+
+  throw new Error("ANTHROPIC_API_KEY is not set.");
 }
 
 async function complete(
@@ -94,7 +84,6 @@ async function complete(
   return text;
 }
 
-/** Conversational reply. Used only by Sarah. */
 export async function chat(
   system: string,
   turns: Turn[],
@@ -103,9 +92,6 @@ export async function chat(
   return complete(system, turns, model, 400, 0.7);
 }
 
-/** Structured output. Used by the extractor, analyst and generator.
-    Claude is explicitly instructed to emit only JSON; the parser below also
-    salvages a valid outer object if the response ever contains extra text. */
 export async function json<T = unknown>(
   system: string,
   user: string,

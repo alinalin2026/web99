@@ -2,16 +2,9 @@ import { NextRequest, NextResponse } from "next/server";
 import Stripe from "stripe";
 import { getOrder, sql, logEvent } from "@/lib/db";
 import { commercials } from "@/lib/capabilities";
+import { sendMetaConversion } from "@/lib/meta-conversions";
 
 export const runtime = "nodejs";
-
-/* GET /buy/:id
-   The target of every "Yes, I'll take it" button on a preview site.
-
-   Creates a Checkout Session tied to this specific order and redirects. Doing
-   it per-order rather than using one shared payment link means the webhook
-   knows exactly whose site was just bought, with no matching by email or
-   guesswork. */
 
 let _stripe: Stripe | undefined;
 function stripe(): Stripe {
@@ -23,8 +16,14 @@ function stripe(): Stripe {
   return _stripe;
 }
 
+function clientIp(req: NextRequest): string | null {
+  const forwarded = req.headers.get("x-forwarded-for");
+  if (forwarded) return forwarded.split(",")[0]?.trim() || null;
+  return req.headers.get("x-real-ip");
+}
+
 export async function GET(
-  _req: NextRequest,
+  req: NextRequest,
   { params }: { params: Promise<{ id: string }> }
 ) {
   const { id } = await params;
@@ -64,6 +63,29 @@ export async function GET(
 
   await sql`UPDATE orders SET stripe_session_id = ${session.id} WHERE id = ${id}`;
   await logEvent(id, "state_change", { step: "checkout_started", session: session.id });
+
+  const brief = (order.brief || {}) as {
+    trackingConsent?: boolean;
+    attribution?: Record<string, string | number> | null;
+  };
+  if (brief.trackingConsent === true) {
+    const meta = await sendMetaConversion({
+      eventName: "InitiateCheckout",
+      eventId: `checkout_${session.id}`,
+      email: order.email,
+      attribution: brief.attribution,
+      clientIp: clientIp(req),
+      eventSourceUrl: order.preview_url || `${process.env.MARKETING_URL ?? "https://web99.ie"}/`,
+      value: commercials.priceNumeric / 100,
+      currency: commercials.currency,
+    });
+    await logEvent(id, meta.ok ? "meta_conversion" : "meta_conversion_error", {
+      event: "InitiateCheckout",
+      eventId: `checkout_${session.id}`,
+      pixelId: meta.pixelId ?? null,
+      error: meta.error ?? null,
+    });
+  }
 
   return NextResponse.redirect(session.url!, { status: 303 });
 }

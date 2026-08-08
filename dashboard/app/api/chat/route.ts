@@ -2,25 +2,10 @@ import { NextRequest, NextResponse } from "next/server";
 import { chat, json, MODELS } from "@/lib/ai";
 import { sarahSystemPrompt, extractionPrompt, sarahOpener } from "@/lib/prompts/sarah";
 import { sql, jsonb, getOrder, setState, logEvent } from "@/lib/db";
-import { analyse } from "@/lib/pipeline";
-import { onTheWay, send } from "@/lib/email";
 import { corsPreflight, withCors } from "@/lib/cors";
 
 export const runtime = "nodejs";
 export const maxDuration = 60;
-
-/* ===========================================================================
-   POST /api/chat
-   ---------------------------------------------------------------------------
-   The only endpoint the marketing site talks to.
-
-   Body:  { orderId?: string, message: string }
-   Reply: { orderId, reply, missing: string[], readyToBuild: boolean }
-
-   One order row per conversation, created on the first message. An abandoned
-   chat stays as a `collecting` row rather than vanishing — half a conversation
-   with a phone number in it is still a lead.
-   =========================================================================== */
 
 interface Brief {
   businessName: string | null;
@@ -49,7 +34,6 @@ export async function OPTIONS(req: NextRequest) {
 }
 
 export async function GET(req: NextRequest) {
-  /* Lets the front end render Sarah's opener without hardcoding it twice. */
   return withCors(req, NextResponse.json({ opener: sarahOpener }));
 }
 
@@ -69,7 +53,6 @@ export async function POST(req: NextRequest) {
     return withCors(req, NextResponse.json({ error: "Message too long" }, { status: 400 }));
   }
 
-  /* --- find or create the order ------------------------------------------ */
   let order = body.orderId ? await getOrder(body.orderId) : null;
 
   if (!order) {
@@ -83,15 +66,15 @@ export async function POST(req: NextRequest) {
     }
   }
 
-  /* Once it's past collecting, Sarah is done — don't let a stray message
-     reopen an order that's already building or live. */
+  /* Once confirmed, the conversation becomes a dashboard lead. No planning,
+     OpenAI generation, email or GitHub write happens from the public chat. */
   if (order.state !== "collecting") {
     return withCors(
       req,
       NextResponse.json({
         orderId: order.id,
         reply:
-          "Thanks — I've got everything and your website is being built. Keep an eye on your email, it'll be with you tomorrow.",
+          "Thanks — I've got everything. We'll prepare it from here and email you the link when it's ready.",
         missing: [],
         readyToBuild: true,
       })
@@ -103,7 +86,6 @@ export async function POST(req: NextRequest) {
     { role: "user" as const, content: message },
   ];
 
-  /* --- Sarah replies ------------------------------------------------------ */
   let reply: string;
   try {
     reply = await chat(sarahSystemPrompt(), turns, MODELS.sarah);
@@ -131,7 +113,6 @@ export async function POST(req: NextRequest) {
     { role: "assistant" as const, content: reply, at: now },
   ];
 
-  /* --- extract, so the dashboard sees a half-finished order live ---------- */
   let brief: Brief | null = null;
   try {
     const transcript = conversation
@@ -139,8 +120,6 @@ export async function POST(req: NextRequest) {
       .join("\n\n");
     brief = await json<Brief>(extractionPrompt(), transcript, MODELS.extract, 1200);
   } catch (err) {
-    /* Extraction failing must never break the conversation. The customer keeps
-       talking; the dashboard just shows a staler brief for one turn. */
     await logEvent(order.id, "error", { step: "extract", message: (err as Error).message });
   }
 
@@ -162,30 +141,11 @@ export async function POST(req: NextRequest) {
       }).map(String)
     : REQUIRED.map(String);
 
-  /* Having every field is not consent to start. Sarah first reads the summary
-     back and asks the owner to confirm it. The extractor only flips
-     readyToBuild after the owner explicitly says the summary is correct. */
   const ready = missing.length === 0 && brief?.readyToBuild === true;
 
-  /* --- everything collected AND confirmed: hand off to the pipeline ------- */
   if (ready) {
-    await setState(order.id, "ready");
-
-    if (brief?.email) {
-      try {
-        await send(
-          brief.email,
-          onTheWay("", brief.businessName ?? "your business")
-        );
-        await sql`UPDATE orders SET sent_at = now() WHERE id = ${order.id}`;
-        await logEvent(order.id, "email", { template: "onTheWay", to: brief.email });
-      } catch (err) {
-        await logEvent(order.id, "error", { step: "email", message: (err as Error).message });
-      }
-    }
-
-    /* Fire and forget — the customer shouldn't wait on a 60-second build. */
-    void analyse(order.id).catch(() => {});
+    await setState(order.id, "ready", { source: "customer_confirmed" });
+    await logEvent(order.id, "state_change", { step: "lead_ready_for_plan" });
   }
 
   return withCors(req, NextResponse.json({ orderId: order.id, reply, missing, readyToBuild: ready }));

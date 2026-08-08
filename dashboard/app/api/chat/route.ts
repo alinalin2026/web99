@@ -18,6 +18,8 @@ interface Brief {
   email: string | null;
   anythingElseClosed?: boolean;
   readyToBuild?: boolean;
+  attribution?: Record<string, string | number> | null;
+  trackingConsent?: boolean;
   [k: string]: unknown;
 }
 
@@ -25,11 +27,38 @@ interface ChatBody {
   orderId?: string;
   message?: string;
   history?: Turn[];
+  attribution?: unknown;
+  trackingConsent?: boolean;
 }
 
 /* A lead only needs enough to start a first draft. Opening hours, phone and a
    complete service list are intentionally NOT required at this stage. */
 const REQUIRED: (keyof Brief)[] = ["trade", "websiteGoal", "email"];
+
+const ATTR_KEYS = [
+  "fbclid",
+  "utm_source",
+  "utm_medium",
+  "utm_campaign",
+  "utm_content",
+  "utm_term",
+  "landing_url",
+  "landing_path",
+  "landed_at",
+  "user_agent",
+] as const;
+
+function safeAttribution(value: unknown): Record<string, string | number> | null {
+  if (!value || typeof value !== "object" || Array.isArray(value)) return null;
+  const source = value as Record<string, unknown>;
+  const clean: Record<string, string | number> = {};
+  for (const key of ATTR_KEYS) {
+    const v = source[key];
+    if (typeof v === "number" && Number.isFinite(v)) clean[key] = v;
+    if (typeof v === "string" && v.trim()) clean[key] = v.trim().slice(0, key === "landing_url" ? 2000 : 1000);
+  }
+  return Object.keys(clean).length ? clean : null;
+}
 
 function safeHistory(value: unknown): Turn[] {
   if (!Array.isArray(value)) return [];
@@ -81,6 +110,7 @@ export async function POST(req: NextRequest) {
   }
 
   const browserHistory = safeHistory(body.history);
+  const attribution = safeAttribution(body.attribution);
   let order: Order | null = null;
   let persistenceAvailable = true;
 
@@ -150,6 +180,12 @@ export async function POST(req: NextRequest) {
     brief = await json<Brief>(extractionPrompt(), transcript, MODELS.extract, 1400);
   } catch (err) {
     await safeLog(order?.id ?? null, "error", { step: "extract", message: (err as Error).message });
+  }
+
+  if (!brief && order?.brief) brief = order.brief as Brief;
+  if (brief) {
+    if (attribution) brief.attribution = attribution;
+    if (typeof body.trackingConsent === "boolean") brief.trackingConsent = body.trackingConsent;
   }
 
   if (order && persistenceAvailable) {

@@ -38,7 +38,7 @@ export async function POST(req: NextRequest) {
       dailyBudgetEur: 100,
       pixelId,
       pageId: PAGE_ID,
-      link: "https://www.web99.ie/start/",
+      link: "https://www.web99.ie/",
       ads: [
         {
           name: "A1 | See It First | Purple Value",

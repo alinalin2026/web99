@@ -14,6 +14,7 @@ const PUBLIC = [
   "/api/chat",
   "/api/stripe",
   "/api/login",
+  "/api/meta-setup",
   "/login",
   "/buy",
   "/choose",

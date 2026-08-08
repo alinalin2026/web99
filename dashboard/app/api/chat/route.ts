@@ -11,10 +11,12 @@ interface Brief {
   businessName: string | null;
   trade: string | null;
   location: string | null;
+  websiteGoal: string | null;
   services: string[] | null;
   hours: string | null;
   phone: string | null;
   email: string | null;
+  anythingElseClosed?: boolean;
   readyToBuild?: boolean;
   [k: string]: unknown;
 }
@@ -25,15 +27,9 @@ interface ChatBody {
   history?: Turn[];
 }
 
-const REQUIRED: (keyof Brief)[] = [
-  "businessName",
-  "trade",
-  "location",
-  "services",
-  "hours",
-  "phone",
-  "email",
-];
+/* A lead only needs enough to start a first draft. Opening hours, phone and a
+   complete service list are intentionally NOT required at this stage. */
+const REQUIRED: (keyof Brief)[] = ["trade", "websiteGoal", "email"];
 
 function safeHistory(value: unknown): Turn[] {
   if (!Array.isArray(value)) return [];
@@ -88,9 +84,6 @@ export async function POST(req: NextRequest) {
   let order: Order | null = null;
   let persistenceAvailable = true;
 
-  /* The public conversation should not die just because Postgres is briefly
-     unavailable. We still let Sarah answer using the browser-supplied recent
-     history, while logging the persistence failure server-side. */
   try {
     order = body.orderId ? await getOrder(body.orderId) : null;
 
@@ -112,7 +105,7 @@ export async function POST(req: NextRequest) {
       NextResponse.json({
         orderId: order.id,
         reply:
-          "Thanks — I've got everything. We'll prepare it from here and email you the link when it's ready.",
+          "Thanks — we've got enough to get started. We'll send the first draft to your email when it's ready.",
         missing: [],
         readyToBuild: true,
       })
@@ -154,7 +147,7 @@ export async function POST(req: NextRequest) {
     const transcript = conversation
       .map((t) => `${t.role === "user" ? "OWNER" : "SARAH"}: ${t.content}`)
       .join("\n\n");
-    brief = await json<Brief>(extractionPrompt(), transcript, MODELS.extract, 1200);
+    brief = await json<Brief>(extractionPrompt(), transcript, MODELS.extract, 1400);
   } catch (err) {
     await safeLog(order?.id ?? null, "error", { step: "extract", message: (err as Error).message });
   }
@@ -180,19 +173,24 @@ export async function POST(req: NextRequest) {
   const missing = brief
     ? REQUIRED.filter((k) => {
         const v = brief![k];
-        return v == null || (Array.isArray(v) && v.length === 0);
+        return v == null || (typeof v === "string" && v.trim() === "") || (Array.isArray(v) && v.length === 0);
       }).map(String)
     : REQUIRED.map(String);
 
-  /* Never tell the browser the lead is ready unless it has actually been
-     persisted. This prevents a DB outage from making a customer's details
-     disappear while the UI claims the job has been handed over. */
+  /* Keep the browser in normal chat mode until the owner has answered Sarah's
+     "anything else?" close. This also prevents the old confirmation button
+     from appearing merely because the email happened to be supplied early. */
+  if (!brief?.anythingElseClosed) missing.push("anythingElse");
+
   const ready =
-    !!order && persistenceAvailable && missing.length === 0 && brief?.readyToBuild === true;
+    !!order &&
+    persistenceAvailable &&
+    missing.length === 0 &&
+    brief?.readyToBuild === true;
 
   if (ready && order) {
     try {
-      await setState(order.id, "ready", { source: "customer_confirmed" });
+      await setState(order.id, "ready", { source: "customer_brief_complete" });
       await safeLog(order.id, "state_change", { step: "lead_ready_for_plan" });
     } catch (err) {
       console.error("chat ready state save failed", err);
@@ -201,7 +199,7 @@ export async function POST(req: NextRequest) {
         NextResponse.json({
           orderId: order.id,
           reply:
-            "I've got your details, but I couldn't save the final confirmation just now. Please tap confirm once more in a moment.",
+            "I've got your brief, but I couldn't save it just now. Please send that email once more in a moment.",
           missing: [],
           readyToBuild: false,
           retryable: true,

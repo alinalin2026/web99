@@ -121,14 +121,26 @@
     }
   }
 
-  /* Keep illustrative social-proof copy transparent without the clunky
-     repeated "Sample review copy" label on every card. */
-  Array.prototype.forEach.call(document.querySelectorAll("#feedback .tcard cite"), function (cite) {
-    var small = cite.querySelector("small");
-    if (!small) return;
-    cite.textContent = "";
-    cite.appendChild(small);
-  });
+  /* --- genuine reviewer feedback ----------------------------------------
+     These quotes came from Reddit reviewers who received a free Web99 review
+     build. Keep the connection disclosed, but do not label genuine feedback
+     as sample or illustrative copy. */
+  var feedback = document.getElementById("feedback");
+  if (feedback) {
+    var eyebrow = feedback.querySelector(".eyebrow");
+    var heading = feedback.querySelector(".h2");
+    var lede = feedback.querySelector(".lede");
+    if (eyebrow) eyebrow.textContent = "Real feedback";
+    if (heading) heading.textContent = "What reviewers said about Web99.";
+    if (lede) lede.textContent = "Feedback from Reddit reviewers who received a free Web99 review build.";
+
+    Array.prototype.forEach.call(feedback.querySelectorAll(".tcard cite"), function (cite) {
+      cite.textContent = "Reddit reviewer";
+      var small = document.createElement("small");
+      small.textContent = "Received a free review build";
+      cite.appendChild(small);
+    });
+  }
 
   /* --- sticky CTA bar -----------------------------------------------------
      Percentage-of-page-scrolled rather than a fixed pixel value, so "around

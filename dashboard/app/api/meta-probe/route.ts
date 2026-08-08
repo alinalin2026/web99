@@ -3,25 +3,39 @@ import { getMetaOverview, metaConfig } from "@/lib/meta";
 
 const PROBE = "w99-20260808-0425-meta-check";
 
-async function inferPageIds() {
+async function inferPages() {
   const cfg = metaConfig();
-  const url = new URL(`https://graph.facebook.com/${cfg.version}/${cfg.actAccountId}/ads`);
-  url.searchParams.set("fields", "creative{object_story_spec}");
-  url.searchParams.set("limit", "50");
-  const res = await fetch(url, {
+  const adsUrl = new URL(`https://graph.facebook.com/${cfg.version}/${cfg.actAccountId}/ads`);
+  adsUrl.searchParams.set("fields", "creative{object_story_spec}");
+  adsUrl.searchParams.set("limit", "50");
+  const adsRes = await fetch(adsUrl, {
     headers: { Authorization: `Bearer ${cfg.token}` },
     cache: "no-store",
   });
-  const body = (await res.json().catch(() => ({}))) as {
+  const adsBody = (await adsRes.json().catch(() => ({}))) as {
     data?: Array<{ creative?: { object_story_spec?: { page_id?: string } } }>;
   };
-  if (!res.ok) return [];
-  return Array.from(
+  if (!adsRes.ok) return [];
+
+  const ids = Array.from(
     new Set(
-      (body.data || [])
+      (adsBody.data || [])
         .map((ad) => ad.creative?.object_story_spec?.page_id)
         .filter((id): id is string => Boolean(id))
     )
+  );
+
+  return Promise.all(
+    ids.map(async (id) => {
+      const url = new URL(`https://graph.facebook.com/${cfg.version}/${id}`);
+      url.searchParams.set("fields", "id,name");
+      const res = await fetch(url, {
+        headers: { Authorization: `Bearer ${cfg.token}` },
+        cache: "no-store",
+      });
+      const body = (await res.json().catch(() => ({}))) as { id?: string; name?: string };
+      return { id, name: res.ok ? body.name || null : null };
+    })
   );
 }
 
@@ -36,7 +50,7 @@ export async function GET(req: NextRequest) {
   }
 
   try {
-    const [overview, inferredPageIds] = await Promise.all([getMetaOverview(), inferPageIds()]);
+    const [overview, inferredPages] = await Promise.all([getMetaOverview(), inferPages()]);
     const account = overview.account as Record<string, unknown>;
     return NextResponse.json({
       ok: true,
@@ -47,7 +61,7 @@ export async function GET(req: NextRequest) {
         status: account.account_status ?? null,
       },
       pageConnected: Boolean(overview.pageId),
-      inferredPageIds,
+      inferredPages,
       campaignReadCount: overview.campaigns.length,
       graphVersion: overview.graphVersion,
       launchEnabled: overview.allowLaunch,

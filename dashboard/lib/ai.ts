@@ -32,8 +32,19 @@ interface AnthropicResponse {
 }
 
 function apiKey(): string {
-  const key = process.env.ANTHROPIC_API_KEY?.trim();
-  if (!key) throw new Error("ANTHROPIC_API_KEY is not set. See .env.example.");
+  /* Prefer the correctly named variable. During the provider migration we
+     also accept the existing OPENAI_API_KEY slot because the live Vercel
+     project may already contain the user's sk-ant-* key there. Either way,
+     the key is sent only to Anthropic — never to OpenAI. */
+  const key =
+    process.env.ANTHROPIC_API_KEY?.trim() ||
+    process.env.OPENAI_API_KEY?.trim();
+
+  if (!key) {
+    throw new Error(
+      "ANTHROPIC_API_KEY is not set (legacy OPENAI_API_KEY fallback is also empty)."
+    );
+  }
   return key;
 }
 

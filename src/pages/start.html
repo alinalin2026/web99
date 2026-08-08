@@ -5,6 +5,22 @@
     path: /start
 -->
 
+<style>
+  .start .avatar {
+    background-image: url('/assets/img/sarah-photo.svg?v=20260808d');
+    background-size: cover;
+    background-position: center;
+    background-repeat: no-repeat;
+    border-radius: 999px;
+    overflow: hidden;
+    flex: 0 0 auto;
+  }
+  .start .avatar img { opacity: 0 !important; }
+  .start .turn--them .avatar {
+    background-image: none;
+  }
+</style>
+
 <section class="start">
   {{arcHero}}
   <div class="wrap">
@@ -17,8 +33,8 @@
       <div class="chat__thread" id="chatThread" aria-live="polite"></div>
 
       <div class="chat__intro" id="sarahIntro">
-        <span class="avatar" style="width:68px;height:68px">
-          <img src="/assets/img/sarah.svg?v=20260808c" alt="Sarah, Web99's AI assistant" width="68" height="68" />
+        <span class="avatar" style="width:68px;height:68px" role="img" aria-label="Sarah, Web99's AI assistant">
+          <img src="/assets/img/sarah-photo.svg?v=20260808d" alt="Sarah, Web99's AI assistant" width="68" height="68" />
         </span>
         <div>
           <p class="bubble" id="sarahPrompt">Hi, I'm Sarah — the Web99 assistant. First, what's the name of your business? If you don't have a name yet, just tell me that.</p>

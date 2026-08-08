@@ -174,7 +174,7 @@
     var KEY = "web99:orderId";
     var orderId = null;
     var sending = false;
-    var confirmWrap = null;
+    var quickWrap = null;
 
     try {
       orderId = window.sessionStorage.getItem(KEY);
@@ -202,7 +202,7 @@
       if (who === "sarah") {
         var img = document.createElement("img");
         img.src = "/assets/img/sarah.svg";
-        img.alt = "";
+        img.alt = "Sarah";
         img.width = 38;
         img.height = 38;
         av.appendChild(img);
@@ -230,9 +230,53 @@
       return turn;
     };
 
+    var clearQuickReplies = function () {
+      if (quickWrap && quickWrap.parentNode) quickWrap.remove();
+      quickWrap = null;
+    };
+
+    var showQuickReplies = function (items) {
+      clearQuickReplies();
+      if (!Array.isArray(items) || items.length < 2) return;
+
+      quickWrap = el("div", "chat__confirm");
+      quickWrap.setAttribute("aria-label", "Quick replies");
+      quickWrap.style.display = "flex";
+      quickWrap.style.flexWrap = "wrap";
+      quickWrap.style.gap = "10px";
+      quickWrap.style.margin = "-8px 0 18px 51px";
+
+      items.slice(0, 3).forEach(function (item) {
+        if (!item) return;
+        var label = String(item.label || item.value || "").trim();
+        var value = String(item.value || item.label || "").trim();
+        if (!label || !value) return;
+
+        var button = el("button", "btn btn--ghost", label);
+        button.type = "button";
+        button.style.width = "auto";
+        button.style.padding = "11px 18px";
+        button.style.fontSize = "0.95rem";
+        button.addEventListener("click", function () {
+          clearQuickReplies();
+          field.value = value;
+          field.blur();
+          startForm.requestSubmit();
+        });
+        quickWrap.appendChild(button);
+      });
+
+      if (!quickWrap.children.length) {
+        clearQuickReplies();
+        return;
+      }
+
+      startForm.parentNode.insertBefore(quickWrap, startForm);
+      quickWrap.scrollIntoView({ block: "nearest", behavior: reduced ? "auto" : "smooth" });
+    };
+
     var finish = function () {
-      if (confirmWrap && confirmWrap.parentNode) confirmWrap.remove();
-      confirmWrap = null;
+      clearQuickReplies();
       startForm.remove();
       var done = el("div", "chat__done");
       done.appendChild(el("h2", null, "That's everything — thanks."));
@@ -247,6 +291,7 @@
     };
 
     var breakDown = function () {
+      clearQuickReplies();
       var wrap = el("div", "chat__done");
       wrap.appendChild(el("h2", null, "Something went wrong our end."));
       wrap.appendChild(
@@ -259,26 +304,6 @@
       startForm.replaceWith(wrap);
     };
 
-    var clearConfirm = function () {
-      if (confirmWrap && confirmWrap.parentNode) confirmWrap.remove();
-      confirmWrap = null;
-    };
-
-    var showConfirm = function () {
-      clearConfirm();
-      confirmWrap = el("div", "chat__confirm");
-      var yes = el("button", "btn", "Yes — that's right");
-      yes.type = "button";
-      yes.addEventListener("click", function () {
-        clearConfirm();
-        field.value = "Yes, that's right.";
-        startForm.requestSubmit();
-      });
-      confirmWrap.appendChild(yes);
-      startForm.parentNode.insertBefore(confirmWrap, startForm);
-      yes.scrollIntoView({ block: "nearest", behavior: reduced ? "auto" : "smooth" });
-    };
-
     startForm.addEventListener("submit", function (e) {
       e.preventDefault();
       if (sending) return;
@@ -289,7 +314,13 @@
         return;
       }
 
-      clearConfirm();
+      /* On phones, submitting should dismiss the keyboard. Never re-focus the
+         textarea when Sarah replies; it opens again only when the user taps it. */
+      field.blur();
+      if (document.activeElement && typeof document.activeElement.blur === "function") {
+        document.activeElement.blur();
+      }
+      clearQuickReplies();
 
       /* Sarah's opening bubble becomes part of the thread once it's underway. */
       if (intro && intro.parentNode) {
@@ -342,15 +373,20 @@
               }));
             } catch (err) {}
             finish();
+          } else if (Array.isArray(data.quickReplies) && data.quickReplies.length >= 2) {
+            showQuickReplies(data.quickReplies);
           } else if (
             Array.isArray(data.missing) &&
             data.missing.length === 0 &&
             /\?\s*$/.test(data.reply || "")
           ) {
-            showConfirm();
-          } else {
-            field.focus();
+            showQuickReplies([
+              { label: "Yes — that's right", value: "Yes, that's right." },
+              { label: "I want to add something", value: "I'd like to add something." }
+            ]);
           }
+          /* Deliberately no field.focus() here. On mobile, Sarah's reply should
+             stay readable instead of making the keyboard jump back up. */
         })
         .catch(function () {
           pending.remove();

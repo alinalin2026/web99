@@ -2,15 +2,10 @@ import { NextRequest, NextResponse } from "next/server";
 import Stripe from "stripe";
 import { sql, getOrder, setState, logEvent } from "@/lib/db";
 import { paid, send } from "@/lib/email";
+import { sendMetaConversion } from "@/lib/meta-conversions";
 
 export const runtime = "nodejs";
 
-/* Stripe webhook. The only thing that may mark an order paid — never the
-   success_url, which a customer can reach by typing it. */
-
-/* No apiVersion pin — the SDK's own default always matches the types it
-   ships with, so upgrading the package can't leave a stale literal behind.
-   Constructed lazily so a build doesn't need live keys. */
 let _stripe: Stripe | undefined;
 function stripe(): Stripe {
   if (!_stripe) {
@@ -49,6 +44,28 @@ export async function POST(req: NextRequest) {
           WHERE id = ${orderId}`;
         await setState(orderId, "won", { session: session.id });
         await logEvent(orderId, "state_change", { step: "paid", amount: session.amount_total });
+
+        const brief = (order.brief || {}) as {
+          trackingConsent?: boolean;
+          attribution?: Record<string, string | number> | null;
+        };
+        if (brief.trackingConsent === true) {
+          const meta = await sendMetaConversion({
+            eventName: "Purchase",
+            eventId: `purchase_${session.id}`,
+            email: order.email,
+            attribution: brief.attribution,
+            eventSourceUrl: `${process.env.APP_URL}/choose/${orderId}`,
+            value: (session.amount_total ?? 9900) / 100,
+            currency: (session.currency || "eur").toUpperCase(),
+          });
+          await logEvent(orderId, meta.ok ? "meta_conversion" : "meta_conversion_error", {
+            event: "Purchase",
+            eventId: `purchase_${session.id}`,
+            pixelId: meta.pixelId ?? null,
+            error: meta.error ?? null,
+          });
+        }
 
         if (order.email) {
           try {

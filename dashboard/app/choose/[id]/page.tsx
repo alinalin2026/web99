@@ -1,21 +1,11 @@
 import { notFound } from "next/navigation";
 import { getOrder } from "@/lib/db";
 import { commercials } from "@/lib/capabilities";
+import { resolveMetaPixelId } from "@/lib/meta-sales";
 import Choice from "./choice";
+import PurchaseAnalytics from "./PurchaseAnalytics";
 
 export const dynamic = "force-dynamic";
-
-/* The stay-or-leave fork, after they've paid.
-
-   Deliberately not a retention funnel. They already own the domain and the
-   files — that's promised on the marketing site, in the FAQ and in the terms.
-   Making it hard to leave here would poison the exact thing that makes the
-   €99 pitch work in the first place.
-
-   So: both options are presented plainly, "leave" is one click and does not
-   ask why, and nothing on this page is dressed up as a limited-time anything.
-   The care plan is not offered here because it isn't built yet — when it is,
-   it goes in capabilities.ts and gets added to the "stay" column. */
 
 export default async function ChoosePage({
   params,
@@ -30,9 +20,27 @@ export default async function ChoosePage({
   if (!order) notFound();
 
   const name = order.business_name ?? "your business";
+  const brief = (order.brief || {}) as { trackingConsent?: boolean };
+  const shouldTrackPurchase = paid === "1" && order.state === "won" && brief.trackingConsent === true;
+  let metaPixelId: string | null = null;
+  if (shouldTrackPurchase) {
+    try {
+      metaPixelId = await resolveMetaPixelId(false);
+    } catch (error) {
+      console.error("purchase page pixel lookup failed", error);
+    }
+  }
 
   return (
     <main className="wrap" style={{ maxWidth: 720 }}>
+      {shouldTrackPurchase && order.stripe_session_id && (
+        <PurchaseAnalytics
+          transactionId={order.stripe_session_id}
+          value={commercials.priceNumeric / 100}
+          pixelId={metaPixelId}
+        />
+      )}
+
       {paid === "1" && (
         <div
           className="card"

@@ -1,28 +1,16 @@
-/* Web99 analytics + ad attribution. Non-essential tracking is consent-gated. */
+/* Web99 analytics + ad attribution. Google tag is loaded in <head>; Meta Pixel
+   loads only after measurement consent. */
 (function () {
   "use strict";
 
-  /* Production measurement IDs. Pixel IDs are public identifiers, not secrets. */
-  var GA_ID = "G-8X9XMJV81V";
   var META_PIXEL_ID = "1523480709550301";
   var CONSENT_KEY = "web99:trackingConsent";
   var ATTR_KEY = "web99:attribution";
-  var loaded = false;
   var metaLoaded = false;
-  var gaLoaded = false;
+  var offerEventsSent = false;
 
   window.dataLayer = window.dataLayer || [];
   window.gtag = window.gtag || function () { window.dataLayer.push(arguments); };
-
-  /* Ireland/EU: keep analytics/advertising storage denied until the visitor
-     explicitly accepts the measurement banner. */
-  window.gtag("consent", "default", {
-    analytics_storage: "denied",
-    ad_storage: "denied",
-    ad_user_data: "denied",
-    ad_personalization: "denied",
-    wait_for_update: 500
-  });
 
   function safeGet(key) {
     try { return window.localStorage.getItem(key); } catch (e) { return null; }
@@ -65,44 +53,40 @@
     return safeGet(CONSENT_KEY) === "granted";
   };
 
-  function loadGoogle() {
-    if (gaLoaded) return;
-    gaLoaded = true;
+  function updateGoogleConsent(granted) {
+    var state = granted ? "granted" : "denied";
     window.gtag("consent", "update", {
-      analytics_storage: "granted",
-      ad_storage: "granted",
-      ad_user_data: "granted",
-      ad_personalization: "granted"
+      analytics_storage: state,
+      ad_storage: state,
+      ad_user_data: state,
+      ad_personalization: state
     });
-    window.gtag("js", new Date());
-    window.gtag("config", GA_ID, {
-      send_page_view: true,
-      page_location: window.location.href,
-      page_path: window.location.pathname + window.location.search
-    });
-    var s = document.createElement("script");
-    s.async = true;
-    s.src = "https://www.googletagmanager.com/gtag/js?id=" + encodeURIComponent(GA_ID);
-    document.head.appendChild(s);
   }
 
   function loadMeta() {
     if (metaLoaded || !/^\d+$/.test(META_PIXEL_ID)) return;
     metaLoaded = true;
+
     if (!window.fbq) {
-      var fbq = function () { fbq.callMethod ? fbq.callMethod.apply(fbq, arguments) : fbq.queue.push(arguments); };
+      var fbq = function () {
+        fbq.callMethod ? fbq.callMethod.apply(fbq, arguments) : fbq.queue.push(arguments);
+      };
       if (!window._fbq) window._fbq = fbq;
       fbq.push = fbq;
       fbq.loaded = true;
       fbq.version = "2.0";
       fbq.queue = [];
       window.fbq = fbq;
-      var f = document.createElement("script");
-      f.async = true;
-      f.src = "https://connect.facebook.net/en_US/fbevents.js";
-      var first = document.getElementsByTagName("script")[0];
-      first.parentNode.insertBefore(f, first);
+
+      var script = document.createElement("script");
+      script.async = true;
+      script.src = "https://connect.facebook.net/en_US/fbevents.js";
+      script.onerror = function () {
+        metaLoaded = false;
+      };
+      document.head.appendChild(script);
     }
+
     window.fbq("init", META_PIXEL_ID);
     window.fbq("track", "PageView");
   }
@@ -118,6 +102,8 @@
   }
 
   function sendInitialOfferEvents() {
+    if (offerEventsSent || !window.web99TrackingConsent()) return;
+    offerEventsSent = true;
     var path = window.location.pathname.replace(/\/+$/, "") || "/";
     if (path !== "/" && path !== "/start" && path !== "/pricing" && path !== "/features") return;
 
@@ -129,17 +115,15 @@
     if (window.fbq) window.fbq("track", "ViewContent", productParams());
   }
 
-  function loadTracking() {
-    if (loaded) return;
-    loaded = true;
-    loadGoogle();
+  function enableTracking() {
+    updateGoogleConsent(true);
     loadMeta();
     sendInitialOfferEvents();
   }
 
   function sendEvent(gaName, metaName, params, eventId) {
     if (!window.web99TrackingConsent()) return;
-    loadTracking();
+    enableTracking();
     if (gaName) window.gtag("event", gaName, params || {});
     if (metaName && window.fbq) {
       if (eventId) window.fbq("track", metaName, params || {}, { eventID: eventId });
@@ -149,24 +133,17 @@
 
   window.web99Track = sendEvent;
 
-  /* Lead = Sarah has enough information, including email, to build the site.
-     The event_id deliberately matches server-side CAPI for Meta deduplication. */
   window.addEventListener("web99:lead", function (event) {
     var detail = event.detail || {};
     var orderId = detail.orderId ? String(detail.orderId) : "";
     sendEvent(
       "generate_lead",
       "Lead",
-      {
-        content_name: "Website brief completed",
-        currency: "EUR",
-        value: 99
-      },
+      { content_name: "Website brief completed", currency: "EUR", value: 99 },
       orderId ? "lead_" + orderId : undefined
     );
   });
 
-  /* First actual message to Sarah. Only fires once per page load. */
   var chatStarted = false;
   document.addEventListener("submit", function (event) {
     var form = event.target;
@@ -180,8 +157,6 @@
     }
   }, true);
 
-  /* Main funnel CTA. We keep this as a GA event rather than pretending a CTA
-     click is a Meta Lead/Checkout; Meta gets the real Contact + Lead events. */
   document.addEventListener("click", function (event) {
     var target = event.target && event.target.closest ? event.target.closest("a[href]") : null;
     if (!target) return;
@@ -203,7 +178,7 @@
     wrap.innerHTML =
       '<div style="position:fixed;left:16px;right:16px;bottom:16px;z-index:99999;max-width:760px;margin:auto;background:#17132f;color:#fff;border-radius:16px;padding:17px 18px;box-shadow:0 18px 55px rgba(20,16,51,.28);font:14px/1.5 Manrope,-apple-system,BlinkMacSystemFont,Segoe UI,sans-serif">' +
         '<strong style="display:block;font-size:16px;margin-bottom:5px">Cookies & measurement</strong>' +
-        '<span style="color:#ded9f4">We use Google Analytics and Meta Pixel to measure visits, enquiries and ad results. They only load if you accept.</span>' +
+        '<span style="color:#ded9f4">We use Google Analytics and Meta Pixel to measure visits, enquiries and ad results. They only use measurement cookies if you accept.</span>' +
         '<div style="display:flex;gap:9px;flex-wrap:wrap;margin-top:13px">' +
           '<button type="button" data-cookie="accept" style="border:0;border-radius:999px;padding:10px 16px;background:#6c4df6;color:#fff;font:700 14px Manrope,sans-serif;cursor:pointer">Accept</button>' +
           '<button type="button" data-cookie="reject" style="border:1px solid #746d9e;border-radius:999px;padding:9px 16px;background:transparent;color:#fff;font:700 14px Manrope,sans-serif;cursor:pointer">Reject</button>' +
@@ -223,15 +198,10 @@
       var choice = button.getAttribute("data-cookie");
       if (choice === "accept") {
         safeSet(CONSENT_KEY, "granted");
-        loadTracking();
+        enableTracking();
       } else {
         safeSet(CONSENT_KEY, "denied");
-        window.gtag("consent", "update", {
-          analytics_storage: "denied",
-          ad_storage: "denied",
-          ad_user_data: "denied",
-          ad_personalization: "denied"
-        });
+        updateGoogleConsent(false);
       }
       banner.remove();
     });
@@ -245,8 +215,9 @@
   });
 
   var savedConsent = safeGet(CONSENT_KEY);
-  if (savedConsent === "granted") loadTracking();
-  else if (savedConsent !== "denied") {
+  if (savedConsent === "granted") {
+    enableTracking();
+  } else if (savedConsent !== "denied") {
     if (document.readyState === "loading") document.addEventListener("DOMContentLoaded", showBanner);
     else showBanner();
   }

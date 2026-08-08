@@ -33,6 +33,8 @@ interface ChatBody {
   trackingConsent?: boolean;
 }
 
+type QuickReply = { label: string; value: string };
+
 const REQUIRED: (keyof Brief)[] = ["trade", "websiteGoal", "email"];
 
 const ATTR_KEYS = [
@@ -73,6 +75,25 @@ function safeHistory(value: unknown): Turn[] {
     .map((t) => ({ role: t.role, content: t.content.trim().slice(0, 4000) }))
     .filter((t) => t.content.length > 0)
     .slice(-18);
+}
+
+function parseSarahReply(raw: string): { reply: string; quickReplies: QuickReply[] } {
+  const marker = /\s*\[\[OPTIONS:\s*([^\]]+)\]\]\s*$/i;
+  const match = raw.match(marker);
+  if (!match) return { reply: raw.trim(), quickReplies: [] };
+
+  const labels = match[1]
+    .split("|")
+    .map((part) => part.trim().replace(/\s+/g, " ").slice(0, 48))
+    .filter(Boolean)
+    .slice(0, 3);
+
+  if (labels.length < 2) return { reply: raw.replace(marker, "").trim(), quickReplies: [] };
+
+  return {
+    reply: raw.replace(marker, "").trim(),
+    quickReplies: labels.map((label) => ({ label, value: label })),
+  };
 }
 
 function clientIp(req: NextRequest): string | null {
@@ -146,6 +167,7 @@ export async function POST(req: NextRequest) {
       NextResponse.json({
         orderId: order.id,
         reply: "Thanks — we've got enough to get started. We'll send the first draft to your email when it's ready.",
+        quickReplies: [],
         missing: [],
         readyToBuild: true,
       })
@@ -157,9 +179,9 @@ export async function POST(req: NextRequest) {
     : browserHistory;
   const turns: Turn[] = [...savedTurns, { role: "user", content: message }];
 
-  let reply: string;
+  let modelReply: string;
   try {
-    reply = await chat(sarahSystemPrompt(), turns, MODELS.sarah);
+    modelReply = await chat(sarahSystemPrompt(), turns, MODELS.sarah);
   } catch (err) {
     await safeLog(order?.id ?? null, "error", { step: "sarah", message: (err as Error).message });
     return withCors(
@@ -167,6 +189,7 @@ export async function POST(req: NextRequest) {
       NextResponse.json({
         orderId: order?.id ?? null,
         reply: "Sorry — I couldn't get a reply through just now. Please try that message once more, or ring us on (01) 234 3300.",
+        quickReplies: [],
         missing: [],
         readyToBuild: false,
         retryable: true,
@@ -174,6 +197,9 @@ export async function POST(req: NextRequest) {
     );
   }
 
+  const parsedReply = parseSarahReply(modelReply);
+  const reply = parsedReply.reply;
+  const quickReplies = parsedReply.quickReplies;
   const now = new Date().toISOString();
   const conversation = [
     ...(order?.conversation ?? browserHistory.map((t) => ({ ...t, at: now }))),
@@ -260,6 +286,7 @@ export async function POST(req: NextRequest) {
         NextResponse.json({
           orderId: order.id,
           reply: "I've got your brief, but I couldn't save it just now. Please send that email once more in a moment.",
+          quickReplies: [],
           missing: [],
           readyToBuild: false,
           retryable: true,
@@ -273,6 +300,7 @@ export async function POST(req: NextRequest) {
     NextResponse.json({
       orderId: order?.id ?? null,
       reply,
+      quickReplies: ready ? [] : quickReplies,
       missing,
       readyToBuild: ready,
       temporary: !persistenceAvailable,

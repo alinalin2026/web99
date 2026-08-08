@@ -33,6 +33,32 @@
     <link rel="apple-touch-icon" href="/assets/img/brand/apple-touch-icon.png" />
     <link rel="manifest" href="/site.webmanifest" />
 
+    <!-- Google Analytics 4 — installed on every page. Consent is read before
+         the first measurement command so returning visitors keep their choice. -->
+    <script>
+      window.dataLayer = window.dataLayer || [];
+      function gtag(){dataLayer.push(arguments);}
+      (function () {
+        var granted = false;
+        try { granted = localStorage.getItem("web99:trackingConsent") === "granted"; } catch (e) {}
+        var state = granted ? "granted" : "denied";
+        gtag("consent", "default", {
+          analytics_storage: state,
+          ad_storage: state,
+          ad_user_data: state,
+          ad_personalization: state,
+          wait_for_update: 500
+        });
+      })();
+      gtag("js", new Date());
+      gtag("config", "G-8X9XMJV81V", {
+        send_page_view: true,
+        page_location: window.location.href,
+        page_path: window.location.pathname + window.location.search
+      });
+    </script>
+    <script async src="https://www.googletagmanager.com/gtag/js?id=G-8X9XMJV81V"></script>
+
     <link rel="preconnect" href="https://fonts.googleapis.com" />
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
     <link
@@ -61,6 +87,6 @@
     {{footer}}
 
     <script src="/assets/js/site.js" defer></script>
-    <script src="/assets/js/tracking.js?v=20260808b" defer></script>
+    <script src="/assets/js/tracking.js?v=20260808c" defer></script>
   </body>
 </html>

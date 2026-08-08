@@ -204,7 +204,7 @@ export default function MetaManager() {
         <p style={{ margin: 0, color: "#5b3fe8", fontWeight: 800, fontSize: 13 }}>RECOMMENDED WEB99 CAMPAIGN</p>
         <h2 style={{ margin: "6px 0 8px" }}>Ireland broad · 5 ads · conversion optimized</h2>
         <p style={{ margin: "0 0 14px", color: "#5f596d", lineHeight: 1.55 }}>
-          Creates one PAUSED Sales campaign, one Ireland age 25–65 broad ad set at €100/day, and five PAUSED ads. It resolves or creates the Web99 Pixel/Dataset and optimizes initially for completed website briefs (Lead), while purchases are tracked separately.
+          Creates one PAUSED Sales campaign, one Ireland age 25–65 broad ad set at €100/day, and five PAUSED ads. Ads land on the Web99 homepage. It resolves or creates the Web99 Pixel/Dataset and optimizes initially for completed website briefs (Lead), while purchases are tracked separately.
         </p>
         <button
           type="button"
@@ -271,7 +271,7 @@ export default function MetaManager() {
 
           <label style={labelStyle}>
             Destination
-            <input name="link" required type="url" defaultValue="https://web99.ie/start/" style={fieldStyle} />
+            <input name="link" required type="url" defaultValue="https://www.web99.ie/" style={fieldStyle} />
           </label>
 
           <div>

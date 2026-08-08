@@ -305,11 +305,18 @@
       sending = true;
       if (sendBtn) sendBtn.disabled = true;
       var pending = addTurn("sarah", null);
+      var attribution = typeof window.web99Attribution === "function" ? window.web99Attribution() : null;
+      var trackingConsent = typeof window.web99TrackingConsent === "function" ? window.web99TrackingConsent() : false;
 
       fetch(api + "/api/chat", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ orderId: orderId, message: story }),
+        body: JSON.stringify({
+          orderId: orderId,
+          message: story,
+          attribution: attribution,
+          trackingConsent: trackingConsent
+        }),
       })
         .then(function (r) {
           if (!r.ok) throw new Error("HTTP " + r.status);
@@ -329,6 +336,11 @@
 
           addTurn("sarah", data.reply);
           if (data.readyToBuild) {
+            try {
+              window.dispatchEvent(new CustomEvent("web99:lead", {
+                detail: { orderId: data.orderId || orderId }
+              }));
+            } catch (err) {}
             finish();
           } else if (
             Array.isArray(data.missing) &&

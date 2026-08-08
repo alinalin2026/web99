@@ -3,12 +3,15 @@
   "use strict";
 
   var GA_ID = "G-8X9XMJV81V";
-  var META_PIXEL_ID = "__META_PIXEL_ID__";
+  var META_PIXEL_ID = "";
+  var TRACKING_CONFIG_URL = "https://web99dashboard.vercel.app/api/chat";
   var CONSENT_KEY = "web99:trackingConsent";
   var ATTR_KEY = "web99:attribution";
   var loaded = false;
   var metaLoaded = false;
+  var metaLoading = false;
   var gaLoaded = false;
+  var metaQueue = [];
 
   window.dataLayer = window.dataLayer || [];
   window.gtag = window.gtag || function () { window.dataLayer.push(arguments); };
@@ -78,8 +81,18 @@
     document.head.appendChild(s);
   }
 
-  function loadMeta() {
-    if (metaLoaded || !/^\d+$/.test(META_PIXEL_ID)) return;
+  function flushMetaQueue() {
+    if (!metaLoaded || !window.fbq) return;
+    while (metaQueue.length) {
+      var item = metaQueue.shift();
+      if (item.eventId) window.fbq("track", item.name, item.params || {}, { eventID: item.eventId });
+      else window.fbq("track", item.name, item.params || {});
+    }
+  }
+
+  function initialiseMeta(pixelId) {
+    if (metaLoaded || !/^\d+$/.test(pixelId || "")) return;
+    META_PIXEL_ID = pixelId;
     metaLoaded = true;
     if (!window.fbq) {
       var fbq = function () { fbq.callMethod ? fbq.callMethod.apply(fbq, arguments) : fbq.queue.push(arguments); };
@@ -97,16 +110,44 @@
     }
     window.fbq("init", META_PIXEL_ID);
     window.fbq("track", "PageView");
+    if (window.location.pathname.replace(/\/+$/, "") === "/start") {
+      window.fbq("track", "ViewContent", {
+        content_name: "Web99 website package",
+        value: 99,
+        currency: "EUR"
+      });
+    }
+    flushMetaQueue();
   }
 
-  function sendInitialPageEvents() {
+  function loadMeta() {
+    if (metaLoaded || metaLoading || !window.web99TrackingConsent()) return;
+    metaLoading = true;
+    fetch(TRACKING_CONFIG_URL, { method: "GET", mode: "cors", cache: "no-store" })
+      .then(function (response) { return response.ok ? response.json() : {}; })
+      .then(function (data) { initialiseMeta(String(data.metaPixelId || "")); })
+      .catch(function () {})
+      .then(function () { metaLoading = false; });
+  }
+
+  function queueMeta(name, params, eventId) {
+    if (!name || !window.web99TrackingConsent()) return;
+    if (metaLoaded && window.fbq) {
+      if (eventId) window.fbq("track", name, params || {}, { eventID: eventId });
+      else window.fbq("track", name, params || {});
+      return;
+    }
+    metaQueue.push({ name: name, params: params || {}, eventId: eventId });
+    loadMeta();
+  }
+
+  function sendInitialGoogleEvents() {
     if (window.location.pathname.replace(/\/+$/, "") === "/start") {
       window.gtag("event", "view_item", {
         currency: "EUR",
         value: 99,
         items: [{ item_id: "web99-website", item_name: "Web99 website package", price: 99, quantity: 1 }]
       });
-      if (window.fbq) window.fbq("track", "ViewContent", { content_name: "Web99 website package", value: 99, currency: "EUR" });
     }
   }
 
@@ -115,17 +156,14 @@
     loaded = true;
     loadGoogle();
     loadMeta();
-    sendInitialPageEvents();
+    sendInitialGoogleEvents();
   }
 
   function sendEvent(gaName, metaName, params, eventId) {
     if (!window.web99TrackingConsent()) return;
     loadTracking();
     if (gaName) window.gtag("event", gaName, params || {});
-    if (metaName && window.fbq) {
-      if (eventId) window.fbq("track", metaName, params || {}, { eventID: eventId });
-      else window.fbq("track", metaName, params || {});
-    }
+    if (metaName) queueMeta(metaName, params, eventId);
   }
 
   window.web99Track = sendEvent;
@@ -202,7 +240,7 @@
   }
 
   document.addEventListener("click", function (event) {
-    var link = event.target && event.target.closest ? event.target.closest("#cookieSettings") : null;
+    var link = event.target && event.target.closest ? event.target.closest("#cookieSettings,[data-cookie-settings]") : null;
     if (!link) return;
     event.preventDefault();
     showBanner();

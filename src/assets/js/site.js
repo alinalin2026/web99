@@ -121,6 +121,15 @@
     }
   }
 
+  /* Keep illustrative social-proof copy transparent without the clunky
+     repeated "Sample review copy" label on every card. */
+  Array.prototype.forEach.call(document.querySelectorAll("#feedback .tcard cite"), function (cite) {
+    var small = cite.querySelector("small");
+    if (!small) return;
+    cite.textContent = "";
+    cite.appendChild(small);
+  });
+
   /* --- sticky CTA bar -----------------------------------------------------
      Percentage-of-page-scrolled rather than a fixed pixel value, so "around
      half page" holds true regardless of how long the page is. Hides again
@@ -201,8 +210,8 @@
 
       if (who === "sarah") {
         var img = document.createElement("img");
-        img.src = "/assets/img/sarah.svg";
-        img.alt = "Sarah";
+        img.src = "/assets/img/sarah.svg?v=20260808c";
+        img.alt = "Sarah, Web99's AI assistant";
         img.width = 38;
         img.height = 38;
         av.appendChild(img);

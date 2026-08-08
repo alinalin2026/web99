@@ -174,6 +174,7 @@
     var KEY = "web99:orderId";
     var orderId = null;
     var sending = false;
+    var confirmWrap = null;
 
     try {
       orderId = window.sessionStorage.getItem(KEY);
@@ -230,6 +231,8 @@
     };
 
     var finish = function () {
+      if (confirmWrap && confirmWrap.parentNode) confirmWrap.remove();
+      confirmWrap = null;
       startForm.remove();
       var done = el("div", "chat__done");
       done.appendChild(el("h2", null, "That's everything — thanks."));
@@ -256,6 +259,26 @@
       startForm.replaceWith(wrap);
     };
 
+    var clearConfirm = function () {
+      if (confirmWrap && confirmWrap.parentNode) confirmWrap.remove();
+      confirmWrap = null;
+    };
+
+    var showConfirm = function () {
+      clearConfirm();
+      confirmWrap = el("div", "chat__confirm");
+      var yes = el("button", "btn", "Yes — that's right");
+      yes.type = "button";
+      yes.addEventListener("click", function () {
+        clearConfirm();
+        field.value = "Yes, that's right.";
+        startForm.requestSubmit();
+      });
+      confirmWrap.appendChild(yes);
+      startForm.parentNode.insertBefore(confirmWrap, startForm);
+      yes.scrollIntoView({ block: "nearest", behavior: reduced ? "auto" : "smooth" });
+    };
+
     startForm.addEventListener("submit", function (e) {
       e.preventDefault();
       if (sending) return;
@@ -265,6 +288,8 @@
         field.focus();
         return;
       }
+
+      clearConfirm();
 
       /* Sarah's opening bubble becomes part of the thread once it's underway. */
       if (intro && intro.parentNode) {
@@ -303,8 +328,17 @@
           }
 
           addTurn("sarah", data.reply);
-          if (data.readyToBuild) finish();
-          else field.focus();
+          if (data.readyToBuild) {
+            finish();
+          } else if (
+            Array.isArray(data.missing) &&
+            data.missing.length === 0 &&
+            /\?\s*$/.test(data.reply || "")
+          ) {
+            showConfirm();
+          } else {
+            field.focus();
+          }
         })
         .catch(function () {
           pending.remove();

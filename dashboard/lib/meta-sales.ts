@@ -25,7 +25,14 @@ async function graph<T>(method: "GET" | "POST", path: string, params: Record<str
   const values = new URLSearchParams();
   for (const [key, value] of Object.entries(params)) {
     if (value === undefined || value === null || value === "") continue;
-    values.set(key, typeof value === "string" ? value : typeof value === "number" || typeof value === "boolean" ? String(value) : JSON.stringify(value));
+    values.set(
+      key,
+      typeof value === "string"
+        ? value
+        : typeof value === "number" || typeof value === "boolean"
+          ? String(value)
+          : JSON.stringify(value)
+    );
   }
 
   const cleanPath = path.replace(/^\/+/, "");
@@ -46,16 +53,62 @@ async function graph<T>(method: "GET" | "POST", path: string, params: Record<str
   return body as T;
 }
 
-export async function uploadMetaAdImage(base64Jpeg: string): Promise<{ hash: string; url?: string }> {
+let pixelCache: { id: string; at: number } | null = null;
+
+export async function resolveMetaPixelId(createIfMissing = false): Promise<string | null> {
+  const cfg = metaConfig();
+  const explicit = (process.env.META_PIXEL_ID ?? "").trim();
+  if (/^\d+$/.test(explicit)) return explicit;
+  if (pixelCache && Date.now() - pixelCache.at < 60 * 60 * 1000) return pixelCache.id;
+
+  const existing = await graph<{ data?: Array<{ id?: string; name?: string }> }>(
+    "GET",
+    `${cfg.actAccountId}/adspixels`,
+    { fields: "id,name", limit: 50 }
+  );
+  const pixels = (existing.data || []).filter((p): p is { id: string; name?: string } => Boolean(p.id));
+  const preferred = pixels.find((p) => /web\s*99/i.test(p.name || "")) || pixels[0];
+  if (preferred?.id) {
+    pixelCache = { id: preferred.id, at: Date.now() };
+    return preferred.id;
+  }
+
+  if (!createIfMissing) return null;
+  const created = await graph<{ id: string }>("POST", `${cfg.actAccountId}/adspixels`, {
+    name: "Web99 Website",
+  });
+  if (!created.id) throw new Error("Meta did not return a Pixel/Dataset ID.");
+  pixelCache = { id: created.id, at: Date.now() };
+  return created.id;
+}
+
+export async function uploadMetaAdImage(base64Image: string): Promise<{ hash: string; url?: string }> {
   const cfg = metaConfig();
   const result = await graph<{ images?: Record<string, { hash: string; url?: string }> }>(
     "POST",
     `${cfg.actAccountId}/adimages`,
-    { bytes: base64Jpeg }
+    { bytes: base64Image }
   );
   const first = result.images ? Object.values(result.images)[0] : undefined;
   if (!first?.hash) throw new Error("Meta accepted the image request but did not return an image hash.");
   return first;
+}
+
+export async function uploadMetaAdImageFromUrl(url: string): Promise<{ hash: string; url?: string }> {
+  const response = await fetch(url, { cache: "no-store" });
+  if (!response.ok) throw new Error(`Could not fetch creative image (${response.status}) from ${url}`);
+  const bytes = Buffer.from(await response.arrayBuffer()).toString("base64");
+  return uploadMetaAdImage(bytes);
+}
+
+export async function findCampaignByName(name: string): Promise<{ id: string; name: string; status?: string } | null> {
+  const cfg = metaConfig();
+  const result = await graph<{ data?: Array<{ id: string; name: string; status?: string }> }>(
+    "GET",
+    `${cfg.actAccountId}/campaigns`,
+    { fields: "id,name,status", limit: 100 }
+  );
+  return (result.data || []).find((c) => c.name === name) || null;
 }
 
 export async function createWeb99SalesCampaign(input: {
@@ -99,6 +152,7 @@ export async function createWeb99SalesCampaign(input: {
       geo_locations: { countries: ["IE"] },
       age_min: 25,
       age_max: 65,
+      publisher_platforms: ["facebook", "instagram", "messenger", "audience_network"],
     },
     status: "PAUSED",
   });
@@ -119,7 +173,7 @@ export async function createWeb99SalesCampaign(input: {
           call_to_action: { type: "LEARN_MORE" },
         },
       },
-      url_tags: `utm_source=facebook&utm_medium=paid_social&utm_campaign={{campaign.name}}&utm_content={{ad.name}}&utm_term=ireland_broad`,
+      url_tags: "utm_source=facebook&utm_medium=paid_social&utm_campaign={{campaign.name}}&utm_content={{ad.name}}&utm_term=ireland_broad",
     });
 
     const created = await graph<{ id: string }>("POST", `${cfg.actAccountId}/ads`, {

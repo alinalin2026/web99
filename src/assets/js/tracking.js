@@ -2,25 +2,26 @@
 (function () {
   "use strict";
 
+  /* Production measurement IDs. Pixel IDs are public identifiers, not secrets. */
   var GA_ID = "G-8X9XMJV81V";
-  var META_PIXEL_ID = "";
-  var TRACKING_CONFIG_URL = "https://web99dashboard.vercel.app/api/chat";
+  var META_PIXEL_ID = "1523480709550301";
   var CONSENT_KEY = "web99:trackingConsent";
   var ATTR_KEY = "web99:attribution";
   var loaded = false;
   var metaLoaded = false;
-  var metaLoading = false;
   var gaLoaded = false;
-  var metaQueue = [];
 
   window.dataLayer = window.dataLayer || [];
   window.gtag = window.gtag || function () { window.dataLayer.push(arguments); };
 
+  /* Ireland/EU: keep analytics/advertising storage denied until the visitor
+     explicitly accepts the measurement banner. */
   window.gtag("consent", "default", {
     analytics_storage: "denied",
     ad_storage: "denied",
     ad_user_data: "denied",
-    ad_personalization: "denied"
+    ad_personalization: "denied",
+    wait_for_update: 500
   });
 
   function safeGet(key) {
@@ -35,7 +36,7 @@
     var existing = null;
     try { existing = JSON.parse(window.sessionStorage.getItem(ATTR_KEY) || "null"); } catch (e) {}
     var url = new URL(window.location.href);
-    var keys = ["fbclid", "utm_source", "utm_medium", "utm_campaign", "utm_content", "utm_term"];
+    var keys = ["fbclid", "gclid", "utm_source", "utm_medium", "utm_campaign", "utm_content", "utm_term"];
     var found = {};
     keys.forEach(function (key) {
       var value = url.searchParams.get(key);
@@ -74,25 +75,19 @@
       ad_personalization: "granted"
     });
     window.gtag("js", new Date());
-    window.gtag("config", GA_ID);
+    window.gtag("config", GA_ID, {
+      send_page_view: true,
+      page_location: window.location.href,
+      page_path: window.location.pathname + window.location.search
+    });
     var s = document.createElement("script");
     s.async = true;
     s.src = "https://www.googletagmanager.com/gtag/js?id=" + encodeURIComponent(GA_ID);
     document.head.appendChild(s);
   }
 
-  function flushMetaQueue() {
-    if (!metaLoaded || !window.fbq) return;
-    while (metaQueue.length) {
-      var item = metaQueue.shift();
-      if (item.eventId) window.fbq("track", item.name, item.params || {}, { eventID: item.eventId });
-      else window.fbq("track", item.name, item.params || {});
-    }
-  }
-
-  function initialiseMeta(pixelId) {
-    if (metaLoaded || !/^\d+$/.test(pixelId || "")) return;
-    META_PIXEL_ID = pixelId;
+  function loadMeta() {
+    if (metaLoaded || !/^\d+$/.test(META_PIXEL_ID)) return;
     metaLoaded = true;
     if (!window.fbq) {
       var fbq = function () { fbq.callMethod ? fbq.callMethod.apply(fbq, arguments) : fbq.queue.push(arguments); };
@@ -110,45 +105,28 @@
     }
     window.fbq("init", META_PIXEL_ID);
     window.fbq("track", "PageView");
-    if (window.location.pathname.replace(/\/+$/, "") === "/start") {
-      window.fbq("track", "ViewContent", {
-        content_name: "Web99 website package",
-        value: 99,
-        currency: "EUR"
-      });
-    }
-    flushMetaQueue();
   }
 
-  function loadMeta() {
-    if (metaLoaded || metaLoading || !window.web99TrackingConsent()) return;
-    metaLoading = true;
-    fetch(TRACKING_CONFIG_URL, { method: "GET", mode: "cors", cache: "no-store" })
-      .then(function (response) { return response.ok ? response.json() : {}; })
-      .then(function (data) { initialiseMeta(String(data.metaPixelId || "")); })
-      .catch(function () {})
-      .then(function () { metaLoading = false; });
+  function productParams() {
+    return {
+      content_ids: ["web99-website"],
+      content_type: "product",
+      content_name: "Web99 business website package",
+      currency: "EUR",
+      value: 99
+    };
   }
 
-  function queueMeta(name, params, eventId) {
-    if (!name || !window.web99TrackingConsent()) return;
-    if (metaLoaded && window.fbq) {
-      if (eventId) window.fbq("track", name, params || {}, { eventID: eventId });
-      else window.fbq("track", name, params || {});
-      return;
-    }
-    metaQueue.push({ name: name, params: params || {}, eventId: eventId });
-    loadMeta();
-  }
+  function sendInitialOfferEvents() {
+    var path = window.location.pathname.replace(/\/+$/, "") || "/";
+    if (path !== "/" && path !== "/start" && path !== "/pricing" && path !== "/features") return;
 
-  function sendInitialGoogleEvents() {
-    if (window.location.pathname.replace(/\/+$/, "") === "/start") {
-      window.gtag("event", "view_item", {
-        currency: "EUR",
-        value: 99,
-        items: [{ item_id: "web99-website", item_name: "Web99 website package", price: 99, quantity: 1 }]
-      });
-    }
+    window.gtag("event", "view_item", {
+      currency: "EUR",
+      value: 99,
+      items: [{ item_id: "web99-website", item_name: "Web99 business website package", price: 99, quantity: 1 }]
+    });
+    if (window.fbq) window.fbq("track", "ViewContent", productParams());
   }
 
   function loadTracking() {
@@ -156,44 +134,64 @@
     loaded = true;
     loadGoogle();
     loadMeta();
-    sendInitialGoogleEvents();
+    sendInitialOfferEvents();
   }
 
   function sendEvent(gaName, metaName, params, eventId) {
     if (!window.web99TrackingConsent()) return;
     loadTracking();
     if (gaName) window.gtag("event", gaName, params || {});
-    if (metaName) queueMeta(metaName, params, eventId);
+    if (metaName && window.fbq) {
+      if (eventId) window.fbq("track", metaName, params || {}, { eventID: eventId });
+      else window.fbq("track", metaName, params || {});
+    }
   }
 
   window.web99Track = sendEvent;
 
+  /* Lead = Sarah has enough information, including email, to build the site.
+     The event_id deliberately matches server-side CAPI for Meta deduplication. */
   window.addEventListener("web99:lead", function (event) {
     var detail = event.detail || {};
     var orderId = detail.orderId ? String(detail.orderId) : "";
     sendEvent(
       "generate_lead",
       "Lead",
-      { currency: "EUR", value: 99 },
+      {
+        content_name: "Website brief completed",
+        currency: "EUR",
+        value: 99
+      },
       orderId ? "lead_" + orderId : undefined
     );
   });
 
+  /* First actual message to Sarah. Only fires once per page load. */
   var chatStarted = false;
   document.addEventListener("submit", function (event) {
     var form = event.target;
     if (!chatStarted && form && form.id === "startForm") {
       chatStarted = true;
-      sendEvent("chat_start", "Contact", { content_name: "Web99 website brief" });
+      sendEvent("chat_start", "Contact", {
+        content_name: "Web99 website brief",
+        currency: "EUR",
+        value: 99
+      });
     }
   }, true);
 
+  /* Main funnel CTA. We keep this as a GA event rather than pretending a CTA
+     click is a Meta Lead/Checkout; Meta gets the real Contact + Lead events. */
   document.addEventListener("click", function (event) {
     var target = event.target && event.target.closest ? event.target.closest("a[href]") : null;
     if (!target) return;
     var href = target.getAttribute("href") || "";
-    if (href.indexOf("/start") === 0) {
-      sendEvent("select_content", null, { content_type: "cta", item_id: "build-my-website" });
+    if (href.indexOf("/start") === 0 || href.indexOf("https://www.web99.ie/start") === 0 || href.indexOf("https://web99.ie/start") === 0) {
+      sendEvent("select_content", null, {
+        content_type: "cta",
+        item_id: "build-my-website",
+        item_name: (target.textContent || "Build My Website").trim().slice(0, 100)
+      });
     }
   }, true);
 

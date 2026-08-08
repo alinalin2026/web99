@@ -1,10 +1,6 @@
 import { json, MODELS } from "./ai";
 import { analystPrompt } from "./prompts/analyst";
-import {
-  generatorPrompt,
-  previewBanner,
-  previewCloser,
-} from "./prompts/generator";
+import { previewBanner, previewCloser } from "./prompts/generator";
 import {
   sql,
   jsonb,
@@ -15,27 +11,42 @@ import {
   uniqueSlug,
 } from "./db";
 import { pushSite } from "./github";
+import {
+  buildWebsiteWithOpenAI,
+  OPENAI_BUILD_MODEL,
+  OPENAI_IMAGE_MODEL,
+} from "./openai-builder";
 
 /* ===========================================================================
    THE PIPELINE
 
-     ready → analysing → generating → review → [HUMAN] → live → sent
+   Customer chat (Claude) -> READY LEAD
+                             |
+                    operator clicks "Make the plan"
+                             v
+                    Claude creates build plan
+                             |
+                    operator reviews the plan
+                             |
+                 clicks "Build + publish preview"
+                             v
+              GPT-5.6 builds site + GPT Image 2 visuals
+                             |
+                     pushed to <slug>.web99.ie
+                             v
+                            live
 
-   The human gate between `generating` and `live` is deliberate and load
-   bearing. Everything before it is reversible and private; everything after
-   it is a real business's public website. Nothing crosses that line without
-   somebody clicking approve.
+   The important approval boundary is now the BUILD PLAN. Nothing expensive is
+   generated and nothing is published until an operator has read Claude's plan
+   and explicitly clicks the build button.
    =========================================================================== */
 
 const PREVIEW_DOMAIN = process.env.PREVIEW_DOMAIN ?? "web99.ie";
-/* The marketing site and the Terms of Service both say "48 hours" — this
-   must match that number, not an arbitrary default. If the promise ever
-   changes, change it in site.config.mjs's copy AND here, together. */
 const PREVIEW_DAYS = Number(process.env.PREVIEW_EXPIRY_DAYS ?? 2);
 
-/* --- step one: the analyst ------------------------------------------------ */
+/* --- step one: Claude makes the plan -------------------------------------- */
 
-export async function analyse(orderId: string): Promise<void> {
+export async function makePlan(orderId: string, steer?: string): Promise<void> {
   const order = await getOrder(orderId);
   if (!order) throw new Error(`No order ${orderId}`);
 
@@ -49,90 +60,114 @@ export async function analyse(orderId: string): Promise<void> {
     const analysis = await json<Record<string, unknown>>(
       analystPrompt(),
       `Here is the conversation.\n\n${transcript}\n\n` +
-        `Here is what was extracted from it:\n${JSON.stringify(order.brief, null, 2)}`,
+        `Here is what Sarah extracted from it:\n${JSON.stringify(order.brief, null, 2)}` +
+        (steer?.trim() ? `\n\nOperator instruction for the plan:\n${steer.trim()}` : ""),
       MODELS.analyst,
-      6000
+      7000
     );
 
-    await sql`UPDATE orders SET analysis = ${jsonb(analysis)} WHERE id = ${orderId}`;
-    await logEvent(orderId, "model_call", { step: "analyst", model: MODELS.analyst });
-
-    await generate(orderId);
+    await sql`
+      UPDATE orders
+      SET analysis = ${jsonb(analysis)}, failure_reason = NULL
+      WHERE id = ${orderId}`;
+    await logEvent(orderId, "model_call", {
+      step: "plan",
+      provider: "anthropic",
+      model: MODELS.analyst,
+    });
+    await setState(orderId, "ready", { plan: true });
   } catch (err) {
-    await fail(orderId, `Analyst failed: ${(err as Error).message}`);
+    await fail(orderId, `Plan failed: ${(err as Error).message}`);
+    throw err;
   }
 }
 
-/* --- step two: the generator ---------------------------------------------- */
+/* Backwards-compatible name for any old imports. It now ONLY makes the plan. */
+export async function analyse(orderId: string): Promise<void> {
+  return makePlan(orderId);
+}
 
-export async function generate(orderId: string): Promise<void> {
+/* --- step two: OpenAI builds the complete site ---------------------------- */
+
+export async function generate(orderId: string, steer?: string): Promise<void> {
   const order = await getOrder(orderId);
   if (!order) throw new Error(`No order ${orderId}`);
-  if (!order.analysis) throw new Error("Cannot generate before analysis");
+  if (!order.analysis) throw new Error("Make the plan before building the website.");
 
   await setState(orderId, "generating");
 
   try {
-    const result = await json<{
-      files: Record<string, string>;
-      domainSuggestions?: string[];
-      notes?: string;
-    }>(
-      generatorPrompt(),
-      `Build brief:\n${JSON.stringify(order.analysis, null, 2)}`,
-      MODELS.generator,
-      16000
+    const result = await buildWebsiteWithOpenAI(
+      order.analysis as Record<string, unknown>,
+      steer
     );
-
-    if (!result.files || !result.files["index.html"]) {
-      throw new Error("Generator returned no index.html");
-    }
 
     const problems = validate(result.files);
     if (problems.length) {
-      /* Not fatal — the reviewer sees these flagged in the dashboard and
-         decides. Better a human judges a borderline site than a regex does. */
       await logEvent(orderId, "error", { step: "validate", problems });
     }
 
-    const slug = await uniqueSlug(
-      slugify(order.business_name ?? "site", order.location ?? "")
-    );
+    const slug =
+      order.slug ??
+      (await uniqueSlug(slugify(order.business_name ?? "site", order.location ?? "")));
 
     await sql`
       UPDATE orders SET
         generated = ${jsonb(result.files)},
         generator_notes = ${result.notes ?? null},
         slug = ${slug},
-        preview_url = ${`https://${slug}.${PREVIEW_DOMAIN}`}
+        preview_url = ${`https://${slug}.${PREVIEW_DOMAIN}`},
+        failure_reason = NULL
       WHERE id = ${orderId}`;
 
     await logEvent(orderId, "model_call", {
-      step: "generator",
-      model: MODELS.generator,
+      step: "website_build",
+      provider: "openai",
+      model: OPENAI_BUILD_MODEL,
+      imageModel: OPENAI_IMAGE_MODEL,
       files: Object.keys(result.files),
+      images: (result.imageRequests ?? []).map((i) => i.id),
       domainSuggestions: result.domainSuggestions ?? [],
       problems,
     });
 
-    /* Stop. A person looks at it now. */
+    /* This transient state keeps approve() as the one function that performs
+       the external GitHub write and injects the Web99 preview furniture. */
     await setState(orderId, "review", { problems: problems.length });
   } catch (err) {
-    await fail(orderId, `Generator failed: ${(err as Error).message}`);
+    await fail(orderId, `Website build failed: ${(err as Error).message}`);
+    throw err;
   }
 }
 
-/* --- the gate -------------------------------------------------------------
-   Called only from the dashboard, only by a person, only from `review`. */
+/**
+ * The operator has approved Claude's plan. From this point the requested job is
+ * explicit: OpenAI builds the complete site, generates its visual assets, then
+ * the result is pushed to the preview subdomain in one flow.
+ */
+export async function buildAndPublish(
+  orderId: string,
+  who: string,
+  steer?: string
+): Promise<void> {
+  await generate(orderId, steer);
+  const fresh = await getOrder(orderId);
+  if (fresh?.state !== "review") {
+    throw new Error(`Build did not reach review state (now ${fresh?.state ?? "missing"}).`);
+  }
+  await approve(orderId, who);
+}
+
+/* --- publish preview ------------------------------------------------------ */
 
 export async function approve(orderId: string, who: string): Promise<void> {
   const order = await getOrder(orderId);
   if (!order) throw new Error(`No order ${orderId}`);
   if (order.state !== "review") {
-    throw new Error(`Cannot approve an order in state "${order.state}"`);
+    throw new Error(`Cannot publish an order in state "${order.state}"`);
   }
   if (!order.generated || !order.slug) {
-    throw new Error("Nothing generated to approve");
+    throw new Error("Nothing generated to publish");
   }
 
   const checkoutUrl = `${process.env.APP_URL}/buy/${orderId}`;
@@ -156,15 +191,9 @@ export async function approve(orderId: string, who: string): Promise<void> {
   await setState(orderId, "live", { sha });
 }
 
-/** Send it back to be rebuilt, optionally with a steer from the reviewer. */
+/** Rebuild a legacy/review build with an operator steer. */
 export async function rebuild(orderId: string, steer?: string): Promise<void> {
-  if (steer) {
-    const order = await getOrder(orderId);
-    const analysis = { ...(order?.analysis ?? {}), reviewerNote: steer };
-    await sql`UPDATE orders SET analysis = ${jsonb(analysis)} WHERE id = ${orderId}`;
-    await logEvent(orderId, "state_change", { step: "rebuild", steer });
-  }
-  await generate(orderId);
+  await generate(orderId, steer);
 }
 
 async function fail(orderId: string, reason: string): Promise<void> {
@@ -173,9 +202,7 @@ async function fail(orderId: string, reason: string): Promise<void> {
   await setState(orderId, "failed", { reason });
 }
 
-/* --- preview furniture ----------------------------------------------------
-   The buy buttons are injected here rather than generated, so they are
-   byte-identical on every site and a model can never reword or drop them. */
+/* --- preview furniture ---------------------------------------------------- */
 
 function withPreviewFurniture(
   files: Record<string, string>,
@@ -189,12 +216,8 @@ function withPreviewFurniture(
     if (!path.endsWith(".html")) continue;
 
     let html = content;
-
-    /* Banner + sticky bar immediately after <body>. */
     html = html.replace(/<body([^>]*)>/i, (m) => `${m}\n${banner}\n`);
 
-    /* Closer before the footer if there is one, otherwise before </body>.
-       Homepage only — repeating it on every page is nagging, not selling. */
     if (path === "index.html") {
       if (/<footer[\s>]/i.test(html)) {
         html = html.replace(/<footer([\s>])/i, `${closer}\n<footer$1`);
@@ -209,10 +232,7 @@ function withPreviewFurniture(
   return out;
 }
 
-/* --- cheap safety net -----------------------------------------------------
-   Catches the failure modes that are both common and mechanically detectable.
-   Everything subtle is the reviewer's job — this is not a quality gate, it is
-   a list of things worth a second look. */
+/* --- cheap safety net ----------------------------------------------------- */
 
 export function validate(files: Record<string, string>): string[] {
   const problems: string[] = [];
@@ -228,7 +248,6 @@ export function validate(files: Record<string, string>): string[] {
     const h1s = content.match(/<h1[\s>]/gi)?.length ?? 0;
     if (h1s !== 1) problems.push(`${path}: ${h1s} <h1> elements, expected exactly 1.`);
 
-    /* Remote references — the generator is told static and self-contained. */
     if (/<(?:script|link)[^>]+(?:src|href)=["']https?:\/\//i.test(content)) {
       problems.push(`${path}: links to an external script or stylesheet.`);
     }
@@ -236,13 +255,10 @@ export function validate(files: Record<string, string>): string[] {
       problems.push(`${path}: references a remote image — likely invented.`);
     }
 
-    /* Placeholders that reach production if nobody looks. */
-    if (/lorem ipsum|TODO|PLACEHOLDER|\[insert|XXXX/i.test(content)) {
-      problems.push(`${path}: contains placeholder text.`);
+    if (/lorem ipsum|TODO|PLACEHOLDER|\[insert|XXXX|\{\{W99_IMAGE:/i.test(content)) {
+      problems.push(`${path}: contains placeholder text or an unresolved image.`);
     }
 
-    /* Invented-credential phrases. The facts rule forbids these unless the
-       owner said them, and the reviewer should check any that appear. */
     const invented = [
       /\b\d+\+?\s*years?\s+(?:of\s+)?experience/i,
       /award[- ]winning/i,
@@ -257,7 +273,6 @@ export function validate(files: Record<string, string>): string[] {
       }
     }
 
-    /* Testimonials are forbidden outright. */
     if (/<blockquote|testimonial|"\s*[A-Z][a-z]+\s+said/i.test(content)) {
       problems.push(`${path}: looks like it contains a testimonial or quote.`);
     }

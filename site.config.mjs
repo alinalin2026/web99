@@ -18,7 +18,7 @@ export const config = {
   /* --- The dashboard app ------------------------------------------------- */
   /* Where /start/ sends the conversation. The app lives in dashboard/ and is
      deployed separately from this static site. Leave empty for same-origin. */
-  dashboardUrl: "https://dash.web99.ie",
+  dashboardUrl: "https://web99dashboard.vercel.app",
 
   /* --- WhatsApp -------------------------------------------------------- */
   /* TODO: REPLACE. Full international format, digits only, no + and no spaces.

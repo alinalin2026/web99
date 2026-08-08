@@ -35,13 +35,15 @@ export default async function Queue() {
   try {
     [orders, counts] = await Promise.all([listOrders(), stateCounts()]);
   } catch (err) {
-    /* The most common way anyone hits this: first deployment, before
-       /api/setup has ever been run, so the `orders` table doesn't exist
-       yet. A raw stack trace tells an operator nothing — this tells them
-       the two things actually worth checking. */
     return (
       <main className="wrap">
-        <h1>Orders</h1>
+        <div className="row" style={{ justifyContent: "space-between", marginBottom: 22 }}>
+          <div>
+            <h1>Orders</h1>
+            <p className="sub" style={{ marginBottom: 0 }}>Web99 operations dashboard.</p>
+          </div>
+          <Link href="/meta" className="btn">Meta Ads</Link>
+        </div>
         <div className="warn" style={{ background: "#fdeceb", borderColor: "#f5c6c2" }}>
           <strong>Can't reach the database.</strong>
           <p style={{ margin: "8px 0 0" }}>
@@ -72,12 +74,17 @@ export default async function Queue() {
 
   return (
     <main className="wrap">
-      <h1>Orders</h1>
-      <p className="sub">
-        {waiting > 0
-          ? `${waiting} ${waiting === 1 ? "site is" : "sites are"} built and waiting for you to look.`
-          : "Nothing waiting on you."}
-      </p>
+      <div className="row" style={{ justifyContent: "space-between", alignItems: "flex-start", marginBottom: 22 }}>
+        <div>
+          <h1>Orders</h1>
+          <p className="sub" style={{ marginBottom: 0 }}>
+            {waiting > 0
+              ? `${waiting} ${waiting === 1 ? "site is" : "sites are"} built and waiting for you to look.`
+              : "Nothing waiting on you."}
+          </p>
+        </div>
+        <Link href="/meta" className="btn">Meta Ads</Link>
+      </div>
 
       <div className="grid" style={{ marginBottom: 26 }}>
         <Stat n={counts.review ?? 0} label="Needs review" />

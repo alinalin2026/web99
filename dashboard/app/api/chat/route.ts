@@ -3,6 +3,8 @@ import { chat, json, MODELS, type Turn } from "@/lib/ai";
 import { sarahSystemPrompt, extractionPrompt, sarahOpener } from "@/lib/prompts/sarah";
 import { sql, jsonb, getOrder, setState, logEvent, type Order } from "@/lib/db";
 import { corsPreflight, withCors } from "@/lib/cors";
+import { resolveMetaPixelId } from "@/lib/meta-sales";
+import { sendMetaConversion } from "@/lib/meta-conversions";
 
 export const runtime = "nodejs";
 export const maxDuration = 60;
@@ -31,8 +33,6 @@ interface ChatBody {
   trackingConsent?: boolean;
 }
 
-/* A lead only needs enough to start a first draft. Opening hours, phone and a
-   complete service list are intentionally NOT required at this stage. */
 const REQUIRED: (keyof Brief)[] = ["trade", "websiteGoal", "email"];
 
 const ATTR_KEYS = [
@@ -67,13 +67,18 @@ function safeHistory(value: unknown): Turn[] {
       (t): t is Turn =>
         !!t &&
         typeof t === "object" &&
-        (t as Turn).role !== undefined &&
         ((t as Turn).role === "user" || (t as Turn).role === "assistant") &&
         typeof (t as Turn).content === "string"
     )
     .map((t) => ({ role: t.role, content: t.content.trim().slice(0, 4000) }))
     .filter((t) => t.content.length > 0)
     .slice(-18);
+}
+
+function clientIp(req: NextRequest): string | null {
+  const forwarded = req.headers.get("x-forwarded-for");
+  if (forwarded) return forwarded.split(",")[0]?.trim() || null;
+  return req.headers.get("x-real-ip");
 }
 
 async function safeLog(orderId: string | null, kind: string, detail: Record<string, unknown>) {
@@ -90,7 +95,13 @@ export async function OPTIONS(req: NextRequest) {
 }
 
 export async function GET(req: NextRequest) {
-  return withCors(req, NextResponse.json({ opener: sarahOpener }));
+  let metaPixelId: string | null = null;
+  try {
+    metaPixelId = await resolveMetaPixelId(false);
+  } catch (error) {
+    console.error("tracking config pixel lookup failed", error);
+  }
+  return withCors(req, NextResponse.json({ opener: sarahOpener, metaPixelId }));
 }
 
 export async function POST(req: NextRequest) {
@@ -134,8 +145,7 @@ export async function POST(req: NextRequest) {
       req,
       NextResponse.json({
         orderId: order.id,
-        reply:
-          "Thanks — we've got enough to get started. We'll send the first draft to your email when it's ready.",
+        reply: "Thanks — we've got enough to get started. We'll send the first draft to your email when it's ready.",
         missing: [],
         readyToBuild: true,
       })
@@ -156,8 +166,7 @@ export async function POST(req: NextRequest) {
       req,
       NextResponse.json({
         orderId: order?.id ?? null,
-        reply:
-          "Sorry — I couldn't get a reply through just now. Please try that message once more, or ring us on (01) 234 3300.",
+        reply: "Sorry — I couldn't get a reply through just now. Please try that message once more, or ring us on (01) 234 3300.",
         missing: [],
         readyToBuild: false,
         retryable: true,
@@ -213,9 +222,6 @@ export async function POST(req: NextRequest) {
       }).map(String)
     : REQUIRED.map(String);
 
-  /* Keep the browser in normal chat mode until the owner has answered Sarah's
-     "anything else?" close. This also prevents the old confirmation button
-     from appearing merely because the email happened to be supplied early. */
   if (!brief?.anythingElseClosed) missing.push("anythingElse");
 
   const ready =
@@ -228,14 +234,32 @@ export async function POST(req: NextRequest) {
     try {
       await setState(order.id, "ready", { source: "customer_brief_complete" });
       await safeLog(order.id, "state_change", { step: "lead_ready_for_plan" });
+
+      if (brief?.trackingConsent === true) {
+        const meta = await sendMetaConversion({
+          eventName: "Lead",
+          eventId: `lead_${order.id}`,
+          email: brief.email,
+          attribution: brief.attribution,
+          clientIp: clientIp(req),
+          eventSourceUrl: typeof brief.attribution?.landing_url === "string" ? brief.attribution.landing_url : "https://web99.ie/start/",
+          value: 99,
+          currency: "EUR",
+        });
+        await safeLog(order.id, meta.ok ? "meta_conversion" : "meta_conversion_error", {
+          event: "Lead",
+          eventId: `lead_${order.id}`,
+          pixelId: meta.pixelId ?? null,
+          error: meta.error ?? null,
+        });
+      }
     } catch (err) {
       console.error("chat ready state save failed", err);
       return withCors(
         req,
         NextResponse.json({
           orderId: order.id,
-          reply:
-            "I've got your brief, but I couldn't save it just now. Please send that email once more in a moment.",
+          reply: "I've got your brief, but I couldn't save it just now. Please send that email once more in a moment.",
           missing: [],
           readyToBuild: false,
           retryable: true,

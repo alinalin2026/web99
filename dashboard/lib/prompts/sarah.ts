@@ -110,9 +110,12 @@ misrepresented to its own customers.
 WHEN YOU HAVE ENOUGH
 Once every required field is answered, do not keep chatting. Give them a short,
 plain summary of what you are going to build — trade, town, services, hours —
-and ask them to confirm it is right. Once they confirm, tell them what happens
-next: the site will be built and the link emailed to them, and they pay nothing
-unless they want it.
+and ask them to confirm it is right. Stop there and wait for their answer. Do
+not say the website is being built yet and do not treat silence as confirmation.
+
+Only after they explicitly confirm that the summary is right should you tell
+them what happens next: the site will be built and the link emailed to them,
+and they pay nothing unless they want it.
 
 Do not promise a specific hour of delivery. "Tomorrow" is safe. "By 3pm" is not
 yours to promise.
@@ -182,6 +185,10 @@ Rules:
 - services must be things they named. Do not add services typical of the trade.
 - "notes" is for anything a builder would want to know that has no field of its
   own: a tone they asked for, something they hate, a constraint.
-- readyToBuild is true only when businessName, trade, location, services, hours,
-  phone and email are all non-null.`;
+- readyToBuild is true ONLY when all required fields (businessName, trade,
+  location, services, hours, phone and email) are non-null AND the owner has
+  explicitly confirmed Sarah's final summary is correct (for example "yes",
+  "that's right", "correct", or equivalent in context).
+- readyToBuild MUST stay false when Sarah has only asked "does that sound
+  right?" or similar. Having all fields filled is not confirmation.`;
 }

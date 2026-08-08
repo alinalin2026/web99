@@ -4,7 +4,7 @@
 
 export const included = [
   /* --- shown immediately. The fastest possible read of:
-         this is safe, this is fast, this is yours. ------------------------- */
+         low risk, complete setup, easy to use, yours. -------------------- */
   {
     top: true,
     icon: "i-eye",
@@ -31,6 +31,26 @@ export const included = [
   },
   {
     top: true,
+    icon: "i-share",
+    title: "Facebook page, 3 months of content",
+    line: "We set up the page and write and schedule your posts for three months.",
+    href: "/facebook/",
+    hrefLabel: "See Facebook pages",
+  },
+  {
+    top: true,
+    icon: "i-phone",
+    title: "No tech knowledge needed",
+    line: "If you can send a text message, you can do this.",
+  },
+  {
+    top: true,
+    icon: "i-globe",
+    title: "Built in any language",
+    line: "English, Irish, or whatever your customers read in. We write and build the site itself in it — not just a translated template.",
+  },
+  {
+    top: true,
     icon: "i-key",
     title: "You own the files and the domain",
     line: "Both in your name. Leave whenever you like, and take the lot with you.",
@@ -49,20 +69,6 @@ export const included = [
   },
 
   /* --- the rest. Reasons to say yes once somebody is already leaning in. --- */
-  {
-    top: false,
-    icon: "i-share",
-    title: "Facebook page, 3 months of content",
-    line: "We set up the page and write and schedule your posts for three months.",
-    href: "/facebook/",
-    hrefLabel: "See Facebook pages",
-  },
-  {
-    top: false,
-    icon: "i-phone",
-    title: "No tech knowledge needed",
-    line: "If you can send a text message, you can do this.",
-  },
   /* One bounded promise, not two. These were previously separate items and
      the WhatsApp one read as unlimited free edits forever, which is not what
      the €99 buys. Ongoing updates are a paid extra — see the upsell catalogue
@@ -84,11 +90,5 @@ export const included = [
     icon: "i-whatsapp",
     title: "WhatsApp button on your site",
     line: "One tap and the customer is talking to you.",
-  },
-  {
-    top: false,
-    icon: "i-globe",
-    title: "Built in any language",
-    line: "English, Irish, or whatever your customers read in. We write and build the site itself in it — not just a translated template.",
   },
 ];

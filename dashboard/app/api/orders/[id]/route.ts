@@ -1,20 +1,13 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getOrder, sql, setState, logEvent } from "@/lib/db";
-import { approve, rebuild } from "@/lib/pipeline";
+import { approve, rebuild, makePlan, buildAndPublish } from "@/lib/pipeline";
 import { siteReady, send } from "@/lib/email";
 import { requireOperator } from "@/lib/auth";
 
 export const runtime = "nodejs";
-export const maxDuration = 120;
+export const maxDuration = 300;
 
-/* ===========================================================================
-   POST /api/orders/:id  { action: "approve" | "rebuild" | "sendPreview" | "reject" }
-   ---------------------------------------------------------------------------
-   Every action here is a person clicking a button in the dashboard. All of
-   them are operator-only — this is the line between a private build and a
-   real business's public website.
-   =========================================================================== */
-
+/* Every action here is an explicit operator click in the dashboard. */
 export async function POST(
   req: NextRequest,
   { params }: { params: Promise<{ id: string }> }
@@ -34,6 +27,36 @@ export async function POST(
 
   try {
     switch (action) {
+      case "makePlan": {
+        if (order.state !== "ready" && order.state !== "failed") {
+          return NextResponse.json(
+            { error: `Can only make a plan for a ready lead — this order is "${order.state}"` },
+            { status: 400 }
+          );
+        }
+        await makePlan(id, steer);
+        return NextResponse.json({ ok: true, state: "ready", planned: true });
+      }
+
+      case "buildAndPublish": {
+        const fresh = await getOrder(id);
+        if (!fresh?.analysis) {
+          return NextResponse.json(
+            { error: "Click Make the plan first, review it, then build." },
+            { status: 400 }
+          );
+        }
+        if (fresh.state !== "ready" && fresh.state !== "failed") {
+          return NextResponse.json(
+            { error: `Can only build an approved plan from ready/failed — this order is "${fresh.state}"` },
+            { status: 400 }
+          );
+        }
+        await buildAndPublish(id, who ?? "operator", steer);
+        return NextResponse.json({ ok: true, state: "live" });
+      }
+
+      /* Legacy/manual review actions remain available for old orders. */
       case "approve": {
         await approve(id, who ?? "operator");
         return NextResponse.json({ ok: true, state: "live" });

@@ -70,6 +70,32 @@ export default function MetaManager() {
     void load();
   }, [load]);
 
+  async function createRecommendedCampaign() {
+    const ok = window.confirm(
+      "Create the Web99 Ireland sales campaign PAUSED? It will create 1 campaign, 1 broad Ireland ad set at €100/day and 5 paused ads. Nothing will spend until you launch it later."
+    );
+    if (!ok) return;
+
+    setBusy(true);
+    setError("");
+    setNotice("");
+    try {
+      const response = await jsonFetch("/api/meta/web99-campaign", { method: "POST" });
+      if (response.alreadyExists) {
+        setNotice(`Campaign already exists: ${response.campaign.name} (${response.campaign.id}).`);
+      } else {
+        setNotice(
+          `Created PAUSED campaign ${response.campaignId}, ad set ${response.adSetId}, with ${response.adIds.length} ads. Pixel/Dataset ${response.pixelId}. No spend has started.`
+        );
+      }
+      await load();
+    } catch (e) {
+      setError(e instanceof Error ? e.message : "Could not create the recommended campaign.");
+    } finally {
+      setBusy(false);
+    }
+  }
+
   async function createCampaign(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
     setBusy(true);
@@ -174,13 +200,29 @@ export default function MetaManager() {
         <Stat label="Meta API" value={String(data?.graphVersion || "v24.0")} />
       </section>
 
+      <section style={{ padding: 22, border: "2px solid #5b3fe8", borderRadius: 16, background: "#f7f5ff" }}>
+        <p style={{ margin: 0, color: "#5b3fe8", fontWeight: 800, fontSize: 13 }}>RECOMMENDED WEB99 CAMPAIGN</p>
+        <h2 style={{ margin: "6px 0 8px" }}>Ireland broad · 5 ads · conversion optimized</h2>
+        <p style={{ margin: "0 0 14px", color: "#5f596d", lineHeight: 1.55 }}>
+          Creates one PAUSED Sales campaign, one Ireland age 25–65 broad ad set at €100/day, and five PAUSED ads. It resolves or creates the Web99 Pixel/Dataset and optimizes initially for completed website briefs (Lead), while purchases are tracked separately.
+        </p>
+        <button
+          type="button"
+          disabled={busy}
+          onClick={() => void createRecommendedCampaign()}
+          style={{ border: 0, borderRadius: 10, padding: "12px 18px", background: "#5b3fe8", color: "white", fontWeight: 800, cursor: busy ? "wait" : "pointer" }}
+        >
+          {busy ? "Working…" : "Create 5-ad campaign — PAUSED"}
+        </button>
+      </section>
+
       <section style={{ padding: 22, border: "1px solid #e2dfeb", borderRadius: 16, background: "white" }}>
         <div style={{ display: "flex", justifyContent: "space-between", gap: 16, alignItems: "flex-start" }}>
           <div>
-            <p style={{ margin: 0, color: "#5b3fe8", fontWeight: 800, fontSize: 13 }}>NEW CAMPAIGN</p>
-            <h2 style={{ margin: "5px 0 8px" }}>Create a Web99 Ireland test</h2>
+            <p style={{ margin: 0, color: "#5b3fe8", fontWeight: 800, fontSize: 13 }}>CUSTOM TEST</p>
+            <h2 style={{ margin: "5px 0 8px" }}>Create a one-ad campaign</h2>
             <p style={{ marginTop: 0, color: "#666173", lineHeight: 1.55 }}>
-              Campaign, ad set and ad are created PAUSED. The destination defaults to web99.ie/start/.
+              This older manual builder remains available for small tests. Campaign, ad set and ad are created PAUSED.
             </p>
           </div>
           <span style={{ padding: "7px 10px", borderRadius: 999, background: "#f0edff", color: "#5138cf", fontWeight: 800, fontSize: 12 }}>

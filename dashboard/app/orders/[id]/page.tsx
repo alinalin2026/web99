@@ -6,11 +6,6 @@ import Actions from "./actions";
 
 export const dynamic = "force-dynamic";
 
-/* The review screen. Everything a person needs to decide whether this website
-   is fit to go to a real business, on one page, without scrolling for it:
-   what the site looks like, what was claimed, and where those claims came
-   from. */
-
 export default async function OrderPage({
   params,
 }: {
@@ -22,6 +17,7 @@ export default async function OrderPage({
 
   const events = await listEvents(id);
   const analysis = (order.analysis ?? {}) as any;
+  const hasPlan = Boolean(order.analysis);
   const problems = order.generated ? validate(order.generated) : [];
   const home = order.generated?.["index.html"];
 
@@ -50,7 +46,7 @@ export default async function OrderPage({
 
       {problems.length > 0 && (
         <div className="warn">
-          <strong>{problems.length} thing{problems.length === 1 ? "" : "s"} worth checking before this goes out</strong>
+          <strong>{problems.length} thing{problems.length === 1 ? "" : "s"} worth checking</strong>
           <ul>
             {problems.map((p, i) => (
               <li key={i}>{p}</li>
@@ -71,7 +67,57 @@ export default async function OrderPage({
         state={order.state}
         previewUrl={order.preview_url}
         hasEmail={Boolean(order.email)}
+        hasPlan={hasPlan}
       />
+
+      {/* --- Claude's plan ------------------------------------------------ */}
+      {hasPlan && (
+        <>
+          <h2>The plan Claude made</h2>
+          <div className="card">
+            {analysis.oneLine && (
+              <p style={{ marginTop: 0 }}>
+                <strong>One-line positioning</strong><br />
+                {analysis.oneLine}
+              </p>
+            )}
+            {analysis.aboveTheFold && (
+              <p>
+                <strong>Above the fold</strong><br />
+                {analysis.aboveTheFold}
+              </p>
+            )}
+            {analysis.primaryAction && (
+              <p>
+                <strong>Main action</strong><br />
+                {analysis.primaryAction}
+              </p>
+            )}
+            {analysis.designDirection && (
+              <p>
+                <strong>Design direction</strong><br />
+                {[analysis.designDirection.mood, analysis.designDirection.palette]
+                  .filter(Boolean)
+                  .join(" · ")}
+                {analysis.designDirection.reasoning ? ` — ${analysis.designDirection.reasoning}` : ""}
+              </p>
+            )}
+            {Array.isArray(analysis.pages) && analysis.pages.length > 0 && (
+              <div>
+                <strong>Pages</strong>
+                {analysis.pages.map((p: any, i: number) => (
+                  <div key={i} style={{ marginTop: 10 }}>
+                    <strong>{p.path || "/"}</strong>{p.purpose ? ` — ${p.purpose}` : ""}
+                    {Array.isArray(p.sections) && p.sections.length > 0 && (
+                      <div className="muted" style={{ marginTop: 3 }}>{p.sections.join(" → ")}</div>
+                    )}
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
+        </>
+      )}
 
       {/* --- the site itself --------------------------------------------- */}
       {home && (
@@ -93,7 +139,7 @@ export default async function OrderPage({
       {/* --- what was claimed, and where it came from --------------------- */}
       {analysis.confirmedFacts && (
         <>
-          <h2>Facts used (everything here must have come from them)</h2>
+          <h2>Facts Claude is allowing the builder to use</h2>
           <div className="card">
             <pre>{JSON.stringify(analysis.confirmedFacts, null, 2)}</pre>
           </div>
@@ -106,11 +152,8 @@ export default async function OrderPage({
           <div className="card">
             {analysis.underSold.map((u: any, i: number) => (
               <p key={i} style={{ margin: i ? "12px 0 0" : 0 }}>
-                <strong>{u.fact}</strong>
-                <br />
-                <span className="muted">
-                  {u.whereItGoes} — {u.why}
-                </span>
+                <strong>{u.fact}</strong><br />
+                <span className="muted">{u.whereItGoes} — {u.why}</span>
               </p>
             ))}
           </div>
@@ -123,8 +166,7 @@ export default async function OrderPage({
           <div className="card">
             {analysis.judgementCalls.map((j: any, i: number) => (
               <p key={i} style={{ margin: i ? "12px 0 0" : 0 }}>
-                <strong>{j.decision}</strong>
-                <br />
+                <strong>{j.decision}</strong><br />
                 <span className="muted">{j.reasoning}</span>
               </p>
             ))}
@@ -132,21 +174,19 @@ export default async function OrderPage({
         </>
       )}
 
-      {Array.isArray(analysis.questionsForTheOwner) &&
-        analysis.questionsForTheOwner.length > 0 && (
-          <>
-            <h2>Worth asking them</h2>
-            <div className="card">
-              <ul style={{ margin: 0, paddingLeft: 18 }}>
-                {analysis.questionsForTheOwner.map((q: string, i: number) => (
-                  <li key={i}>{q}</li>
-                ))}
-              </ul>
-            </div>
-          </>
-        )}
+      {Array.isArray(analysis.questionsForTheOwner) && analysis.questionsForTheOwner.length > 0 && (
+        <>
+          <h2>Worth asking them</h2>
+          <div className="card">
+            <ul style={{ margin: 0, paddingLeft: 18 }}>
+              {analysis.questionsForTheOwner.map((q: string, i: number) => (
+                <li key={i}>{q}</li>
+              ))}
+            </ul>
+          </div>
+        </>
+      )}
 
-      {/* --- the conversation -------------------------------------------- */}
       <h2>What they told Sarah</h2>
       <div className="card">
         {order.conversation.length === 0 ? (
@@ -156,22 +196,20 @@ export default async function OrderPage({
             <p key={i} style={{ margin: i ? "12px 0 0" : 0 }}>
               <strong style={{ color: t.role === "user" ? "var(--ink)" : "var(--violet)" }}>
                 {t.role === "user" ? "Them" : "Sarah"}
-              </strong>
-              <br />
+              </strong><br />
               {t.content}
             </p>
           ))
         )}
       </div>
 
-      {/* --- audit trail -------------------------------------------------- */}
       <h2>History</h2>
       <div className="card">
         {events.map((e) => (
           <p key={e.id} style={{ margin: "0 0 6px", fontSize: 13 }}>
             <span className="muted">{new Date(e.created_at).toLocaleString("en-IE")}</span>{" "}
             <strong>{e.kind}</strong>{" "}
-            <span className="muted">{JSON.stringify(e.detail).slice(0, 160)}</span>
+            <span className="muted">{JSON.stringify(e.detail).slice(0, 220)}</span>
           </p>
         ))}
       </div>

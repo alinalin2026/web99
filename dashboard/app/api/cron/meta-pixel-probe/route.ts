@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { metaConfig } from "@/lib/meta";
 
+// Temporary read-only discovery route. Delete after the Web99 pixel is identified.
 const KEY = "w99-meta-pixel-20260808";
 
 export const runtime = "nodejs";

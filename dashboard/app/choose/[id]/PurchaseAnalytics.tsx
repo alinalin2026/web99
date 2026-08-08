@@ -2,15 +2,6 @@
 
 import { useEffect } from "react";
 
-declare global {
-  interface Window {
-    dataLayer?: unknown[];
-    gtag?: (...args: unknown[]) => void;
-    fbq?: (...args: unknown[]) => void;
-    _fbq?: unknown;
-  }
-}
-
 export default function PurchaseAnalytics({
   transactionId,
   value,
@@ -28,11 +19,12 @@ export default function PurchaseAnalytics({
       window.sessionStorage.setItem(key, "sent");
     } catch {}
 
-    window.dataLayer = window.dataLayer || [];
-    window.gtag = window.gtag || function (...args: unknown[]) { window.dataLayer!.push(args); };
-    window.gtag("js", new Date());
-    window.gtag("config", "G-8X9XMJV81V");
-    window.gtag("event", "purchase", {
+    const w = window as typeof window & Record<string, any>;
+    w.dataLayer = w.dataLayer || [];
+    w.gtag = w.gtag || function (...args: unknown[]) { w.dataLayer.push(args); };
+    w.gtag("js", new Date());
+    w.gtag("config", "G-8X9XMJV81V");
+    w.gtag("event", "purchase", {
       transaction_id: transactionId,
       currency: "EUR",
       value,
@@ -45,25 +37,24 @@ export default function PurchaseAnalytics({
     document.head.appendChild(ga);
 
     if (pixelId && /^\d+$/.test(pixelId)) {
-      if (!window.fbq) {
-        const fbq = function (...args: unknown[]) {
-          const self = fbq as typeof fbq & { callMethod?: (...a: unknown[]) => void; queue: unknown[][] };
-          if (self.callMethod) self.callMethod(...args);
-          else self.queue.push(args);
-        } as typeof window.fbq & { loaded?: boolean; version?: string; queue: unknown[][]; push?: unknown };
+      if (!w.fbq) {
+        const fbq: any = function (...args: unknown[]) {
+          if (fbq.callMethod) fbq.callMethod(...args);
+          else fbq.queue.push(args);
+        };
         fbq.queue = [];
         fbq.loaded = true;
         fbq.version = "2.0";
         fbq.push = fbq;
-        window.fbq = fbq;
-        window._fbq = fbq;
+        w.fbq = fbq;
+        w._fbq = fbq;
         const meta = document.createElement("script");
         meta.async = true;
         meta.src = "https://connect.facebook.net/en_US/fbevents.js";
         document.head.appendChild(meta);
       }
-      window.fbq!("init", pixelId);
-      window.fbq!("track", "Purchase", { currency: "EUR", value }, { eventID: `purchase_${transactionId}` });
+      w.fbq("init", pixelId);
+      w.fbq("track", "Purchase", { currency: "EUR", value }, { eventID: `purchase_${transactionId}` });
     }
   }, [transactionId, value, pixelId]);
 

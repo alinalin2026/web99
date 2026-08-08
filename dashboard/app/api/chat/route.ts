@@ -162,9 +162,12 @@ export async function POST(req: NextRequest) {
       }).map(String)
     : REQUIRED.map(String);
 
-  const ready = missing.length === 0;
+  /* Having every field is not consent to start. Sarah first reads the summary
+     back and asks the owner to confirm it. The extractor only flips
+     readyToBuild after the owner explicitly says the summary is correct. */
+  const ready = missing.length === 0 && brief?.readyToBuild === true;
 
-  /* --- everything collected: hand off to the pipeline --------------------- */
+  /* --- everything collected AND confirmed: hand off to the pipeline ------- */
   if (ready) {
     await setState(order.id, "ready");
 

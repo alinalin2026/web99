@@ -1,5 +1,5 @@
 /* Web99.ie — the only script on the page. ~2KB. No dependencies.
-   Three jobs: reveal sections on scroll, count the counter up once,
+   Three jobs: reveal se ctions on scroll, count the counter up once,
    shade the header once you've scrolled. Nothing else. */
 
 (function () {

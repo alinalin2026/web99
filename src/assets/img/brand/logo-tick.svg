@@ -1,0 +1,15 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 256 256" role="img" aria-label="Web99 tick logo">
+  <defs>
+    <linearGradient id="g" x1="34" y1="222" x2="222" y2="34" gradientUnits="userSpaceOnUse">
+      <stop offset="0" stop-color="#4b2bc7"/>
+      <stop offset="1" stop-color="#845fff"/>
+    </linearGradient>
+    <filter id="s" x="-20%" y="-20%" width="140%" height="150%">
+      <feDropShadow dx="0" dy="8" stdDeviation="8" flood-color="#2d1b8f" flood-opacity=".24"/>
+    </filter>
+  </defs>
+  <g filter="url(#s)">
+    <path d="M44 28h168c17.7 0 32 14.3 32 32v124c0 17.7-14.3 32-32 32h-86l-44 34 10-34H44c-17.7 0-32-14.3-32-32V60c0-17.7 14.3-32 32-32Z" fill="url(#g)"/>
+    <path d="M66 126l41 42 84-91" fill="none" stroke="#fff" stroke-width="25" stroke-linecap="round" stroke-linejoin="round"/>
+  </g>
+</svg>

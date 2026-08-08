@@ -14,6 +14,7 @@ const PUBLIC = [
   "/api/chat",
   "/api/stripe",
   "/api/login",
+  "/api/meta-health", // temporary read-only setup probe; remove after Meta is verified
   "/login",
   "/buy",
   "/choose",

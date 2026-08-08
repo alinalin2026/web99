@@ -18,22 +18,22 @@
 
       <div class="chat__intro" id="sarahIntro">
         <span class="avatar">
-          <img src="/assets/img/sarah.svg" alt="" width="52" height="52" />
+          <img src="/assets/img/sarah.svg" alt="Sarah" width="52" height="52" />
         </span>
         <div>
-          <p class="bubble" id="sarahPrompt">Hi, I'm Sarah — I'm the assistant here at Web99. Tell me what your business is and what you have in mind for the website. Don't worry about the small details yet.</p>
-          <span class="chat__who">Sarah is Web99's AI assistant. A person reads every website before it reaches you.</span>
+          <p class="bubble" id="sarahPrompt">Hi, I'm Sarah — the Web99 assistant. First, what's the name of your business? If you don't have a name yet, just tell me that.</p>
+          <span class="chat__who"><strong>Sarah</strong> · Web99's AI assistant. A person reads every website before it reaches you.</span>
         </div>
       </div>
 
       <form class="composer" id="startForm" method="post" action="#" novalidate
             data-api="{{dashboardUrl}}" data-whatsapp="{{whatsappUrl}}">
-        <label class="skip" for="businessStory">Tell us about your business</label>
+        <label class="skip" for="businessStory">Your answer to Sarah</label>
         <textarea
           id="businessStory"
           name="story"
           rows="5"
-          placeholder="For example: I run a plumbing business in Dublin. I want a simple site that explains what we do and makes it easy for people to contact us."
+          placeholder="Type your answer here…"
           autocomplete="off"></textarea>
 
         <div class="composer__foot">

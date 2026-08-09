@@ -18,11 +18,14 @@ function ago(iso: string): string {
 }
 
 function name(order: Order) { return order.business_name || order.trade || "Unnamed lead"; }
+function internalPreview(order: Order) {
+  return order.slug && order.generated ? `/preview/${order.slug}` : null;
+}
 function stageLabel(stage: string) {
   return ({
     new: "New", queued: "Queued", planning: "Agent planning", plan_ready: "Plan ready",
     creating: "Agent writing", studio_ready: "Studio ready", building: "Building",
-    qa: "QA", ready: "Ready", failed: "Needs attention", complete: "Complete",
+    qa: "QA", ready: "Build ready", failed: "Needs attention", complete: "Complete",
   } as Record<string, string>)[stage] ?? stage.replaceAll("_", " ");
 }
 function stageTone(stage: string) {
@@ -118,12 +121,13 @@ function WorkTab({
       <div className="metric-strip">
         <div><b>{waiting}</b><span>Need you</span></div>
         <div><b>{building}</b><span>Agent working</span></div>
-        <div><b>{orders.filter((o) => o.state === "live").length}</b><span>Ready to send</span></div>
+        <div><b>{orders.filter((o) => o.state === "live").length}</b><span>Build ready</span></div>
       </div>
 
       <div className="section-title"><h1>Work</h1><span>{actionable.length} active</span></div>
       {actionable.length === 0 ? <Empty text="Nothing needs attention." /> : actionable.map((o) => {
         const a = assets.get(o.id) ?? { total: 0, ready: 0 };
+        const preview = internalPreview(o);
         return (
           <article className={`work-card tone-${stageTone(o.workflow_stage)}`} key={o.id}>
             <div className="card-top">
@@ -138,8 +142,7 @@ function WorkTab({
             {o.failure_reason && <p className="inline-error">{o.failure_reason}</p>}
             <div className="button-row">
               <Link className="btn" href={`/orders/${o.id}`}>{o.workflow_stage === "plan_ready" ? "Review plan" : o.state === "live" ? "Open project" : "View"}</Link>
-              {o.preview_url && <a className="btn btn--ghost" href={o.preview_url} target="_blank" rel="noreferrer">See site</a>}
-              {o.state === "live" && o.email && <ActionButton id={o.id} action="sendPreview" label="Send demo" busyLabel="Sending…" />}
+              {preview && <a className="btn btn--ghost" href={preview} target="_blank" rel="noreferrer">See site</a>}
               {!['live','sent','won','lost'].includes(o.state) && <ActionButton id={o.id} action="runNext" label="Run next step" busyLabel="Running…" className="btn btn--ghost" />}
             </div>
           </article>
@@ -168,7 +171,7 @@ function WorkMessage({ order, asset }: { order: Order; asset: { total: number; r
   if (order.workflow_stage === "creating") return <p className="work-message">Web99 Agent is improving the offer, writing the site and planning the imagery.</p>;
   if (order.workflow_stage === "building") return <p className="work-message">OpenAI is putting the approved copy and images together.</p>;
   if (order.workflow_stage === "qa") return <p className="work-message">OpenAI QA is checking and auto-repairing the build before it reaches you.</p>;
-  if (order.state === "live") return <p className="work-message">The demo has been deployed and is ready to inspect or send to the customer.</p>;
+  if (order.state === "live") return <p className="work-message">The finished build is ready to inspect in Web99. Public deployment is a separate verified step.</p>;
   if (order.state === "sent") return <p className="work-message">Demo sent. Waiting on the customer.</p>;
   return <p className="work-message">Open this project to see what it needs next.</p>;
 }
@@ -242,13 +245,14 @@ function StudioTab({ orders, assets }: { orders: Order[]; assets: Map<string, { 
       <p className="section-copy">Copy, image prompts, generated assets, OpenAI builds, QA and versions.</p>
       {studio.length === 0 ? <Empty text="Approved projects appear here." /> : studio.map((o) => {
         const a = assets.get(o.id) ?? { total: 0, ready: 0 };
+        const preview = internalPreview(o);
         return (
           <article className="studio-card panel" key={o.id}>
-            <div className="card-top"><div className="grow"><div className="eyebrow">{stageLabel(o.workflow_stage)}</div><h2>{name(o)}</h2><p>{o.preview_url ? "Demo deployed" : `${a.ready}/${a.total} images ready`}</p></div><span className={`status-dot ${stageTone(o.workflow_stage)}`} /></div>
-            <div className="progress-line"><span style={{ width: `${o.preview_url ? 100 : o.workflow_stage === "building" ? 80 : o.studio_copy ? 55 : 30}%` }} /></div>
+            <div className="card-top"><div className="grow"><div className="eyebrow">{stageLabel(o.workflow_stage)}</div><h2>{name(o)}</h2><p>{preview ? "Build ready to inspect" : `${a.ready}/${a.total} images ready`}</p></div><span className={`status-dot ${stageTone(o.workflow_stage)}`} /></div>
+            <div className="progress-line"><span style={{ width: `${preview ? 100 : o.workflow_stage === "building" ? 80 : o.studio_copy ? 55 : 30}%` }} /></div>
             <div className="button-row">
               <Link className="btn" href={`/orders/${o.id}`}>Open Studio</Link>
-              {o.preview_url && <a className="btn btn--ghost" href={o.preview_url} target="_blank" rel="noreferrer">See site</a>}
+              {preview && <a className="btn btn--ghost" href={preview} target="_blank" rel="noreferrer">See site</a>}
               <AutopilotSelect id={o.id} value={o.autopilot} />
             </div>
           </article>

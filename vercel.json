@@ -3,6 +3,11 @@
   "outputDirectory": "dist",
   "cleanUrls": true,
   "trailingSlash": false,
+  "rewrites": [
+    { "source": "/westprint3d", "destination": "/assets/westprint3d/index.html" },
+    { "source": "/westprint3d/", "destination": "/assets/westprint3d/index.html" },
+    { "source": "/westprint3d/:path*", "destination": "/assets/westprint3d/:path*" }
+  ],
   "headers": [
     {
       "source": "/assets/(.*)",

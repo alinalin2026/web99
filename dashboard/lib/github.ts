@@ -18,10 +18,10 @@
 
 import { W99_START, W99_END } from "./prompts/generator";
 
-const OWNER = process.env.SITES_REPO_OWNER ?? "";
-const REPO = process.env.SITES_REPO_NAME ?? "";
-const BRANCH = process.env.SITES_REPO_BRANCH ?? "main";
-const TOKEN = process.env.GITHUB_TOKEN ?? "";
+const OWNER = (process.env.SITES_REPO_OWNER ?? "").trim();
+const REPO = (process.env.SITES_REPO_NAME ?? "").trim();
+const BRANCH = (process.env.SITES_REPO_BRANCH ?? "main").trim() || "main";
+const TOKEN = (process.env.GITHUB_TOKEN ?? "").trim();
 
 const API = "https://api.github.com";
 

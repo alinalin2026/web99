@@ -13,7 +13,7 @@ import { sendCustomEmail } from "@/lib/custom-email";
 import { requireOperator } from "@/lib/auth";
 
 export const runtime = "nodejs";
-export const maxDuration = 300;
+export const maxDuration = 800;
 
 export async function POST(
   req: NextRequest,

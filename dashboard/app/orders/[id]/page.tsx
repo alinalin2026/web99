@@ -18,6 +18,8 @@ export default async function ProjectPage({ params }: { params: Promise<{ id: st
   const [assets, events, versions] = await Promise.all([listAssets(id), listEvents(id), listVersions(id)]);
   const q = qualificationFor(order);
   const analysis = (order.analysis ?? {}) as Record<string, any>;
+  const publishPending = Boolean(order.commit_sha?.startsWith("pending:github:"));
+  const effectivePreviewUrl = publishPending && order.slug ? `/preview/${order.slug}` : order.preview_url;
 
   return (
     <main className="project-shell">
@@ -34,14 +36,20 @@ export default async function ProjectPage({ params }: { params: Promise<{ id: st
       </header>
 
       {order.failure_reason && <div className="panel error-panel"><b>Last step failed</b><p>{order.failure_reason}</p></div>}
+      {publishPending && (
+        <div className="panel">
+          <b>Website ready · publishing pending</b>
+          <p>The finished build is safe in Web99 and can be previewed now. GitHub publishing will be retried separately, so this does not block your review.</p>
+        </div>
+      )}
 
       <StudioEditor
         id={order.id}
         planText={order.plan_text}
         studioCopy={order.studio_copy}
         assets={assets}
-        previewUrl={order.preview_url}
-        email={order.email}
+        previewUrl={effectivePreviewUrl}
+        email={publishPending ? null : order.email}
         workflowStage={order.workflow_stage}
         state={order.state}
         autopilot={order.autopilot}

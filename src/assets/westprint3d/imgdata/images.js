@@ -1,0 +1,1 @@
+window.W3IMG={hero:'data:image/jpeg;base64,'+window.W3H,gaming:'data:image/jpeg;base64,'+window.W3G,workshop:'data:image/jpeg;base64,'+window.W3W,entryway:'data:image/jpeg;base64,'+window.W3E};document.querySelectorAll('[data-w3img]').forEach(function(img){var k=img.getAttribute('data-w3img');if(window.W3IMG[k])img.src=window.W3IMG[k];});

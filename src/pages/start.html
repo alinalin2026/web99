@@ -58,6 +58,22 @@
         </div>
       </form>
 
+      <div class="attach" id="attachBox" hidden>
+        <button type="button" class="attach__btn" id="attachBtn">
+          <svg width="18" height="18" aria-hidden="true"><use href="#i-paperclip"/></svg>
+          Attach a logo, photo or file
+        </button>
+        <input
+          type="file"
+          id="attachInput"
+          class="skip"
+          multiple
+          hidden
+          accept="image/png,image/jpeg,image/webp,image/gif,image/svg+xml,application/pdf,.doc,.docx,application/msword,application/vnd.openxmlformats-officedocument.wordprocessingml.document,text/plain" />
+        <p class="attach__hint">Logo, photos, a menu — whatever helps. Up to 8MB each.</p>
+        <ul class="attach__list" id="attachList" aria-live="polite"></ul>
+      </div>
+
       <p class="start__reassure">
         <span><svg width="18" height="18" aria-hidden="true"><use href="#i-clock"/></svg> Ready in 24 hours</span>
         <span><svg width="18" height="18" aria-hidden="true"><use href="#i-eye"/></svg> You see it before you pay</span>

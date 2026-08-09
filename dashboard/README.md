@@ -143,6 +143,10 @@ still just a status flip in one file, same as everywhere.
 
 - [ ] **Sending domain.** SPF, DKIM and DMARC on whatever sends the email, or
       "your website is live" lands in spam.
+- [ ] **Blob store.** `/start`'s attach-a-file control (logos, photos,
+      documents) needs a Vercel Blob store attached to this project —
+      Storage tab → Create → Blob. That sets `BLOB_READ_WRITE_TOKEN`
+      automatically; nothing else to configure.
 - [ ] **Wildcard DNS** — see above.
 - [ ] **Domain registration.** Still manual. The €99 includes a domain in the
       customer's name, and nothing here registers it yet.

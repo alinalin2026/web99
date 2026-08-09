@@ -187,6 +187,46 @@ export default async function OrderPage({
         </>
       )}
 
+      {order.assets.length > 0 && (
+        <>
+          <h2>What they attached</h2>
+          <div className="card" style={{ display: "grid", gap: 12, gridTemplateColumns: "repeat(auto-fill,minmax(140px,1fr))" }}>
+            {order.assets.map((a, i) => {
+              const isImage = a.contentType.startsWith("image/");
+              return (
+                <a
+                  key={i}
+                  href={a.url}
+                  target="_blank"
+                  rel="noopener"
+                  style={{ display: "block", textDecoration: "none", color: "inherit" }}
+                >
+                  {isImage ? (
+                    <img
+                      src={a.url}
+                      alt={a.filename}
+                      style={{ width: "100%", height: 100, objectFit: "cover", borderRadius: 8, border: "1px solid var(--line)" }}
+                    />
+                  ) : (
+                    <div
+                      style={{
+                        width: "100%", height: 100, borderRadius: 8, border: "1px solid var(--line)",
+                        background: "var(--lav)", display: "grid", placeItems: "center", fontSize: 12,
+                      }}
+                    >
+                      {a.filename.split(".").pop()?.toUpperCase() ?? "FILE"}
+                    </div>
+                  )}
+                  <p className="muted" style={{ margin: "6px 0 0", fontSize: 12, wordBreak: "break-word" }}>
+                    {a.filename}
+                  </p>
+                </a>
+              );
+            })}
+          </div>
+        </>
+      )}
+
       <h2>What they told Sarah</h2>
       <div className="card">
         {order.conversation.length === 0 ? (

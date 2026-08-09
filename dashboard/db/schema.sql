@@ -51,6 +51,10 @@ CREATE TABLE IF NOT EXISTS orders (
   -- What the generator wanted a human to know
   generator_notes text,
 
+  -- Logos, photos, documents they attached from /start:
+  -- [{ url, filename, contentType, size, uploadedAt }]
+  assets          jsonb NOT NULL DEFAULT '[]'::jsonb,
+
   -- Where it ended up
   slug            text UNIQUE,          -- barbers-drumcondra
   preview_url     text,                 -- https://barbers-drumcondra.web99.ie
@@ -73,6 +77,10 @@ CREATE TABLE IF NOT EXISTS orders (
   created_at      timestamptz NOT NULL DEFAULT now(),
   updated_at      timestamptz NOT NULL DEFAULT now()
 );
+
+-- Covers a table created before `assets` existed, since CREATE TABLE IF NOT
+-- EXISTS above is a no-op against one that's already there.
+ALTER TABLE orders ADD COLUMN IF NOT EXISTS assets jsonb NOT NULL DEFAULT '[]'::jsonb;
 
 CREATE INDEX IF NOT EXISTS orders_state_idx    ON orders (state, created_at DESC);
 CREATE INDEX IF NOT EXISTS orders_email_idx    ON orders (email);

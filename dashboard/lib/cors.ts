@@ -1,22 +1,24 @@
 import { NextRequest, NextResponse } from "next/server";
 
 /* ===========================================================================
-   CORS for /api/chat
+   CORS for /api/chat and /api/upload
    ---------------------------------------------------------------------------
-   The only endpoint on this whole app that a BROWSER calls cross-origin: the
-   marketing site (web99.ie) and the dashboard (this app) are two separate
-   Vercel projects on two separate domains, and /start/'s fetch() sends
-   Content-Type: application/json — which isn't a CORS-"simple" content type,
-   so the browser sends a preflight OPTIONS request first. With no CORS
-   headers at all, that preflight fails and the browser blocks the real
-   request before it ever leaves the page. This is exactly the bug that made
-   every message to Sarah silently fail — the UI's own network-error fallback
-   was firing correctly, on a genuine network-level failure.
+   The endpoints on this app that a BROWSER calls cross-origin: the marketing
+   site (web99.ie) and the dashboard (this app) are two separate Vercel
+   projects on two separate domains, and /start/'s fetch() sends
+   Content-Type: application/json (or a multipart file upload) — neither is a
+   CORS-"simple" request, so the browser sends a preflight OPTIONS request
+   first. With no CORS headers at all, that preflight fails and the browser
+   blocks the real request before it ever leaves the page. This is exactly
+   the bug that made every message to Sarah silently fail — the UI's own
+   network-error fallback was firing correctly, on a genuine network-level
+   failure.
 
    Every other route in this app is either same-origin (called by this app's
    own pages) or called by a non-browser client that doesn't send an Origin
    header at all (Stripe's webhook, Vercel's cron) — CORS is a browser
-   mechanism and doesn't apply to those, so this file exists only for /api/chat.
+   mechanism and doesn't apply to those, so this file exists only for the two
+   routes /start's browser code talks to directly.
 
    Restricted to a known allow-list rather than "*". This doesn't stop a
    script from calling the endpoint directly with a spoofed or absent Origin
@@ -38,7 +40,7 @@ function corsHeaders(origin: string | null): Record<string, string> {
   const headers: Record<string, string> = { Vary: "Origin" };
   if (origin && allowed.includes(origin)) {
     headers["Access-Control-Allow-Origin"] = origin;
-    headers["Access-Control-Allow-Methods"] = "GET, POST, OPTIONS";
+    headers["Access-Control-Allow-Methods"] = "GET, POST, DELETE, OPTIONS";
     headers["Access-Control-Allow-Headers"] = "Content-Type";
     headers["Access-Control-Max-Age"] = "86400";
   }

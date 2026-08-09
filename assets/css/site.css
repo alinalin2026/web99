@@ -1975,6 +1975,99 @@ details[open] .faq__sign::after {
   font-size: 1rem;
 }
 
+/* --- attach a file, from /start ------------------------------------------ */
+
+.attach {
+  margin-top: 14px;
+}
+
+.attach__btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 9px;
+  padding: 11px 18px;
+  border: 2px solid var(--lav-line);
+  border-radius: 999px;
+  background: transparent;
+  color: var(--ink);
+  font: inherit;
+  font-weight: 650;
+  font-size: 0.94rem;
+  cursor: pointer;
+  transition: background 0.18s ease, border-color 0.18s ease;
+}
+
+.attach__btn:hover {
+  background: var(--lav);
+  border-color: var(--violet);
+}
+
+.attach__hint {
+  margin: 8px 0 0;
+  font-size: 0.85rem;
+  color: var(--muted);
+  font-weight: 600;
+}
+
+.attach__list {
+  list-style: none;
+  margin: 12px 0 0;
+  padding: 0;
+  display: grid;
+  gap: 8px;
+}
+
+.attach__item {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 10px 14px;
+  background: var(--lav);
+  border-radius: 12px;
+  font-size: 0.92rem;
+  font-weight: 600;
+}
+
+.attach__item-name {
+  flex: 1;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.attach__item-status {
+  color: var(--muted);
+  font-weight: 650;
+  font-size: 0.86rem;
+  white-space: nowrap;
+}
+
+.attach__item--error .attach__item-status {
+  color: #b3261e;
+}
+
+.attach__item--done svg {
+  color: var(--violet);
+  flex: none;
+}
+
+.attach__remove {
+  border: 0;
+  background: transparent;
+  color: var(--muted);
+  cursor: pointer;
+  padding: 4px;
+  display: grid;
+  place-items: center;
+  border-radius: 50%;
+  flex: none;
+}
+
+.attach__remove:hover {
+  background: #fff;
+  color: var(--ink);
+}
+
 .start__reassure {
   margin-top: 28px;
   display: flex;

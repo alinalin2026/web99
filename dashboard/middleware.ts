@@ -12,6 +12,7 @@ import { isOperator } from "@/lib/auth";
    silently gated behind the very auth check the page exists to satisfy. */
 const PUBLIC = [
   "/api/chat",
+  "/api/upload",
   "/api/stripe",
   "/api/login",
   "/login",

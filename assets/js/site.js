@@ -203,6 +203,17 @@
       /* private browsing — the conversation still works, it just won't resume */
     }
 
+    /* Attaching a file needs an order to attach it to, and there is none
+       until Sarah's first reply comes back — so the control stays hidden
+       until then (or immediately, on a resumed conversation). */
+    var attachBox = document.getElementById("attachBox");
+    var attachBtn = document.getElementById("attachBtn");
+    var attachInput = document.getElementById("attachInput");
+    var attachList = document.getElementById("attachList");
+    var MAX_ATTACH_BYTES = 8 * 1024 * 1024;
+
+    if (orderId && attachBox) attachBox.hidden = false;
+
     /* grow the box as they type, so nothing scrolls out of sight */
     field.addEventListener("input", function () {
       field.style.height = "auto";
@@ -298,6 +309,7 @@
 
     var finish = function () {
       clearQuickReplies();
+      if (attachBox) attachBox.hidden = true;
       startForm.remove();
       var done = el("div", "chat__done");
       done.appendChild(el("h2", null, "That's everything — thanks."));
@@ -313,6 +325,7 @@
 
     var breakDown = function () {
       clearQuickReplies();
+      if (attachBox) attachBox.hidden = true;
       var wrap = el("div", "chat__done");
       wrap.appendChild(el("h2", null, "Something went wrong our end."));
       wrap.appendChild(
@@ -324,6 +337,87 @@
       wrap.appendChild(a);
       startForm.replaceWith(wrap);
     };
+
+    var svgIcon = function (href, size) {
+      var svg = document.createElementNS("http://www.w3.org/2000/svg", "svg");
+      svg.setAttribute("width", size);
+      svg.setAttribute("height", size);
+      svg.setAttribute("aria-hidden", "true");
+      var use = document.createElementNS("http://www.w3.org/2000/svg", "use");
+      use.setAttribute("href", href);
+      svg.appendChild(use);
+      return svg;
+    };
+
+    var uploadAttachment = function (file) {
+      if (!orderId || !attachList) return;
+
+      var li = el("li", "attach__item");
+      var name = el("span", "attach__item-name", file.name);
+      var status = el("span", "attach__item-status", "Uploading…");
+      li.appendChild(name);
+      li.appendChild(status);
+      attachList.appendChild(li);
+
+      if (file.size > MAX_ATTACH_BYTES) {
+        li.className = "attach__item attach__item--error";
+        status.textContent = "Too big (max 8MB)";
+        return;
+      }
+
+      var data = new FormData();
+      data.append("orderId", orderId);
+      data.append("file", file, file.name);
+
+      fetch(api + "/api/upload", { method: "POST", body: data })
+        .then(function (r) {
+          return r.json().then(function (parsed) {
+            if (!r.ok) throw new Error(parsed.error || "Couldn't upload");
+            return parsed;
+          });
+        })
+        .then(function (parsed) {
+          li.className = "attach__item attach__item--done";
+          status.remove();
+          li.appendChild(svgIcon("#i-check", 16));
+
+          var remove = el("button", "attach__remove");
+          remove.type = "button";
+          remove.setAttribute("aria-label", "Remove " + file.name);
+          remove.appendChild(svgIcon("#i-x", 14));
+          remove.addEventListener("click", function () {
+            remove.disabled = true;
+            fetch(api + "/api/upload", {
+              method: "DELETE",
+              headers: { "Content-Type": "application/json" },
+              body: JSON.stringify({ orderId: orderId, url: parsed.asset.url }),
+            })
+              .then(function () {
+                li.remove();
+              })
+              .catch(function () {
+                remove.disabled = false;
+              });
+          });
+          li.appendChild(remove);
+        })
+        .catch(function (err) {
+          li.className = "attach__item attach__item--error";
+          status.textContent = (err && err.message) || "Couldn't upload";
+        });
+    };
+
+    if (attachBtn && attachInput) {
+      attachBtn.addEventListener("click", function () {
+        attachInput.click();
+      });
+
+      attachInput.addEventListener("change", function () {
+        var files = Array.prototype.slice.call(attachInput.files || []);
+        files.forEach(uploadAttachment);
+        attachInput.value = "";
+      });
+    }
 
     startForm.addEventListener("submit", function (e) {
       e.preventDefault();
@@ -385,6 +479,7 @@
               window.sessionStorage.setItem(KEY, orderId);
             } catch (err) {}
           }
+          if (orderId && attachBox && attachBox.hidden) attachBox.hidden = false;
 
           addTurn("sarah", data.reply);
           if (data.readyToBuild) {

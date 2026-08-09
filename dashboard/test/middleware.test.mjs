@@ -18,6 +18,7 @@ import { isPublicPath } from "../middleware.ts";
 const routes = [
   // Sarah's chat — talked to by anyone before they're a customer at all.
   ["/api/chat", true, "the /start/ page, unauthenticated visitors"],
+  ["/api/upload", true, "the /start/ page's attach-a-file control, same unauthenticated visitors"],
 
   // Login itself. The bug: this was false.
   ["/login", true, "the login page"],

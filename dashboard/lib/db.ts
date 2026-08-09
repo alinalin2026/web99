@@ -41,6 +41,14 @@ export type OrderState =
   | "lost"
   | "failed";
 
+export interface Asset {
+  url: string;
+  filename: string;
+  contentType: string;
+  size: number;
+  uploadedAt: string;
+}
+
 export interface Order {
   id: string;
   state: OrderState;
@@ -54,6 +62,7 @@ export interface Order {
   analysis: Record<string, unknown> | null;
   generated: Record<string, string> | null;
   generator_notes: string | null;
+  assets: Asset[];
   slug: string | null;
   preview_url: string | null;
   commit_sha: string | null;
@@ -114,6 +123,31 @@ export async function logEvent(
   await sql`
     INSERT INTO order_events (order_id, kind, detail)
     VALUES (${orderId}, ${kind}, ${jsonb(detail)})`;
+}
+
+/** Logos, photos, documents — whatever they attached from /start. Appends to
+    the jsonb array in one round trip rather than read-modify-write, so two
+    uploads landing at once can't clobber each other. */
+export async function addAsset(orderId: string, asset: Asset): Promise<Asset[]> {
+  const [row] = await sql<{ assets: Asset[] }[]>`
+    UPDATE orders SET assets = assets || ${jsonb([asset])}
+    WHERE id = ${orderId}
+    RETURNING assets`;
+  return row?.assets ?? [];
+}
+
+/** Drops one attachment by URL — the file itself is deleted from blob storage
+    by the caller first; this just untracks it. */
+export async function removeAsset(orderId: string, url: string): Promise<Asset[]> {
+  const [row] = await sql<{ assets: Asset[] }[]>`
+    UPDATE orders SET assets = (
+      SELECT coalesce(jsonb_agg(a), '[]'::jsonb)
+      FROM jsonb_array_elements(assets) AS a
+      WHERE a->>'url' != ${url}
+    )
+    WHERE id = ${orderId}
+    RETURNING assets`;
+  return row?.assets ?? [];
 }
 
 export async function listEvents(orderId: string) {

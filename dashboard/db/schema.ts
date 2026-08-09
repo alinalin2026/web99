@@ -34,6 +34,8 @@ CREATE TABLE IF NOT EXISTS orders (
   generated       jsonb,
   generator_notes text,
 
+  assets          jsonb NOT NULL DEFAULT '[]'::jsonb,
+
   slug            text UNIQUE,
   preview_url     text,
   commit_sha      text,
@@ -52,6 +54,8 @@ CREATE TABLE IF NOT EXISTS orders (
   created_at      timestamptz NOT NULL DEFAULT now(),
   updated_at      timestamptz NOT NULL DEFAULT now()
 );
+
+ALTER TABLE orders ADD COLUMN IF NOT EXISTS assets jsonb NOT NULL DEFAULT '[]'::jsonb;
 
 CREATE INDEX IF NOT EXISTS orders_state_idx    ON orders (state, created_at DESC);
 CREATE INDEX IF NOT EXISTS orders_email_idx    ON orders (email);

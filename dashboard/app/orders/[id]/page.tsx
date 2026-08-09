@@ -49,7 +49,7 @@ export default async function ProjectPage({ params }: { params: Promise<{ id: st
       />
 
       <details className="project-info panel">
-        <summary><b>Project memory</b><span>Business facts Claude can use</span></summary>
+        <summary><b>Project memory</b><span>Business facts the Web99 Agent can use</span></summary>
         <div className="info-grid">
           <div><span>Business</span><b>{order.business_name || "—"}</b></div>
           <div><span>Trade</span><b>{order.trade || "—"}</b></div>
@@ -63,7 +63,7 @@ export default async function ProjectPage({ params }: { params: Promise<{ id: st
 
       {Array.isArray(analysis.underSold) && analysis.underSold.length > 0 && (
         <details className="project-info panel">
-          <summary><b>Under-sold points</b><span>What Claude spotted</span></summary>
+          <summary><b>Under-sold points</b><span>What the Web99 Agent spotted</span></summary>
           <div className="insight-list">{analysis.underSold.map((u: any, i: number) => <div key={i}><b>{u.fact}</b><p>{u.whereItGoes}{u.why ? ` — ${u.why}` : ""}</p></div>)}</div>
         </details>
       )}
@@ -75,7 +75,7 @@ export default async function ProjectPage({ params }: { params: Promise<{ id: st
 
       {order.qa_report && (
         <details className="project-info panel">
-          <summary><b>QA report</b><span>Automated pre-flight</span></summary>
+          <summary><b>QA report</b><span>OpenAI pre-flight + auto-repair</span></summary>
           <pre>{JSON.stringify(order.qa_report, null, 2)}</pre>
         </details>
       )}

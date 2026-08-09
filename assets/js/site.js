@@ -1,5 +1,5 @@
 /* Web99.ie — the only script on the page. ~2KB. No dependencies.
-   Three jobs: reveal se ctions on scroll, count the counter up once,
+   Three jobs: reveal sections on scroll, count the counter up once,
    shade the header once you've scrolled. Nothing else. */
 
 (function () {
@@ -121,6 +121,27 @@
     }
   }
 
+  /* --- genuine reviewer feedback ----------------------------------------
+     These quotes came from Reddit reviewers who received a free Web99 review
+     build. Keep the connection disclosed, but do not label genuine feedback
+     as sample or illustrative copy. */
+  var feedback = document.getElementById("feedback");
+  if (feedback) {
+    var eyebrow = feedback.querySelector(".eyebrow");
+    var heading = feedback.querySelector(".h2");
+    var lede = feedback.querySelector(".lede");
+    if (eyebrow) eyebrow.textContent = "Real feedback";
+    if (heading) heading.textContent = "What reviewers said about Web99.";
+    if (lede) lede.textContent = "Feedback from Reddit reviewers who received a free Web99 review build.";
+
+    Array.prototype.forEach.call(feedback.querySelectorAll(".tcard cite"), function (cite) {
+      cite.textContent = "Reddit reviewer";
+      var small = document.createElement("small");
+      small.textContent = "Received a free review build";
+      cite.appendChild(small);
+    });
+  }
+
   /* --- sticky CTA bar -----------------------------------------------------
      Percentage-of-page-scrolled rather than a fixed pixel value, so "around
      half page" holds true regardless of how long the page is. Hides again
@@ -174,7 +195,7 @@
     var KEY = "web99:orderId";
     var orderId = null;
     var sending = false;
-    var confirmWrap = null;
+    var quickWrap = null;
 
     try {
       orderId = window.sessionStorage.getItem(KEY);
@@ -201,8 +222,8 @@
 
       if (who === "sarah") {
         var img = document.createElement("img");
-        img.src = "/assets/img/sarah.svg";
-        img.alt = "";
+        img.src = "/assets/img/sarah.svg?v=20260808c";
+        img.alt = "Sarah, Web99's AI assistant";
         img.width = 38;
         img.height = 38;
         av.appendChild(img);
@@ -230,9 +251,53 @@
       return turn;
     };
 
+    var clearQuickReplies = function () {
+      if (quickWrap && quickWrap.parentNode) quickWrap.remove();
+      quickWrap = null;
+    };
+
+    var showQuickReplies = function (items) {
+      clearQuickReplies();
+      if (!Array.isArray(items) || items.length < 2) return;
+
+      quickWrap = el("div", "chat__confirm");
+      quickWrap.setAttribute("aria-label", "Quick replies");
+      quickWrap.style.display = "flex";
+      quickWrap.style.flexWrap = "wrap";
+      quickWrap.style.gap = "10px";
+      quickWrap.style.margin = "-8px 0 18px 51px";
+
+      items.slice(0, 3).forEach(function (item) {
+        if (!item) return;
+        var label = String(item.label || item.value || "").trim();
+        var value = String(item.value || item.label || "").trim();
+        if (!label || !value) return;
+
+        var button = el("button", "btn btn--ghost", label);
+        button.type = "button";
+        button.style.width = "auto";
+        button.style.padding = "11px 18px";
+        button.style.fontSize = "0.95rem";
+        button.addEventListener("click", function () {
+          clearQuickReplies();
+          field.value = value;
+          field.blur();
+          startForm.requestSubmit();
+        });
+        quickWrap.appendChild(button);
+      });
+
+      if (!quickWrap.children.length) {
+        clearQuickReplies();
+        return;
+      }
+
+      startForm.parentNode.insertBefore(quickWrap, startForm);
+      quickWrap.scrollIntoView({ block: "nearest", behavior: reduced ? "auto" : "smooth" });
+    };
+
     var finish = function () {
-      if (confirmWrap && confirmWrap.parentNode) confirmWrap.remove();
-      confirmWrap = null;
+      clearQuickReplies();
       startForm.remove();
       var done = el("div", "chat__done");
       done.appendChild(el("h2", null, "That's everything — thanks."));
@@ -247,6 +312,7 @@
     };
 
     var breakDown = function () {
+      clearQuickReplies();
       var wrap = el("div", "chat__done");
       wrap.appendChild(el("h2", null, "Something went wrong our end."));
       wrap.appendChild(
@@ -259,26 +325,6 @@
       startForm.replaceWith(wrap);
     };
 
-    var clearConfirm = function () {
-      if (confirmWrap && confirmWrap.parentNode) confirmWrap.remove();
-      confirmWrap = null;
-    };
-
-    var showConfirm = function () {
-      clearConfirm();
-      confirmWrap = el("div", "chat__confirm");
-      var yes = el("button", "btn", "Yes — that's right");
-      yes.type = "button";
-      yes.addEventListener("click", function () {
-        clearConfirm();
-        field.value = "Yes, that's right.";
-        startForm.requestSubmit();
-      });
-      confirmWrap.appendChild(yes);
-      startForm.parentNode.insertBefore(confirmWrap, startForm);
-      yes.scrollIntoView({ block: "nearest", behavior: reduced ? "auto" : "smooth" });
-    };
-
     startForm.addEventListener("submit", function (e) {
       e.preventDefault();
       if (sending) return;
@@ -289,7 +335,13 @@
         return;
       }
 
-      clearConfirm();
+      /* On phones, submitting should dismiss the keyboard. Never re-focus the
+         textarea when Sarah replies; it opens again only when the user taps it. */
+      field.blur();
+      if (document.activeElement && typeof document.activeElement.blur === "function") {
+        document.activeElement.blur();
+      }
+      clearQuickReplies();
 
       /* Sarah's opening bubble becomes part of the thread once it's underway. */
       if (intro && intro.parentNode) {
@@ -305,11 +357,18 @@
       sending = true;
       if (sendBtn) sendBtn.disabled = true;
       var pending = addTurn("sarah", null);
+      var attribution = typeof window.web99Attribution === "function" ? window.web99Attribution() : null;
+      var trackingConsent = typeof window.web99TrackingConsent === "function" ? window.web99TrackingConsent() : false;
 
       fetch(api + "/api/chat", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ orderId: orderId, message: story }),
+        body: JSON.stringify({
+          orderId: orderId,
+          message: story,
+          attribution: attribution,
+          trackingConsent: trackingConsent
+        }),
       })
         .then(function (r) {
           if (!r.ok) throw new Error("HTTP " + r.status);
@@ -329,16 +388,26 @@
 
           addTurn("sarah", data.reply);
           if (data.readyToBuild) {
+            try {
+              window.dispatchEvent(new CustomEvent("web99:lead", {
+                detail: { orderId: data.orderId || orderId }
+              }));
+            } catch (err) {}
             finish();
+          } else if (Array.isArray(data.quickReplies) && data.quickReplies.length >= 2) {
+            showQuickReplies(data.quickReplies);
           } else if (
             Array.isArray(data.missing) &&
             data.missing.length === 0 &&
             /\?\s*$/.test(data.reply || "")
           ) {
-            showConfirm();
-          } else {
-            field.focus();
+            showQuickReplies([
+              { label: "Yes — that's right", value: "Yes, that's right." },
+              { label: "I want to add something", value: "I'd like to add something." }
+            ]);
           }
+          /* Deliberately no field.focus() here. On mobile, Sarah's reply should
+             stay readable instead of making the keyboard jump back up. */
         })
         .catch(function () {
           pending.remove();

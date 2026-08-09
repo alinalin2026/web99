@@ -33,6 +33,32 @@
     <link rel="apple-touch-icon" href="/assets/img/brand/apple-touch-icon.png" />
     <link rel="manifest" href="/site.webmanifest" />
 
+    <!-- Google Analytics 4 — installed on every page. Consent is read before
+         the first measurement command so returning visitors keep their choice. -->
+    <script>
+      window.dataLayer = window.dataLayer || [];
+      function gtag(){dataLayer.push(arguments);}
+      (function () {
+        var granted = false;
+        try { granted = localStorage.getItem("web99:trackingConsent") === "granted"; } catch (e) {}
+        var state = granted ? "granted" : "denied";
+        gtag("consent", "default", {
+          analytics_storage: state,
+          ad_storage: state,
+          ad_user_data: state,
+          ad_personalization: state,
+          wait_for_update: 500
+        });
+      })();
+      gtag("js", new Date());
+      gtag("config", "G-8X9XMJV81V", {
+        send_page_view: true,
+        page_location: window.location.href,
+        page_path: window.location.pathname + window.location.search
+      });
+    </script>
+    <script async src="https://www.googletagmanager.com/gtag/js?id=G-8X9XMJV81V"></script>
+
     <link rel="preconnect" href="https://fonts.googleapis.com" />
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
     <link
@@ -141,8 +167,8 @@
 <header class="hdr" id="siteHeader">
   <div class="wrap hdr__in">
     <a class="logo" href="/" aria-label="Web99.ie home">
-      <img class="logo__mark" src="/assets/img/brand/icon-192.png" width="30" height="30" alt="" />
-      Web<b>99</b><span>.ie</span>
+      <img class="logo__mark" src="/assets/img/brand/logo-tick.svg" width="30" height="30" alt="" />
+      <strong>Web<b>99</b><span>.ie</span></strong>
     </a>
 
     <button class="burger" id="navToggle" type="button" aria-expanded="false" aria-controls="siteNav">
@@ -165,6 +191,22 @@
 
     <main id="main">
       
+
+<style>
+  .start .avatar {
+    background-image: url('/assets/img/sarah-photo.svg?v=20260808d');
+    background-size: cover;
+    background-position: center;
+    background-repeat: no-repeat;
+    border-radius: 999px;
+    overflow: hidden;
+    flex: 0 0 auto;
+  }
+  .start .avatar img { opacity: 0 !important; }
+  .start .turn--them .avatar {
+    background-image: none;
+  }
+</style>
 
 <section class="start">
   <svg class="arc hero__arc" viewBox="0 0 820 820" fill="none" aria-hidden="true" focusable="false">
@@ -193,23 +235,23 @@
       <div class="chat__thread" id="chatThread" aria-live="polite"></div>
 
       <div class="chat__intro" id="sarahIntro">
-        <span class="avatar">
-          <img src="/assets/img/sarah.svg" alt="" width="52" height="52" />
+        <span class="avatar" style="width:68px;height:68px" role="img" aria-label="Sarah, Web99's AI assistant">
+          <img src="/assets/img/sarah-photo.svg?v=20260808d" alt="Sarah, Web99's AI assistant" width="68" height="68" />
         </span>
         <div>
-          <p class="bubble" id="sarahPrompt">Hi, I'm Sarah — I'm the assistant here at Web99. Tell me about your business: what do you do, and whereabouts are you?</p>
-          <span class="chat__who">Sarah is Web99's AI assistant. A person reads every website before it reaches you.</span>
+          <p class="bubble" id="sarahPrompt">Hi, I'm Sarah — the Web99 assistant. First, what's the name of your business? If you don't have a name yet, just tell me that.</p>
+          <span class="chat__who"><strong>Sarah</strong> · Web99's AI assistant. A person reads every website before it reaches you.</span>
         </div>
       </div>
 
       <form class="composer" id="startForm" method="post" action="#" novalidate
             data-api="https://web99dashboard.vercel.app" data-whatsapp="https://wa.me/353000000000?text=Hi%2C%20I%20saw%20Web99%20and%20I'd%20like%20a%20website%20for%20my%20business.">
-        <label class="skip" for="businessStory">Tell us about your business</label>
+        <label class="skip" for="businessStory">Your answer to Sarah</label>
         <textarea
           id="businessStory"
           name="story"
           rows="5"
-          placeholder="For example: I'm a barber in Drumcondra. Been going 12 years. Two chairs, walk-ins and bookings, closed Mondays."
+          placeholder="Type your answer here…"
           autocomplete="off"></textarea>
 
         <div class="composer__foot">
@@ -234,8 +276,8 @@
     <div class="ftr__grid">
       <div>
         <a class="logo" href="/" aria-label="Web99.ie home">
-          <img class="logo__mark" src="/assets/img/brand/icon-192.png" width="30" height="30" alt="" />
-          Web<b>99</b><span>.ie</span>
+          <img class="logo__mark" src="/assets/img/brand/logo-tick.svg" width="30" height="30" alt="" />
+          <strong>Web<b>99</b><span>.ie</span></strong>
         </a>
         <p class="ftr__blurb">We build a complete website for your business for €99. You see it finished and live before you pay anything at all.</p>
         <a class="wa" href="https://wa.me/353000000000?text=Hi%2C%20I%20saw%20Web99%20and%20I'd%20like%20a%20website%20for%20my%20business." rel="noopener">
@@ -259,6 +301,7 @@
         <ul>
           <li><a href="/terms/">Terms</a></li>
           <li><a href="/privacy/">Privacy</a></li>
+          <li><a href="#" id="cookieSettings">Cookie settings</a></li>
           <li><a href="mailto:hello@web99.ie">hello@web99.ie</a></li>
           <li><a href="tel:+35312343300">(01) 234 3300</a></li>
           <li>38 Fitzwilliam Square W, Dublin 2, D02 T938</li>
@@ -273,7 +316,8 @@
 </footer>
 
 
-    <script src="/assets/js/site.js?v=e4e047d8" defer></script>
+    <script src="/assets/js/site.js?v=b9832270" defer></script>
+    <script src="/assets/js/tracking.js?v=20260808c" defer></script>
   </body>
 </html>
 

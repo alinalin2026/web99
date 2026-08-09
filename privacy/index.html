@@ -33,6 +33,32 @@
     <link rel="apple-touch-icon" href="/assets/img/brand/apple-touch-icon.png" />
     <link rel="manifest" href="/site.webmanifest" />
 
+    <!-- Google Analytics 4 — installed on every page. Consent is read before
+         the first measurement command so returning visitors keep their choice. -->
+    <script>
+      window.dataLayer = window.dataLayer || [];
+      function gtag(){dataLayer.push(arguments);}
+      (function () {
+        var granted = false;
+        try { granted = localStorage.getItem("web99:trackingConsent") === "granted"; } catch (e) {}
+        var state = granted ? "granted" : "denied";
+        gtag("consent", "default", {
+          analytics_storage: state,
+          ad_storage: state,
+          ad_user_data: state,
+          ad_personalization: state,
+          wait_for_update: 500
+        });
+      })();
+      gtag("js", new Date());
+      gtag("config", "G-8X9XMJV81V", {
+        send_page_view: true,
+        page_location: window.location.href,
+        page_path: window.location.pathname + window.location.search
+      });
+    </script>
+    <script async src="https://www.googletagmanager.com/gtag/js?id=G-8X9XMJV81V"></script>
+
     <link rel="preconnect" href="https://fonts.googleapis.com" />
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
     <link
@@ -141,8 +167,8 @@
 <header class="hdr" id="siteHeader">
   <div class="wrap hdr__in">
     <a class="logo" href="/" aria-label="Web99.ie home">
-      <img class="logo__mark" src="/assets/img/brand/icon-192.png" width="30" height="30" alt="" />
-      Web<b>99</b><span>.ie</span>
+      <img class="logo__mark" src="/assets/img/brand/logo-tick.svg" width="30" height="30" alt="" />
+      <strong>Web<b>99</b><span>.ie</span></strong>
     </a>
 
     <button class="burger" id="navToggle" type="button" aria-expanded="false" aria-controls="siteNav">
@@ -171,43 +197,43 @@
   <div class="wrap">
     <p class="eyebrow">Privacy</p>
     <h1 class="h2">What we do with your information.</h1>
-    <p class="lede">Short version: we use it to build your website and to talk to you about it. Nothing else.</p>
+    <p class="lede">We use the information you give us to build your website and communicate with you. With your cookie consent, we also measure how the site and our advertising perform.</p>
   </div>
 </section>
 
 <section class="section">
   <div class="wrap prose rise">
-    <!-- NOTE FOR THE STUDIO: honest plain-English draft. Before going live, confirm
-         it matches the tools you actually use (analytics, email, hosting, payments)
-         and have it checked against GDPR. -->
-
     <h2>What we collect</h2>
     <ul>
-      <li><strong>What you tell us</strong> about your business — your name, your trade, your area, your opening hours, anything else you send.</li>
+      <li><strong>What you tell us</strong> about your business — your name, trade, area and anything else you send us for the website.</li>
       <li><strong>How to reach you</strong> — your email address and, if you give it, your phone number.</li>
-      <li><strong>Basic visit information</strong> — which pages get looked at and roughly where in the world visitors are. We do not use this to identify you personally.</li>
+      <li><strong>Visit and advertising information, if you consent</strong> — pages viewed, buttons used, completed enquiries, purchases, referral or campaign information and similar measurement data.</li>
     </ul>
 
     <h2>Why we collect it</h2>
-    <p>To build your website, to send you the link, and to answer you when you get in touch. That's the whole reason.</p>
+    <p>We use enquiry information to build your website, send you the preview and deal with your order. If you accept analytics and advertising cookies, we use measurement data to understand which pages and ads work and to measure enquiries and sales.</p>
+
+    <h2>Analytics and advertising tools</h2>
+    <p>If you accept tracking cookies, Web99 uses Google Analytics 4 and the Meta Pixel. These services may set or read cookies and receive information about your visit so that we can measure traffic, enquiries, purchases and advertising performance.</p>
+    <p>We may also send conversion events to Meta from our systems where you have consented, so a completed enquiry or purchase can be attributed more reliably to an advertisement.</p>
+
+    <h2>Your cookie choice</h2>
+    <p>Analytics and advertising tracking is off until you accept it. You can reject it and continue using the site normally. You can also change your choice later using <a class="textlink" href="#" data-cookie-settings>Cookie settings</a> in the footer.</p>
 
     <h2>What we don't do</h2>
-    <p>We don't sell your information. We don't hand it to advertisers. We don't add you to a mailing list you didn't ask for.</p>
+    <p>We don't sell your personal information. We don't add you to an email marketing list unless you separately ask to receive marketing.</p>
 
     <div class="callout">
-      <p>We never ask for card details before your website is built. When you do pay, the payment is handled by a regulated payment provider — your card number never touches our systems.</p>
+      <p>We never ask for card details before your website is built. When you do pay, payment is handled by Stripe and your card number does not pass through Web99's systems.</p>
     </div>
 
     <h2>How long we keep it</h2>
-    <p>If you become a customer, for as long as we look after your website, plus whatever period the tax rules require us to keep records.</p>
-    <p>If you don't go ahead, we delete what you sent us within 90 days.</p>
+    <p>If you become a customer, we keep the records needed to provide the service and meet our legal and accounting obligations.</p>
+    <p>If you don't go ahead, we delete the business information you sent us within 90 days unless we need to keep a limited record for legal or security reasons.</p>
 
     <h2>Your rights</h2>
-    <p>Under GDPR you can ask us for a copy of what we hold about you, ask us to correct it, or ask us to delete it. Email <a class="textlink" href="mailto:hello@web99.ie">hello@web99.ie</a> and we'll deal with it within 30 days.</p>
-    <p>If you're not happy with how we handled it, you can complain to the Irish Data Protection Commission.</p>
-
-    <h2>Cookies</h2>
-    <p>This site uses only what it needs to work properly and to count visits. No advertising cookies, no cross-site tracking.</p>
+    <p>Under GDPR you can ask us for a copy of personal data we hold about you, ask us to correct it, object to certain processing, restrict it or ask us to delete it where the law allows. Email <a class="textlink" href="mailto:hello@web99.ie">hello@web99.ie</a>.</p>
+    <p>If you're not happy with how we handle personal data, you can complain to the Irish Data Protection Commission.</p>
 
     <h2>Contact</h2>
     <p>Email <a class="textlink" href="mailto:hello@web99.ie">hello@web99.ie</a>. We're in Dublin, Ireland.</p>
@@ -221,8 +247,8 @@
     <div class="ftr__grid">
       <div>
         <a class="logo" href="/" aria-label="Web99.ie home">
-          <img class="logo__mark" src="/assets/img/brand/icon-192.png" width="30" height="30" alt="" />
-          Web<b>99</b><span>.ie</span>
+          <img class="logo__mark" src="/assets/img/brand/logo-tick.svg" width="30" height="30" alt="" />
+          <strong>Web<b>99</b><span>.ie</span></strong>
         </a>
         <p class="ftr__blurb">We build a complete website for your business for €99. You see it finished and live before you pay anything at all.</p>
         <a class="wa" href="https://wa.me/353000000000?text=Hi%2C%20I%20saw%20Web99%20and%20I'd%20like%20a%20website%20for%20my%20business." rel="noopener">
@@ -246,6 +272,7 @@
         <ul>
           <li><a href="/terms/">Terms</a></li>
           <li><a href="/privacy/">Privacy</a></li>
+          <li><a href="#" id="cookieSettings">Cookie settings</a></li>
           <li><a href="mailto:hello@web99.ie">hello@web99.ie</a></li>
           <li><a href="tel:+35312343300">(01) 234 3300</a></li>
           <li>38 Fitzwilliam Square W, Dublin 2, D02 T938</li>
@@ -260,7 +287,8 @@
 </footer>
 
 
-    <script src="/assets/js/site.js?v=e4e047d8" defer></script>
+    <script src="/assets/js/site.js?v=b9832270" defer></script>
+    <script src="/assets/js/tracking.js?v=20260808c" defer></script>
   </body>
 </html>
 

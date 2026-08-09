@@ -21,28 +21,28 @@ function previewPrefix(slug: string): string {
 
 /**
  * Customer builds are authored as if they live at a domain root. Inside the
- * private dashboard preview they instead live below /preview/<slug>/, so root
- * and relative asset/page URLs must stay inside that namespace.
+ * private dashboard preview they instead live below /preview/<slug>/.
+ *
+ * IMPORTANT: rewrite existing root-relative URLs BEFORE inserting <base>.
+ * Otherwise the rewrite pass also rewrites the base tag itself and produces
+ * paths such as /preview/slug/preview/slug/assets/site.css.
  */
 function rewriteHtmlForPreview(html: string, slug: string): string {
   const prefix = previewPrefix(slug);
   let out = html;
 
-  // Relative links such as styles.css and services.html resolve under the
-  // customer's preview rather than under the dashboard root.
-  if (/<head(?:\s|>)/i.test(out)) {
-    out = out.replace(/<head([^>]*)>/i, `<head$1><base href="${prefix}">`);
-  } else {
-    out = `<base href="${prefix}">${out}`;
-  }
-
-  // Root-relative URLs ignore <base>, so rewrite those explicitly.
+  // Root-relative URLs ignore <base>, so namespace the URLs that already begin
+  // at / first. Do not touch protocol-relative URLs such as //cdn.example.com.
   out = out.replace(
     /\b(href|src|action)=(["'])\/(?!\/)([^"']*)\2/gi,
-    (_match, attr: string, quote: string, target: string) => `${attr}=${quote}${prefix}${target}${quote}`
+    (_match, attr: string, quote: string, target: string) => {
+      if (target.startsWith(`preview/${slug}/`)) {
+        return `${attr}=${quote}/${target}${quote}`;
+      }
+      return `${attr}=${quote}${prefix}${target}${quote}`;
+    }
   );
 
-  // Also cover the common root-relative srcset form.
   out = out.replace(/\bsrcset=(["'])([^"']*)\1/gi, (_match, quote: string, value: string) => {
     const rewritten = value
       .split(",")
@@ -50,12 +50,24 @@ function rewriteHtmlForPreview(html: string, slug: string): string {
         const trimmed = part.trim();
         if (!trimmed.startsWith("/") || trimmed.startsWith("//")) return trimmed;
         const firstSpace = trimmed.search(/\s/);
-        if (firstSpace === -1) return `${prefix}${trimmed.slice(1)}`;
-        return `${prefix}${trimmed.slice(1, firstSpace)}${trimmed.slice(firstSpace)}`;
+        const url = firstSpace === -1 ? trimmed : trimmed.slice(0, firstSpace);
+        const descriptor = firstSpace === -1 ? "" : trimmed.slice(firstSpace);
+        if (url.startsWith(`${prefix}`)) return trimmed;
+        return `${prefix}${url.slice(1)}${descriptor}`;
       })
       .join(", ");
     return `srcset=${quote}${rewritten}${quote}`;
   });
+
+  // Relative URLs (assets/site.css, services.html, etc.) need the preview URL
+  // to behave like a directory. Add the base LAST so it cannot be rewritten by
+  // the root-relative pass above.
+  out = out.replace(/<base\b[^>]*>/gi, "");
+  if (/<head(?:\s|>)/i.test(out)) {
+    out = out.replace(/<head([^>]*)>/i, `<head$1><base href="${prefix}">`);
+  } else {
+    out = `<base href="${prefix}">${out}`;
+  }
 
   return out;
 }
@@ -65,11 +77,17 @@ function rewriteCssForPreview(css: string, slug: string): string {
   return css
     .replace(
       /url\(\s*(["']?)\/(?!\/)([^)"']+)\1\s*\)/gi,
-      (_match, quote: string, target: string) => `url(${quote}${prefix}${target}${quote})`
+      (_match, quote: string, target: string) => {
+        if (target.startsWith(`preview/${slug}/`)) return `url(${quote}/${target}${quote})`;
+        return `url(${quote}${prefix}${target}${quote})`;
+      }
     )
     .replace(
       /@import\s+(["'])\/(?!\/)([^"']+)\1/gi,
-      (_match, quote: string, target: string) => `@import ${quote}${prefix}${target}${quote}`
+      (_match, quote: string, target: string) => {
+        if (target.startsWith(`preview/${slug}/`)) return `@import ${quote}/${target}${quote}`;
+        return `@import ${quote}${prefix}${target}${quote}`;
+      }
     );
 }
 

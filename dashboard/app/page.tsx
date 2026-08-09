@@ -20,8 +20,8 @@ function ago(iso: string): string {
 function name(order: Order) { return order.business_name || order.trade || "Unnamed lead"; }
 function stageLabel(stage: string) {
   return ({
-    new: "New", queued: "Queued", planning: "Claude planning", plan_ready: "Plan ready",
-    creating: "Claude writing", studio_ready: "Studio ready", building: "Building",
+    new: "New", queued: "Queued", planning: "Agent planning", plan_ready: "Plan ready",
+    creating: "Agent writing", studio_ready: "Studio ready", building: "Building",
     qa: "QA", ready: "Ready", failed: "Needs attention", complete: "Complete",
   } as Record<string, string>)[stage] ?? stage.replaceAll("_", " ");
 }
@@ -69,7 +69,7 @@ export default async function MasterDashboard({
         <header className="master-header">
           <div>
             <div className="brandline">Web<span>99</span> <b>Control</b></div>
-            <p>{active === "work" ? "What needs you right now" : "Website production pipeline"}</p>
+            <p>{active === "work" ? "What needs you right now" : "OpenAI-powered website production"}</p>
           </div>
           <div className="header-dot" title="Dashboard online" />
         </header>
@@ -117,7 +117,7 @@ function WorkTab({
     <section>
       <div className="metric-strip">
         <div><b>{waiting}</b><span>Need you</span></div>
-        <div><b>{building}</b><span>AI working</span></div>
+        <div><b>{building}</b><span>Agent working</span></div>
         <div><b>{orders.filter((o) => o.state === "live").length}</b><span>Ready to send</span></div>
       </div>
 
@@ -162,12 +162,12 @@ function WorkTab({
 }
 
 function WorkMessage({ order, asset }: { order: Order; asset: { total: number; ready: number } }) {
-  if (order.workflow_stage === "plan_ready") return <p className="work-message">Claude’s build plan is ready for you to edit and approve.</p>;
+  if (order.workflow_stage === "plan_ready") return <p className="work-message">The Web99 Agent build plan is ready for you to edit and approve.</p>;
   if (order.workflow_stage === "studio_ready") return <p className="work-message">Copy is written. {asset.total ? `${asset.ready}/${asset.total} images generated.` : "No generated images needed."}</p>;
-  if (order.workflow_stage === "planning") return <p className="work-message">Claude is analysing Sarah’s chat and making the 500–600 word build plan.</p>;
-  if (order.workflow_stage === "creating") return <p className="work-message">Claude is improving the offer, writing the site and planning the imagery.</p>;
-  if (order.workflow_stage === "building") return <p className="work-message">Claude Code is putting the approved copy and images together.</p>;
-  if (order.workflow_stage === "qa") return <p className="work-message">The build is being checked before it reaches you.</p>;
+  if (order.workflow_stage === "planning") return <p className="work-message">Web99 Agent is analysing Sarah’s chat and making the 500–600 word build plan.</p>;
+  if (order.workflow_stage === "creating") return <p className="work-message">Web99 Agent is improving the offer, writing the site and planning the imagery.</p>;
+  if (order.workflow_stage === "building") return <p className="work-message">OpenAI is putting the approved copy and images together.</p>;
+  if (order.workflow_stage === "qa") return <p className="work-message">OpenAI QA is checking and auto-repairing the build before it reaches you.</p>;
   if (order.state === "live") return <p className="work-message">The demo has been deployed and is ready to inspect or send to the customer.</p>;
   if (order.state === "sent") return <p className="work-message">Demo sent. Waiting on the customer.</p>;
   return <p className="work-message">Open this project to see what it needs next.</p>;
@@ -215,11 +215,11 @@ function QueueTab({ orders }: { orders: Order[] }) {
   return (
     <section>
       <div className="section-title"><h1>Queue</h1><span>{queued.length}</span></div>
-      <p className="section-copy">Claude analyses each queued Sarah chat and turns it into the editable build plan.</p>
+      <p className="section-copy">The Web99 Agent analyses each queued Sarah chat and turns it into the editable build plan.</p>
       {queued.length === 0 ? <Empty text="Queue is clear. Queue a Sarah chat from Leads." /> : queued.map((o) => (
         <article className={`queue-card panel ${o.plan_text ? "plan-done" : ""}`} key={o.id}>
           <div className="card-top">
-            <div className="grow"><div className="eyebrow">{o.plan_text ? "READY TO APPROVE" : "CLAUDE WORKING"}</div><h2>{name(o)}</h2><p>{[o.trade, o.location].filter(Boolean).join(" · ")}</p></div>
+            <div className="grow"><div className="eyebrow">{o.plan_text ? "READY TO APPROVE" : "AGENT WORKING"}</div><h2>{name(o)}</h2><p>{[o.trade, o.location].filter(Boolean).join(" · ")}</p></div>
             <span className={`status-dot ${o.plan_text ? "green" : "blue"}`} />
           </div>
           {o.plan_text ? <p className="plan-preview">{o.plan_text.slice(0, 280)}…</p> : <p className="work-message">Analysing the chat, selling points, layout and imagery.</p>}
@@ -239,7 +239,7 @@ function StudioTab({ orders, assets }: { orders: Order[]; assets: Map<string, { 
   return (
     <section>
       <div className="section-title"><h1>Studio</h1><span>{studio.length}</span></div>
-      <p className="section-copy">Copy, image prompts, generated assets, builds, QA and versions.</p>
+      <p className="section-copy">Copy, image prompts, generated assets, OpenAI builds, QA and versions.</p>
       {studio.length === 0 ? <Empty text="Approved projects appear here." /> : studio.map((o) => {
         const a = assets.get(o.id) ?? { total: 0, ready: 0 };
         return (

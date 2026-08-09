@@ -19,7 +19,10 @@ export default async function ProjectPage({ params }: { params: Promise<{ id: st
   const q = qualificationFor(order);
   const analysis = (order.analysis ?? {}) as Record<string, any>;
   const publishPending = Boolean(order.commit_sha?.startsWith("pending:github:"));
-  const effectivePreviewUrl = publishPending && order.slug ? `/preview/${order.slug}` : order.preview_url;
+  // A GitHub commit is not the same thing as an attached public deployment.
+  // Until the deployment layer explicitly verifies a public URL, always open
+  // the durable Web99 internal preview that serves the saved generated build.
+  const effectivePreviewUrl = order.slug ? `/preview/${order.slug}` : null;
 
   return (
     <main className="project-shell">
@@ -36,10 +39,16 @@ export default async function ProjectPage({ params }: { params: Promise<{ id: st
       </header>
 
       {order.failure_reason && <div className="panel error-panel"><b>Last step failed</b><p>{order.failure_reason}</p></div>}
+      {order.state === "live" && (
+        <div className="panel">
+          <b>Website build ready</b>
+          <p>Open the internal Web99 preview below. A public web99.ie subdomain is only treated as live after the deployment layer verifies it.</p>
+        </div>
+      )}
       {publishPending && (
         <div className="panel">
-          <b>Website ready · publishing pending</b>
-          <p>The finished build is safe in Web99 and can be previewed now. GitHub publishing will be retried separately, so this does not block your review.</p>
+          <b>GitHub mirror pending</b>
+          <p>The finished build is safe in Web99 and can be previewed now. GitHub publishing can be retried separately.</p>
         </div>
       )}
 
@@ -49,7 +58,7 @@ export default async function ProjectPage({ params }: { params: Promise<{ id: st
         studioCopy={order.studio_copy}
         assets={assets}
         previewUrl={effectivePreviewUrl}
-        email={publishPending ? null : order.email}
+        email={null}
         workflowStage={order.workflow_stage}
         state={order.state}
         autopilot={order.autopilot}

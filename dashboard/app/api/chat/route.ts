@@ -126,7 +126,7 @@ export async function POST(req: NextRequest) {
       await setState(order.id, "ready", { source: "customer_brief_complete" });
       await sql`UPDATE orders SET qualification='lead', workflow_stage='new' WHERE id=${order.id}`;
       await sql`UPDATE followups SET status='cancelled' WHERE order_id=${order.id} AND status='pending'`;
-      await safeLog(order.id, "lead_ready", { message: `${brief.businessName || brief.trade || "Lead"} is ready to queue` });
+      await safeLog(order.id, "lead_ready", { message: `${brief?.businessName || brief?.trade || "Lead"} is ready to queue` });
       if (brief?.trackingConsent === true) {
         const meta = await sendMetaConversion({ eventName: "Lead", eventId: `lead_${order.id}`, email: brief.email, attribution: brief.attribution, clientIp: clientIp(req), eventSourceUrl: typeof brief.attribution?.landing_url === "string" ? brief.attribution.landing_url : "https://web99.ie/start/", value: 99, currency: "EUR" });
         await safeLog(order.id, meta.ok ? "meta_conversion" : "meta_conversion_error", { event: "Lead", eventId: `lead_${order.id}`, pixelId: meta.pixelId ?? null, error: meta.error ?? null });

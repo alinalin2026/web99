@@ -5,9 +5,11 @@
    approved build, so a site is never in a half-written state and any bad build
    is one revert away.
 
-   That last point is the whole answer to "what if the customer ruins it?" —
-   they can't. They never touch the files. Every change is a commit, and every
-   commit can be undone.
+   GitHub publishing is deliberately NON-BLOCKING. The dashboard stores the
+   finished build in Postgres first/alongside the workflow, and if GitHub is
+   temporarily unavailable we return a pending marker instead of throwing away
+   a perfectly good website build. The internal preview route can still serve
+   the finished site while publishing is repaired/retried.
 
    Uses the git data API (blobs → tree → commit → ref) rather than the contents
    API, so a multi-file site lands as ONE atomic commit instead of a stream of
@@ -22,6 +24,11 @@ const BRANCH = process.env.SITES_REPO_BRANCH ?? "main";
 const TOKEN = process.env.GITHUB_TOKEN ?? "";
 
 const API = "https://api.github.com";
+
+export const PUBLISH_PENDING_PREFIX = "pending:github:";
+export function isPublishPending(value: string | null | undefined): boolean {
+  return Boolean(value?.startsWith(PUBLISH_PENDING_PREFIX));
+}
 
 async function gh<T>(path: string, init?: RequestInit): Promise<T> {
   if (!TOKEN) throw new Error("GITHUB_TOKEN is not set.");
@@ -44,12 +51,7 @@ async function gh<T>(path: string, init?: RequestInit): Promise<T> {
   return res.json() as Promise<T>;
 }
 
-/**
- * Write a whole site as one commit. Returns the commit SHA.
- * Existing files under sites/<slug>/ that aren't in `files` are left alone —
- * the tree is a partial update, which is what we want for incremental edits.
- */
-export async function pushSite(
+async function pushSiteStrict(
   slug: string,
   files: Record<string, string>,
   businessName: string
@@ -105,6 +107,26 @@ export async function pushSite(
   });
 
   return commit.sha;
+}
+
+/**
+ * Write a whole site as one commit. Returns the commit SHA on success.
+ * On a GitHub/token/network problem it returns a pending marker instead of
+ * throwing. That is intentional: publishing is an output step, not a reason to
+ * discard a completed website build.
+ */
+export async function pushSite(
+  slug: string,
+  files: Record<string, string>,
+  businessName: string
+): Promise<string> {
+  try {
+    return await pushSiteStrict(slug, files, businessName);
+  } catch (err) {
+    const message = (err as Error).message.replace(/\s+/g, " ").slice(0, 350);
+    console.error("Web99 GitHub publish pending:", message);
+    return `${PUBLISH_PENDING_PREFIX}${Buffer.from(message, "utf8").toString("base64url")}`;
+  }
 }
 
 /**

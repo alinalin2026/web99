@@ -42,7 +42,10 @@ export default async function Queue() {
             <h1>Orders</h1>
             <p className="sub" style={{ marginBottom: 0 }}>Web99 operations dashboard.</p>
           </div>
-          <Link href="/meta" className="btn">Meta Ads</Link>
+          <div className="row">
+            <Link href="/send" className="btn">Send email</Link>
+            <Link href="/meta" className="btn">Meta Ads</Link>
+          </div>
         </div>
         <div className="warn" style={{ background: "#fdeceb", borderColor: "#f5c6c2" }}>
           <strong>Can't reach the database.</strong>
@@ -83,7 +86,10 @@ export default async function Queue() {
               : "Nothing waiting on you."}
           </p>
         </div>
-        <Link href="/meta" className="btn">Meta Ads</Link>
+        <div className="row">
+          <Link href="/send" className="btn">Send email</Link>
+          <Link href="/meta" className="btn">Meta Ads</Link>
+        </div>
       </div>
 
       <div className="grid" style={{ marginBottom: 26 }}>

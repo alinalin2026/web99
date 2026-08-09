@@ -202,9 +202,34 @@ Web99.ie · (01) 234 3300`,
   };
 }
 
+/* --- 5. one-off, hand-typed from the dashboard ----------------------------
+
+   Everything above is a fixed template for a fixed moment in the pipeline.
+   This one instead takes whatever an operator typed into the compose box —
+   blank lines become paragraph breaks — and wraps it in the same shell, so
+   an ad-hoc email still looks like it came from Web99 and not a text box. */
+
+export function custom(
+  subject: string,
+  message: string,
+  cta?: { label: string; url: string }
+): Email {
+  const paragraphs = message
+    .split(/\n{2,}/)
+    .map((block) => block.trim())
+    .filter(Boolean)
+    .map((block) => p(block.replace(/\n/g, "<br>")));
+
+  return {
+    subject,
+    html: shell(paragraphs.join("") + (cta ? button(cta.url, cta.label) : "")),
+    text: message.trim() + (cta ? `\n\n${cta.label}: ${cta.url}` : ""),
+  };
+}
+
 /* --- sending -------------------------------------------------------------- */
 
-export async function send(to: string, email: Email): Promise<string> {
+export async function send(to: string | string[], email: Email): Promise<string> {
   const { data, error } = await resend().emails.send({
     from: FROM,
     replyTo: REPLY_TO,

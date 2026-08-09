@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { chat, json, MODELS, type Turn } from "@/lib/ai";
 import { sarahSystemPrompt, extractionPrompt, sarahOpener } from "@/lib/prompts/sarah";
 import {
-  sql, jsonb, getOrder, setState, logEvent, scheduleLeadFollowups, syncQualification, type Order,
+  ensureMasterSchema, sql, jsonb, getOrder, setState, logEvent, scheduleLeadFollowups, syncQualification, type Order,
 } from "@/lib/db";
 import { corsPreflight, withCors } from "@/lib/cors";
 import { resolveMetaPixelId } from "@/lib/meta-sales";
@@ -70,6 +70,7 @@ export async function POST(req: NextRequest) {
   const browserHistory = safeHistory(body.history); const attribution = safeAttribution(body.attribution);
   let order: Order | null = null; let persistenceAvailable = true;
   try {
+    await ensureMasterSchema();
     order = body.orderId ? await getOrder(body.orderId) : null;
     if (!order) {
       const [created] = await sql<{ id: string }[]>`INSERT INTO orders (state, conversation, workflow_stage) VALUES ('collecting', '[]'::jsonb, 'new') RETURNING id`;

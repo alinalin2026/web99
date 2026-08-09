@@ -158,7 +158,7 @@ export async function approvePlanAndContinue(orderId: string, who = "operator"):
   }
 }
 
-async function qa(order: Order, files: Record<string, string>): Promise<Record<string, any>> {
+async function sourceQa(order: Order, files: Record<string, string>): Promise<Record<string, any>> {
   const staticProblems = validate(files);
   try {
     const result = await json<Record<string, any>>(
@@ -179,10 +179,81 @@ async function qa(order: Order, files: Record<string, string>): Promise<Record<s
   }
 }
 
+async function visualQa(order: Order, files: Record<string, string>): Promise<Record<string, any> | null> {
+  const url = process.env.VISUAL_QA_URL?.trim();
+  if (!url) return null;
+  try {
+    const token = process.env.VISUAL_QA_TOKEN?.trim();
+    const render = await fetch(url, {
+      method: "POST",
+      headers: { "Content-Type": "application/json", ...(token ? { Authorization: `Bearer ${token}` } : {}) },
+      body: JSON.stringify({
+        files,
+        entry: "index.html",
+        viewports: [
+          { label: "mobile", width: 390, height: 844 },
+          { label: "desktop", width: 1440, height: 1000 },
+        ],
+      }),
+    });
+    const raw = await render.text();
+    const data = raw ? JSON.parse(raw) : {};
+    if (!render.ok) throw new Error(data?.error ?? `Visual renderer HTTP ${render.status}`);
+    const screenshots = Array.isArray(data?.screenshots) ? data.screenshots : [];
+    const images = screenshots
+      .map((shot: any, i: number) => ({
+        label: shot?.label ?? `view-${i + 1}`,
+        imageUrl: shot?.dataUrl ?? shot?.url ?? shot?.image_url,
+      }))
+      .filter((shot: any) => typeof shot.imageUrl === "string" && shot.imageUrl.length > 0)
+      .slice(0, 4);
+    if (!images.length) throw new Error("Visual QA service returned no screenshots.");
+
+    const response = await fetch(RESPONSES_URL, {
+      method: "POST",
+      headers: { Authorization: `Bearer ${openAIKey()}`, "Content-Type": "application/json" },
+      body: JSON.stringify({
+        model: MODELS.qa,
+        instructions: "You are Web99's visual QA reviewer. Inspect the supplied mobile/desktop screenshots. Focus on mobile usability, clipping/overflow, hierarchy, CTA visibility, legibility, spacing, image crops, broken-looking layout and obvious visual defects. Return ONLY JSON: {\"score\":0-100,\"pass\":boolean,\"issues\":[{\"severity\":\"critical|major|minor\",\"problem\":string,\"fix\":string}],\"summary\":string}.",
+        input: [{
+          role: "user",
+          content: [
+            { type: "input_text", text: `BUSINESS DATA\n${JSON.stringify(order.brief ?? {}, null, 2)}\n\nReview ${images.map((x: any) => x.label).join(", ")}.` },
+            ...images.map((shot: any) => ({ type: "input_image", image_url: shot.imageUrl })),
+          ],
+        }],
+        max_output_tokens: 5000,
+      }),
+    });
+    const responseRaw = await response.text();
+    const responseData = responseRaw ? JSON.parse(responseRaw) : {};
+    if (!response.ok) throw new Error(responseData?.error?.message ?? `OpenAI visual QA HTTP ${response.status}`);
+    return { ...parseJson<Record<string, any>>(outputText(responseData)), provider: "openai-vision", views: images.map((x: any) => x.label) };
+  } catch (err) {
+    return { available: false, pass: true, error: (err as Error).message };
+  }
+}
+
+async function qa(order: Order, files: Record<string, string>): Promise<Record<string, any>> {
+  const source = await sourceQa(order, files);
+  const visual = await visualQa(order, files);
+  const sourcePass = source.pass !== false && !(Array.isArray(source.staticProblems) && source.staticProblems.length);
+  const visualPass = visual ? visual.pass !== false : true;
+  return {
+    score: visual?.score != null ? Math.round((Number(source.score ?? 80) + Number(visual.score)) / 2) : source.score,
+    pass: sourcePass && visualPass,
+    source,
+    visual,
+    summary: visual ? `${source.summary ?? "Source QA complete"} Visual QA: ${visual.summary ?? "complete"}` : source.summary,
+  };
+}
+
 function qaNeedsRepair(report: Record<string, any>): boolean {
-  if (Array.isArray(report.staticProblems) && report.staticProblems.length > 0) return true;
   if (report.pass === false) return true;
-  return Array.isArray(report.issues) && report.issues.some((i: any) => i?.severity === "critical" || i?.severity === "major");
+  const source = report.source ?? {};
+  if (Array.isArray(source.staticProblems) && source.staticProblems.length > 0) return true;
+  const issueSets = [source.issues, report.visual?.issues].filter(Array.isArray) as any[][];
+  return issueSets.some((issues) => issues.some((i: any) => i?.severity === "critical" || i?.severity === "major"));
 }
 
 async function repairFromQa(order: Order, files: Record<string, string>, report: Record<string, any>): Promise<Record<string, string>> {

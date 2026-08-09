@@ -7,9 +7,9 @@ const RESPONSES_URL = "https://api.openai.com/v1/responses";
 export const MODELS = {
   sarah: process.env.OPENAI_FAST_MODEL ?? "gpt-5-mini",
   extract: process.env.OPENAI_FAST_MODEL ?? "gpt-5-mini",
-  analyst: process.env.OPENAI_REASONING_MODEL ?? process.env.OPENAI_BUILD_MODEL ?? "gpt-5.1",
-  studio: process.env.OPENAI_STUDIO_MODEL ?? process.env.OPENAI_REASONING_MODEL ?? process.env.OPENAI_BUILD_MODEL ?? "gpt-5.1",
-  qa: process.env.OPENAI_QA_MODEL ?? process.env.OPENAI_REASONING_MODEL ?? process.env.OPENAI_BUILD_MODEL ?? "gpt-5.1",
+  analyst: process.env.OPENAI_REASONING_MODEL ?? "gpt-5.1",
+  studio: process.env.OPENAI_STUDIO_MODEL ?? process.env.OPENAI_REASONING_MODEL ?? "gpt-5.1",
+  qa: process.env.OPENAI_QA_MODEL ?? process.env.OPENAI_REASONING_MODEL ?? "gpt-5.1",
 } as const;
 
 export interface Turn {

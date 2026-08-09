@@ -13,6 +13,7 @@ const RESPONSES_URL = "https://api.openai.com/v1/responses";
 const OPENAI_BUILD_MODEL = process.env.OPENAI_BUILD_MODEL ?? process.env.OPENAI_REASONING_MODEL ?? "gpt-5.1";
 const OPENAI_AGENT_MODEL = process.env.OPENAI_AGENT_MODEL ?? process.env.OPENAI_REASONING_MODEL ?? OPENAI_BUILD_MODEL;
 const PREVIEW_DOMAIN = process.env.PREVIEW_DOMAIN ?? "web99.ie";
+const QA_CHUNK_CHARS = 30000;
 
 function openAIKey(): string {
   const value = process.env.OPENAI_API_KEY?.trim();
@@ -90,6 +91,83 @@ function injectAssets(files: Record<string, string>, assets: ProjectAsset[]): Re
   return out;
 }
 
+type MaskedFiles = {
+  files: Record<string, string>;
+  replacements: Record<string, string>;
+  removedChars: number;
+};
+
+/**
+ * Generated images are stored as data URLs inside the demo HTML. Those strings
+ * can be several megabytes and are useless to a text/code model. Replace them
+ * with stable markers before any OpenAI source/revision call, then restore them
+ * after the model returns the edited code.
+ */
+function maskEmbeddedImages(files: Record<string, string>): MaskedFiles {
+  let counter = 0;
+  let removedChars = 0;
+  const replacements: Record<string, string> = {};
+  const out: Record<string, string> = {};
+  const dataImage = /data:image\/[a-zA-Z0-9.+-]+;base64,[A-Za-z0-9+/=]+/g;
+
+  for (const [path, content] of Object.entries(files)) {
+    out[path] = content.replace(dataImage, (value) => {
+      const marker = `{{W99_EMBEDDED_IMAGE_${++counter}}}`;
+      replacements[marker] = value;
+      removedChars += Math.max(0, value.length - marker.length);
+      return marker;
+    });
+  }
+  return { files: out, replacements, removedChars };
+}
+
+function restoreEmbeddedImages(
+  files: Record<string, string>,
+  replacements: Record<string, string>
+): Record<string, string> {
+  const out: Record<string, string> = {};
+  for (const [path, content] of Object.entries(files)) {
+    let restored = content;
+    for (const [marker, value] of Object.entries(replacements)) {
+      if (restored.includes(marker)) restored = restored.replaceAll(marker, value);
+    }
+    out[path] = restored;
+  }
+  return out;
+}
+
+type SourceChunk = { label: string; source: string };
+
+function sourceChunks(files: Record<string, string>, maxChars = QA_CHUNK_CHARS): SourceChunk[] {
+  const chunks: SourceChunk[] = [];
+  for (const [path, content] of Object.entries(files)) {
+    if (content.length <= maxChars) {
+      chunks.push({ label: path, source: `FILE: ${path}\n${content}` });
+      continue;
+    }
+    const parts = Math.ceil(content.length / maxChars);
+    for (let i = 0; i < parts; i++) {
+      const start = i * maxChars;
+      const end = Math.min(content.length, start + maxChars);
+      chunks.push({
+        label: `${path} part ${i + 1}/${parts}`,
+        source: `FILE: ${path}\nPART ${i + 1} OF ${parts}\n${content.slice(start, end)}`,
+      });
+    }
+  }
+  return chunks.length ? chunks : [{ label: "empty source", source: "No source files supplied." }];
+}
+
+function uniqueIssues(issues: any[]): any[] {
+  const seen = new Set<string>();
+  return issues.filter((issue) => {
+    const key = `${issue?.severity ?? ""}|${issue?.problem ?? JSON.stringify(issue)}`;
+    if (seen.has(key)) return false;
+    seen.add(key);
+    return true;
+  });
+}
+
 async function buildWithOpenAI(order: Order, assets: ProjectAsset[], steer?: string): Promise<Record<string, string>> {
   const instructions = `${generatorPrompt()}\n\nWEB99 OPENAI BUILD AGENT\nYou are the final frontend build agent. The operator has already approved the strategy, copy and images. Build a polished, mobile-first production demo. DO NOT request or invent new images. Use only the supplied asset placeholders exactly as listed. Return JSON with {"files":{"index.html":"..."},"notes":"..."}. Every useful supplied asset should be used intentionally, but do not force an asset where it hurts the design. Keep all business facts inside the supplied brief/analysis/copy. The website must be self-contained and ready for the Web99 deployment function.`;
   const input = `PLAN\n${order.plan_text ?? JSON.stringify(order.analysis ?? {}, null, 2)}\n\n` +
@@ -106,11 +184,25 @@ async function reviseWithOpenAI(
   files: Record<string, string>,
   instruction: string
 ): Promise<Record<string, string>> {
-  const instructions = `You are the Web99 OpenAI frontend revision agent. Apply the requested changes precisely while preserving everything else. Keep the site mobile-first, self-contained and truthful. Never invent business facts. Return ONLY JSON: {"files": {path: full file contents}}. Return every existing file, including unchanged files.`;
-  const input = `REQUESTED CHANGE\n${instruction}\n\nCONFIRMED DATA\n${JSON.stringify(order.brief ?? {}, null, 2)}\n\nCURRENT FILES\n${JSON.stringify(files)}`;
-  const result = parseJson<{ files: Record<string, string> }>(await openAIResponse(instructions, input));
-  if (!result.files?.["index.html"]) throw new Error("OpenAI revision agent returned no index.html.");
-  return result.files;
+  const masked = maskEmbeddedImages(files);
+  const revised: Record<string, string> = {};
+  const entries = Object.entries(masked.files);
+  const fileNames = entries.map(([path]) => path);
+
+  for (const [path, content] of entries) {
+    const instructions = `You are the Web99 OpenAI frontend revision agent. You are editing ONE source file at a time so the request stays small. Apply the requested change to this file only when relevant; otherwise return it unchanged. Preserve all {{W99_EMBEDDED_IMAGE_N}} markers exactly unless the requested change intentionally removes that image. Keep the site mobile-first and truthful. Never invent business facts. Return ONLY JSON: {"content": string, "changed": boolean}.`;
+    const input = `REQUESTED CHANGE\n${instruction}\n\n` +
+      `CONFIRMED DATA\n${JSON.stringify(order.brief ?? {}, null, 2)}\n\n` +
+      `ALL FILE NAMES\n${JSON.stringify(fileNames)}\n\nCURRENT FILE\n${path}\n\n${content}`;
+    const result = parseJson<{ content?: string; changed?: boolean }>(
+      await openAIResponse(instructions, input, OPENAI_BUILD_MODEL, 35000)
+    );
+    revised[path] = typeof result.content === "string" ? result.content : content;
+  }
+
+  const restored = restoreEmbeddedImages(revised, masked.replacements);
+  if (!restored["index.html"]) throw new Error("OpenAI revision agent returned no index.html.");
+  return restored;
 }
 
 export async function makeMasterPlan(orderId: string, steer?: string): Promise<void> {
@@ -160,23 +252,57 @@ export async function approvePlanAndContinue(orderId: string, who = "operator"):
 
 async function sourceQa(order: Order, files: Record<string, string>): Promise<Record<string, any>> {
   const staticProblems = validate(files);
-  try {
-    const result = await json<Record<string, any>>(
-      `You are Web99's final OpenAI QA reviewer. Review generated website source before it reaches the operator. Check mobile hierarchy, CTA visibility, clarity, overflow/layout risks visible from source, spelling, truthful use of supplied business facts, SEO basics, accessibility basics and unresolved placeholders. Do not demand features the customer never supplied facts for. Return {"score":0-100,"pass":boolean,"issues":[{"severity":"critical|major|minor","problem":string,"fix":string}],"summary":string}.`,
-      `BUSINESS DATA\n${JSON.stringify(order.brief ?? {}, null, 2)}\n\nFILES\n${JSON.stringify(files)}`,
-      MODELS.qa,
-      7000
-    );
-    return { ...result, staticProblems, provider: "openai", model: MODELS.qa };
-  } catch (err) {
+  const masked = maskEmbeddedImages(files);
+  const chunks = sourceChunks(masked.files);
+  const results: Record<string, any>[] = [];
+  const qaErrors: string[] = [];
+
+  for (let i = 0; i < chunks.length; i++) {
+    const chunk = chunks[i];
+    try {
+      const result = await json<Record<string, any>>(
+        `You are Web99's final OpenAI QA reviewer. Review ONE bounded source chunk before the site reaches the operator. Check problems visible in this chunk: mobile hierarchy/layout risks, CTA clarity, overflow risks, spelling, truthful use of supplied business facts, SEO/accessibility issues and unresolved placeholders. Do not complain that a tag/section is missing merely because you are seeing only one chunk of a larger file. Return {"score":0-100,"pass":boolean,"issues":[{"severity":"critical|major|minor","problem":string,"fix":string}],"summary":string}.`,
+        `CHUNK ${i + 1} OF ${chunks.length}: ${chunk.label}\n\n` +
+          `BUSINESS DATA\n${JSON.stringify(order.brief ?? {}, null, 2)}\n\nSOURCE\n${chunk.source}`,
+        MODELS.qa,
+        3500
+      );
+      results.push(result);
+    } catch (err) {
+      qaErrors.push(`${chunk.label}: ${(err as Error).message}`);
+    }
+  }
+
+  if (!results.length) {
     return {
       score: staticProblems.length ? 70 : 85,
       pass: staticProblems.length === 0,
       staticProblems,
-      qaError: (err as Error).message,
+      qaErrors,
       provider: "static-fallback",
+      maskedImageChars: masked.removedChars,
     };
   }
+
+  const issues = uniqueIssues(results.flatMap((r) => Array.isArray(r.issues) ? r.issues : []));
+  const numericScores = results.map((r) => Number(r.score)).filter(Number.isFinite);
+  const score = numericScores.length
+    ? Math.round(numericScores.reduce((sum, n) => sum + n, 0) / numericScores.length)
+    : (staticProblems.length ? 70 : 85);
+  const pass = results.every((r) => r.pass !== false);
+
+  return {
+    score,
+    pass,
+    issues,
+    summary: results.map((r) => r.summary).filter(Boolean).slice(0, 6).join(" "),
+    staticProblems,
+    provider: "openai-chunked",
+    model: MODELS.qa,
+    calls: chunks.length,
+    qaErrors,
+    maskedImageChars: masked.removedChars,
+  };
 }
 
 async function visualQa(order: Order, files: Record<string, string>): Promise<Record<string, any> | null> {
@@ -256,11 +382,22 @@ function qaNeedsRepair(report: Record<string, any>): boolean {
   return issueSets.some((issues) => issues.some((i: any) => i?.severity === "critical" || i?.severity === "major"));
 }
 
+function compactRepairReport(report: Record<string, any>) {
+  const source = report.source ?? {};
+  return {
+    staticProblems: Array.isArray(source.staticProblems) ? source.staticProblems.slice(0, 30) : [],
+    sourceIssues: Array.isArray(source.issues) ? source.issues.slice(0, 30) : [],
+    visualIssues: Array.isArray(report.visual?.issues) ? report.visual.issues.slice(0, 20) : [],
+    sourceSummary: source.summary ?? null,
+    visualSummary: report.visual?.summary ?? null,
+  };
+}
+
 async function repairFromQa(order: Order, files: Record<string, string>, report: Record<string, any>): Promise<Record<string, string>> {
   return reviseWithOpenAI(
     order,
     files,
-    `Automated QA found these issues. Fix every critical/major issue and every static validation problem without inventing business facts.\n\n${JSON.stringify(report, null, 2)}`
+    `Automated QA found these issues. Fix every critical/major issue and every static validation problem without inventing business facts.\n\n${JSON.stringify(compactRepairReport(report), null, 2)}`
   );
 }
 
@@ -295,10 +432,10 @@ export async function finaliseMasterBuild(
   let finalFiles = files;
   let qaReport = await qa(order, finalFiles);
   if (qaNeedsRepair(qaReport)) {
-    await logEvent(orderId, "qa_repair", { message: "QA found issues; Web99 Agent is repairing them automatically", report: qaReport });
+    await logEvent(orderId, "qa_repair", { message: "QA found issues; Web99 Agent is repairing them automatically", report: compactRepairReport(qaReport) });
     finalFiles = await repairFromQa(order, finalFiles, qaReport);
     const secondReport = await qa(order, finalFiles);
-    qaReport = { ...secondReport, repairedAutomatically: true, firstPass: qaReport };
+    qaReport = { ...secondReport, repairedAutomatically: true, firstPass: compactRepairReport(qaReport) };
   }
 
   const slug = order.slug ?? (await uniqueSlug(slugify(order.business_name ?? "site", order.location ?? "")));
@@ -350,7 +487,7 @@ export async function fixAndRedeploy(orderId: string, instruction: string, who =
   try {
     const files = await reviseWithOpenAI(order, order.generated, instruction);
     await finaliseMasterBuild(orderId, files, `openai:${OPENAI_BUILD_MODEL}`, instruction.trim().slice(0, 180));
-    await logEvent(orderId, "revision", { message: `Changes applied by OpenAI Agent`, by: who });
+    await logEvent(orderId, "revision", { message: "Changes applied by OpenAI Agent", by: who });
   } catch (err) {
     const message = (err as Error).message;
     await sql`UPDATE orders SET workflow_stage = 'failed', failure_reason = ${message} WHERE id = ${orderId}`;

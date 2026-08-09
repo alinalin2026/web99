@@ -93,9 +93,19 @@ export async function prepareStudio(orderId: string): Promise<StudioResult> {
 
 export async function generateAllProjectAssets(orderId: string): Promise<void> {
   const assets = await listAssets(orderId);
-  for (const asset of assets) {
-    if (asset.status !== "ready") await generateProjectAsset(orderId, asset.id);
-  }
+  const pending = assets.filter((asset) => asset.status !== "ready");
+
+  // Keep image requests separate, but run two at a time so Assisted/Full Auto
+  // does not spend several minutes waiting on a single serial request chain.
+  let cursor = 0;
+  const workerCount = Math.min(2, pending.length);
+  await Promise.all(Array.from({ length: workerCount }, async () => {
+    while (cursor < pending.length) {
+      const asset = pending[cursor++];
+      await generateProjectAsset(orderId, asset.id);
+    }
+  }));
+
   await logEvent(orderId, "images_ready", {
     message: `${assets.length} visual asset${assets.length === 1 ? "" : "s"} ready for the build`,
     count: assets.length,

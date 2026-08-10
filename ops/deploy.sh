@@ -45,7 +45,15 @@ SHA="$(git rev-parse HEAD)"
 SHORT="${SHA:0:10}"
 STAMP="$(date -u +%Y%m%dT%H%M%SZ)"
 RELEASE="$RELEASES_DIR/$STAMP-$SHORT"
-PREVIOUS="$(readlink -f "$CURRENT_LINK" 2>/dev/null || true)"
+
+# A rollback target is valid only when /srv/web99/current resolves to a real,
+# existing immutable release. Never treat an unresolved/self-referential path
+# as a previous release; that is how a current -> current symlink loop happens.
+PREVIOUS=""
+CANDIDATE="$(readlink -e "$CURRENT_LINK" 2>/dev/null || true)"
+if [[ -n "$CANDIDATE" && -d "$CANDIDATE" && "$CANDIDATE" == "$RELEASES_DIR"/* ]]; then
+  PREVIOUS="$CANDIDATE"
+fi
 
 log "building release $SHORT without touching live traffic"
 mkdir -p "$RELEASE"
@@ -77,7 +85,7 @@ mv -Tf "${CURRENT_LINK}.new" "$CURRENT_LINK"
 rollback() {
   local reason="$1"
   log "new release failed: $reason"
-  if [[ -n "$PREVIOUS" && -d "$PREVIOUS" ]]; then
+  if [[ -n "$PREVIOUS" && -d "$PREVIOUS" && "$PREVIOUS" != "$RELEASE" ]]; then
     log "rolling back to $PREVIOUS"
     rm -f "${CURRENT_LINK}.rollback"
     ln -s "$PREVIOUS" "${CURRENT_LINK}.rollback"
@@ -87,7 +95,9 @@ rollback() {
     systemctl restart web99-worker || true
     nginx -t && systemctl reload nginx || true
   else
-    log "no previous atomic release exists; leaving failed release files for diagnosis"
+    # First bootstrap or invalid old link: do not create a fake rollback target.
+    # Leave the tested release mounted so it can be diagnosed/repaired safely.
+    log "no valid previous immutable release; keeping current release for diagnosis"
   fi
   exit 1
 }
@@ -111,7 +121,7 @@ done
 
 "$CURRENT_LINK/ops/smoke.sh" || rollback "production smoke tests"
 
-CURRENT_REAL="$(readlink -f "$CURRENT_LINK")"
+CURRENT_REAL="$(readlink -e "$CURRENT_LINK" 2>/dev/null || true)"
 mapfile -t OLD_RELEASES < <(find "$RELEASES_DIR" -mindepth 1 -maxdepth 1 -type d -printf '%T@ %p\n' | sort -nr | awk '{print $2}')
 COUNT=0
 for dir in "${OLD_RELEASES[@]}"; do

@@ -4,6 +4,7 @@ set -Eeuo pipefail
 APP=/srv/web99/app
 ENV=/srv/web99/config/dashboard.env
 NGINX=/etc/nginx/sites-available/web99
+JOBS=/srv/web99/ops-jobs
 
 [[ $EUID -eq 0 ]] || { echo 'run with sudo'; exit 1; }
 [[ -d "$APP/.git" ]] || { echo 'missing /srv/web99/app git checkout'; exit 1; }
@@ -15,6 +16,7 @@ NGINX=/etc/nginx/sites-available/web99
 # IMPORTANT: this installer never runs git. /srv/web99/app is owned and updated
 # by ubuntu. Running git as root here would recreate mixed ownership in .git/objects.
 
+install -d -o ubuntu -g ubuntu -m 0700 "$JOBS"
 install -m 0644 "$APP/ops-agent/web99-ops-agent.service" /etc/systemd/system/web99-ops-agent.service
 install -d -m 0755 /usr/local/libexec
 install -o root -g root -m 0755 "$APP/ops/web99-ops-tool" /usr/local/libexec/web99-ops-tool
@@ -39,8 +41,6 @@ if marker not in s:
     if needle not in s:
         needle='    location ^~ /dashboard/ { return 404; }\n'
     if needle not in s:
-        # Last-resort insertion immediately before the TLS server's closing brace:
-        # use the final "location /" block as an anchor rather than guessing a server.
         needle='    location / {\n'
     if needle not in s:
         raise SystemExit('could not find safe insertion point in nginx config')
@@ -64,6 +64,9 @@ echo '=== LOCAL AGENT ==='
 code=$(curl -sS -o /dev/null -w '%{http_code}' http://127.0.0.1:3011/)
 echo "$code"
 [[ "$code" == 200 ]]
+
+echo '=== JOB STORE ==='
+stat -c '%U:%G %a %n' "$JOBS"
 
 echo '=== PUBLIC CONSOLE ==='
 code=$(curl -sS -o /dev/null -w '%{http_code}' https://web99.ie/ops-console/)

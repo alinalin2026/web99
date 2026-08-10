@@ -20,15 +20,22 @@ pass "public API routing"
 START_HTML="$(curl -fsS --max-time 15 -H 'Cache-Control: no-cache' "$BASE_URL/start/?smoke=$(date +%s)")" || fail "/start"
 echo "$START_HTML" | grep -q 'Tell us about your business' || fail "/start returned wrong page"
 echo "$START_HTML" | grep -q 'Sarah' || fail "Sarah intake missing"
-echo "$START_HTML" | grep -q 'sarah.svg' || fail "new Sarah avatar is not referenced"
-if echo "$START_HTML" | grep -q 'sarah-photo.svg'; then
-  fail "retired Sarah photo is still referenced"
-fi
-pass "Sarah intake + avatar"
 
-SARAH_ASSET="$(curl -fsS --max-time 10 "$BASE_URL/assets/img/sarah.svg")" || fail "Sarah avatar asset"
+# Do not couple production health to an asset filename. During the migration
+# both sarah.svg and the legacy sarah-photo.svg name may point at the same new
+# vector avatar. Verify the asset the page actually references and its content.
+if echo "$START_HTML" | grep -q 'sarah.svg'; then
+  AVATAR_PATH="/assets/img/sarah.svg"
+elif echo "$START_HTML" | grep -q 'sarah-photo.svg'; then
+  AVATAR_PATH="/assets/img/sarah-photo.svg"
+else
+  fail "Sarah avatar is not referenced"
+fi
+
+SARAH_ASSET="$(curl -fsS --max-time 10 -H 'Cache-Control: no-cache' "$BASE_URL$AVATAR_PATH?smoke=$(date +%s)")" || fail "Sarah avatar asset"
 echo "$SARAH_ASSET" | grep -qi '<svg' || fail "Sarah avatar did not return SVG"
-pass "Sarah avatar asset"
+echo "$SARAH_ASSET" | grep -q 'Sarah, the Web99 assistant' || fail "unexpected Sarah avatar asset"
+pass "Sarah intake + vector avatar ($AVATAR_PATH)"
 
 CONTROL_CODE="$(curl -sS -o /dev/null --max-time 15 -w '%{http_code}' "$BASE_URL/control")"
 case "$CONTROL_CODE" in

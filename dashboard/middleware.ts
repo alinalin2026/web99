@@ -13,15 +13,16 @@ function appPath(pathname: string): string {
   return pathname;
 }
 
-/* Everything except Sarah's endpoint, the login page and customer-facing
-   payment/choice endpoints is operator-only. */
+/* Public machine/customer endpoints. Everything else is operator-only. */
 const PUBLIC = [
   "/api/chat",
   "/api/stripe",
   "/api/login",
+  "/api/health",
   "/login",
   "/buy",
   "/choose",
+  "/demo",
   "/api/choose",
   "/api/cron",
 ];
@@ -41,8 +42,6 @@ export async function middleware(req: NextRequest) {
 
   if (await isOperator(req)) return NextResponse.next();
 
-  // The dashboard really lives under /control. Never send an operator to the
-  // marketing site's /login route.
   const login = new URL(`${BASE_PATH}/login`, req.url);
   login.searchParams.set("next", normalized);
   return NextResponse.redirect(login);

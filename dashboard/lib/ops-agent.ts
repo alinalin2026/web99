@@ -26,7 +26,8 @@ Operating rules:
 - Never invent shell commands and never claim you ran anything outside the provided tools.
 - Never request, reveal, print, or inspect secrets, API keys, passwords, .env files or private keys.
 - For a failure, inspect status/logs/config/URL first, identify the actual cause, then use the narrowest repair tool.
-- Mutating tools are allowed when the user asks to fix, repair, restart, deploy, restore or back up. Do not mutate for a mere status question.
+- Mutating tools are allowed when the user asks to fix, repair, restart, deploy, restore, reload, recover or back up. The server independently enforces this rule too.
+- Do not mutate for a mere status question.
 - "repair_current_release" is an emergency tool. Use it only when release_status/status proves /srv/web99/current is broken or missing.
 - "restore_tracked_config" restores only tracked Web99 Nginx/systemd config. Use it when live config has drifted or is broken.
 - A dashboard restart is deliberately scheduled a few seconds later so this API request can finish. Do not immediately recheck it in the same turn; tell the user to wait ~15 seconds.
@@ -152,6 +153,19 @@ const TOOLS = [
   },
 ] as const;
 
+const MUTATING_TOOLS = new Set([
+  "reload_nginx",
+  "restart_service",
+  "backup_database",
+  "start_deploy",
+  "restore_tracked_config",
+  "repair_current_release",
+]);
+
+function mutationAllowed(message: string): boolean {
+  return /\b(fix|repair|restart|deploy|reload|restore|backup|recover|apply|enable|disable)\b|\bback\s+up\b/i.test(message);
+}
+
 function apiKey(): string {
   const key = process.env.OPENAI_API_KEY?.trim();
   if (!key) throw new Error("OPENAI_API_KEY is not configured.");
@@ -203,7 +217,18 @@ async function helper(action: string, args: string[] = [], timeoutMs = 45_000): 
   }
 }
 
-async function executeTool(name: string, args: Record<string, any>): Promise<{ ok: boolean; output: string }> {
+async function executeTool(
+  name: string,
+  args: Record<string, any>,
+  canMutate: boolean
+): Promise<{ ok: boolean; output: string }> {
+  if (MUTATING_TOOLS.has(name) && !canMutate) {
+    return {
+      ok: false,
+      output: "Mutation blocked by Web99: the operator did not explicitly ask to fix/repair/restart/deploy/reload/restore/recover/back up in this message.",
+    };
+  }
+
   switch (name) {
     case "get_status": return helper("status");
     case "get_logs": return helper("logs", [String(args.service), String(args.lines)]);
@@ -260,6 +285,7 @@ export async function runOpsAgent(message: string, history: OpsTurn[] = []): Pro
     { role: "user", content: message.slice(0, 5000) },
   ];
   const actions: OpsAction[] = [];
+  const canMutate = mutationAllowed(message);
 
   for (let round = 0; round < 8; round++) {
     const response = await responseRequest(input);
@@ -287,7 +313,7 @@ export async function runOpsAgent(message: string, history: OpsTurn[] = []): Pro
         continue;
       }
 
-      const result = await executeTool(call.name, args as Record<string, any>);
+      const result = await executeTool(call.name, args as Record<string, any>, canMutate);
       actions.push({
         name: call.name,
         arguments: args,

@@ -7,7 +7,7 @@ Wants=network-online.target
 Type=simple
 User=ubuntu
 Group=ubuntu
-WorkingDirectory=/srv/web99/live/dashboard
+WorkingDirectory=/srv/web99/app/dashboard
 Environment=NODE_ENV=production
 EnvironmentFile=/srv/web99/config/dashboard.env
 ExecStart=/usr/bin/env npm run worker

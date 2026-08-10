@@ -15,11 +15,27 @@ die() { printf '[deploy] ERROR: %s\n' "$*" >&2; exit 1; }
 [[ $EUID -eq 0 ]] || die "run with sudo"
 [[ -d "$SOURCE_DIR/.git" ]] || die "missing Git checkout at $SOURCE_DIR"
 [[ -f "$ENV_FILE" ]] || die "missing runtime env at $ENV_FILE"
-command -v flock >/dev/null || die "flock is required"
+for cmd in flock git tar node npm nginx systemctl curl psql; do
+  command -v "$cmd" >/dev/null 2>&1 || die "required command missing: $cmd"
+done
 
 mkdir -p "$RELEASES_DIR" "$(dirname "$CURRENT_LINK")" "$(dirname "$LOCK_FILE")"
 exec 9>"$LOCK_FILE"
 flock -n 9 || die "another Web99 deploy is already running"
+
+install_machine_config() {
+  local release="$1"
+  [[ -d "$release/ops" ]] || return 1
+  install -m 0644 "$release/ops/web99-dashboard.service" /etc/systemd/system/web99-dashboard.service
+  install -m 0644 "$release/ops/web99-worker.service" /etc/systemd/system/web99-worker.service
+  install -m 0644 "$release/ops/web99-backup.service" /etc/systemd/system/web99-backup.service
+  install -m 0644 "$release/ops/web99-backup.timer" /etc/systemd/system/web99-backup.timer
+  install -m 0644 "$release/ops/web99.nginx.conf" /etc/nginx/sites-available/web99
+  ln -sfn /etc/nginx/sites-available/web99 /etc/nginx/sites-enabled/web99
+  rm -f /etc/nginx/sites-enabled/web99-main /etc/nginx/sites-enabled/web99-dashboard
+  systemctl daemon-reload
+  nginx -t
+}
 
 log "fetching origin/$BRANCH"
 cd "$SOURCE_DIR"
@@ -43,25 +59,15 @@ npm run typecheck
 npm test
 npm run build
 
-# Schema changes are additive/idempotent. Apply them only after the code has
-# passed all build checks, but before switching traffic to the release.
-set -a
-# shellcheck disable=SC1090
-source "$ENV_FILE"
-set +a
-npm run db:init
+# Read only DATABASE_URL with Node's env-file parser. Do not `source` a secrets
+# file in bash: values such as spaces, angle brackets or # characters are valid
+# env values but are not necessarily valid shell syntax.
+DATABASE_URL="$(node --env-file="$ENV_FILE" -e 'process.stdout.write(process.env.DATABASE_URL || "")')"
+[[ -n "$DATABASE_URL" ]] || die "DATABASE_URL is missing from $ENV_FILE"
+DATABASE_URL="$DATABASE_URL" npm run db:init
 
-# Install all machine configuration from the same tested release.
-install -m 0644 "$RELEASE/ops/web99-dashboard.service" /etc/systemd/system/web99-dashboard.service
-install -m 0644 "$RELEASE/ops/web99-worker.service" /etc/systemd/system/web99-worker.service
-install -m 0644 "$RELEASE/ops/web99-backup.service" /etc/systemd/system/web99-backup.service
-install -m 0644 "$RELEASE/ops/web99-backup.timer" /etc/systemd/system/web99-backup.timer
-install -m 0644 "$RELEASE/ops/web99.nginx.conf" /etc/nginx/sites-available/web99
-ln -sfn /etc/nginx/sites-available/web99 /etc/nginx/sites-enabled/web99
-rm -f /etc/nginx/sites-enabled/web99-main
-
-nginx -t
-systemctl daemon-reload
+# Validate machine config before switching the live symlink.
+install_machine_config "$RELEASE"
 
 log "switching current release atomically"
 rm -f "${CURRENT_LINK}.new"
@@ -76,22 +82,25 @@ rollback() {
     rm -f "${CURRENT_LINK}.rollback"
     ln -s "$PREVIOUS" "${CURRENT_LINK}.rollback"
     mv -Tf "${CURRENT_LINK}.rollback" "$CURRENT_LINK"
+    install_machine_config "$PREVIOUS" || true
     systemctl restart web99-dashboard || true
     systemctl restart web99-worker || true
     nginx -t && systemctl reload nginx || true
+  else
+    log "no previous atomic release exists; leaving failed release files for diagnosis"
   fi
   exit 1
 }
 
 systemctl enable web99-dashboard web99-worker web99-backup.timer >/dev/null
-systemctl restart web99-dashboard
-systemctl restart web99-worker
-systemctl start web99-backup.timer
-systemctl reload nginx
+systemctl restart web99-dashboard || rollback "dashboard service would not restart"
+systemctl restart web99-worker || rollback "worker service would not restart"
+systemctl start web99-backup.timer || rollback "backup timer would not start"
+systemctl reload nginx || rollback "nginx would not reload"
 
-log "waiting for app"
+log "waiting for app + database"
 READY=0
-for _ in $(seq 1 20); do
+for _ in $(seq 1 25); do
   if curl -fsS --max-time 3 http://127.0.0.1:3000/control/api/health | grep -q '"ok":true'; then
     READY=1
     break
@@ -100,7 +109,7 @@ for _ in $(seq 1 20); do
 done
 [[ "$READY" == "1" ]] || rollback "app did not become healthy"
 
-"$CURRENT_LINK/ops/smoke.sh" || rollback "smoke tests"
+"$CURRENT_LINK/ops/smoke.sh" || rollback "production smoke tests"
 
 CURRENT_REAL="$(readlink -f "$CURRENT_LINK")"
 mapfile -t OLD_RELEASES < <(find "$RELEASES_DIR" -mindepth 1 -maxdepth 1 -type d -printf '%T@ %p\n' | sort -nr | awk '{print $2}')
@@ -115,3 +124,4 @@ done
 log "LIVE $SHA"
 log "dashboard: https://web99.ie/control"
 log "health:    https://web99.ie/api/health"
+log "future deploys: sudo web99-deploy"

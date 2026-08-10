@@ -11,6 +11,16 @@ function ago(iso: string) {
   const h = Math.floor(mins / 60); return h < 24 ? `${h}h ago` : `${Math.floor(h / 24)}d ago`;
 }
 
+function humanStage(stage: string, state: string, hasPreview: boolean) {
+  if (hasPreview || state === "live") return "Ready to review";
+  if (["failed", "job_failed"].includes(stage) || state === "failed") return "Needs you";
+  if (["qa", "checking", "repairing"].includes(stage)) return "Checking";
+  if (["queued_build", "creating", "studio_ready", "building", "fixing"].includes(stage) || state === "generating") return "Building";
+  if (["queued", "planning"].includes(stage) || state === "analysing") return "Planning";
+  if (stage === "plan_ready") return "Direction ready";
+  return "Ready";
+}
+
 export default async function ProjectPage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = await params;
   const order = await getOrder(id);
@@ -19,36 +29,35 @@ export default async function ProjectPage({ params }: { params: Promise<{ id: st
   const q = qualificationFor(order);
   const analysis = (order.analysis ?? {}) as Record<string, any>;
   const publishPending = Boolean(order.commit_sha?.startsWith("pending:github:"));
-  // A GitHub commit is not the same thing as an attached public deployment.
-  // Until the deployment layer explicitly verifies a public URL, always open
-  // the durable Web99 internal preview that serves the saved generated build.
-  const effectivePreviewUrl = order.slug ? `/preview/${order.slug}` : null;
+  const effectivePreviewUrl = order.slug && order.generated ? `/preview/${order.slug}` : null;
+  const visibleStage = humanStage(order.workflow_stage, order.state, Boolean(effectivePreviewUrl));
+  const usefulEvents = events.filter((e) => !["state_change", "workflow", "image_ready", "job_completed"].includes(e.kind));
 
   return (
     <main className="project-shell">
       <header className="project-header">
-        <Link className="back-link" href={order.studio_copy ? "/?tab=studio" : order.plan_text ? "/?tab=queue" : "/?tab=leads"}>← Back</Link>
+        <Link className="back-link" href={order.plan_text ? "/?tab=plan" : "/?tab=leads"}>← Back</Link>
         <div className="project-title-row">
           <div className="grow">
             <span className={`qual q-${q}`}>{q.replace("_", " ")}</span>
             <h1>{order.business_name || order.trade || "Unnamed project"}</h1>
             <p>{[order.trade, order.location].filter(Boolean).join(" · ") || "Sarah lead"}</p>
           </div>
-          <span className={`project-state ${order.workflow_stage === "failed" ? "bad" : ""}`}>{order.workflow_stage.replaceAll("_", " ")}</span>
+          <span className={`project-state ${visibleStage === "Needs you" ? "bad" : ""}`}>{visibleStage}</span>
         </div>
       </header>
 
-      {order.failure_reason && <div className="panel error-panel"><b>Last step failed</b><p>{order.failure_reason}</p></div>}
+      {visibleStage === "Needs you" && order.failure_reason && <div className="panel error-panel"><b>Web99 needs you</b><p>{order.failure_reason}</p></div>}
       {order.state === "live" && (
         <div className="panel">
-          <b>Website build ready</b>
-          <p>Open the internal Web99 preview below. A public web99.ie subdomain is only treated as live after the deployment layer verifies it.</p>
+          <b>Website ready</b>
+          <p>Review the finished site below. You can ask Web99 for a change or send it to the customer.</p>
         </div>
       )}
       {publishPending && (
         <div className="panel">
-          <b>GitHub mirror pending</b>
-          <p>The finished build is safe in Web99 and can be previewed now. GitHub publishing can be retried separately.</p>
+          <b>Backup mirror pending</b>
+          <p>The finished website is safe on the Web99 server and can be reviewed now.</p>
         </div>
       )}
 
@@ -58,7 +67,7 @@ export default async function ProjectPage({ params }: { params: Promise<{ id: st
         studioCopy={order.studio_copy}
         assets={assets}
         previewUrl={effectivePreviewUrl}
-        email={null}
+        email={order.email}
         workflowStage={order.workflow_stage}
         state={order.state}
         autopilot={order.autopilot}
@@ -66,21 +75,21 @@ export default async function ProjectPage({ params }: { params: Promise<{ id: st
       />
 
       <details className="project-info panel">
-        <summary><b>Project memory</b><span>Business facts the Web99 Agent can use</span></summary>
+        <summary><b>Project memory</b><span>Business facts Web99 remembers</span></summary>
         <div className="info-grid">
           <div><span>Business</span><b>{order.business_name || "—"}</b></div>
           <div><span>Trade</span><b>{order.trade || "—"}</b></div>
           <div><span>Location</span><b>{order.location || "—"}</b></div>
           <div><span>Email</span><b>{order.email || "—"}</b></div>
           <div><span>Phone</span><b>{order.phone || "—"}</b></div>
-          <div><span>Autopilot</span><b>{order.autopilot}</b></div>
+          <div><span>Mode</span><b>{order.autopilot === "full" ? "Automatic" : "Approve once"}</b></div>
         </div>
         {order.brief && <pre>{JSON.stringify(order.brief, null, 2)}</pre>}
       </details>
 
       {Array.isArray(analysis.underSold) && analysis.underSold.length > 0 && (
         <details className="project-info panel">
-          <summary><b>Under-sold points</b><span>What the Web99 Agent spotted</span></summary>
+          <summary><b>Good opportunities</b><span>What Web99 spotted</span></summary>
           <div className="insight-list">{analysis.underSold.map((u: any, i: number) => <div key={i}><b>{u.fact}</b><p>{u.whereItGoes}{u.why ? ` — ${u.why}` : ""}</p></div>)}</div>
         </details>
       )}
@@ -92,14 +101,14 @@ export default async function ProjectPage({ params }: { params: Promise<{ id: st
 
       {order.qa_report && (
         <details className="project-info panel">
-          <summary><b>QA report</b><span>OpenAI pre-flight + auto-repair</span></summary>
+          <summary><b>Checks</b><span>Only open if you want the technical detail</span></summary>
           <pre>{JSON.stringify(order.qa_report, null, 2)}</pre>
         </details>
       )}
 
       <details className="project-info panel">
-        <summary><b>Work history</b><span>{events.length} updates</span></summary>
-        <div className="timeline">{events.map((e) => <div key={e.id}><span className={`status-dot ${e.kind === "error" ? "red" : e.kind.includes("ready") || e.kind === "deployed" ? "green" : "grey"}`} /><p><b>{e.detail?.message || e.kind.replaceAll("_", " ")}</b><small>{ago(e.created_at)} · {e.kind}</small></p></div>)}</div>
+        <summary><b>Work history</b><span>{usefulEvents.length} useful updates</span></summary>
+        <div className="timeline">{usefulEvents.map((e) => <div key={e.id}><span className={`status-dot ${e.kind.includes("failed") || e.kind === "error" ? "red" : e.kind.includes("ready") || e.kind === "deployed" || e.kind === "build_approved" ? "green" : "grey"}`} /><p><b>{e.detail?.message || "Web99 update"}</b><small>{ago(e.created_at)}</small></p></div>)}</div>
       </details>
     </main>
   );

@@ -23,6 +23,7 @@ type QuickReply = { label: string; value: string };
 
 const REQUIRED: (keyof Brief)[] = ["trade", "websiteGoal", "email"];
 const ATTR_KEYS = ["fbclid","utm_source","utm_medium","utm_campaign","utm_content","utm_term","landing_url","landing_path","landed_at","user_agent"] as const;
+const GREETING_RE = /^(hi|hello|hey|hiya|howdy|yo|good\s+(morning|afternoon|evening))[!.?\s]*$/i;
 
 function safeAttribution(value: unknown): Record<string, string | number> | null {
   if (!value || typeof value !== "object" || Array.isArray(value)) return null;
@@ -86,8 +87,6 @@ export async function POST(req: NextRequest) {
   const baseConversation = order?.conversation ?? browserHistory.map((t) => ({ ...t, at: now }));
   const userConversation = [...baseConversation, { role: "user" as const, content: message, at: now }];
 
-  // Save the customer's message BEFORE calling OpenAI. This makes every chat attempt
-  // visible in Control even if Sarah times out or the model/extraction fails later.
   if (order && persistenceAvailable) {
     try {
       await sql`UPDATE orders SET conversation=${jsonb(userConversation)} WHERE id=${order.id}`;
@@ -97,22 +96,41 @@ export async function POST(req: NextRequest) {
     }
   }
 
+  // Simple greetings do not need an OpenAI round-trip. Keep the very first
+  // interaction feeling instant while still persisting both sides of the chat.
+  if (GREETING_RE.test(message) && userConversation.length <= 2) {
+    const reply = "Hi! I'm Sarah. What's the name of your business? If you don't have a name yet, just tell me that.";
+    const conversation = [...userConversation, { role: "assistant" as const, content: reply, at: new Date().toISOString() }];
+    if (order && persistenceAvailable) {
+      try { await sql`UPDATE orders SET conversation=${jsonb(conversation)} WHERE id=${order.id}`; }
+      catch (err) { console.error("chat greeting save failed", err); }
+    }
+    return withCors(req, NextResponse.json({ orderId: order?.id ?? null, reply, quickReplies: [], missing: REQUIRED.map(String).concat("anythingElse"), readyToBuild: false, temporary: !persistenceAvailable }));
+  }
+
   const turns: Turn[] = userConversation.map((t) => ({ role: t.role, content: t.content }));
-  let modelReply: string;
-  try { modelReply = await chat(sarahSystemPrompt(), turns, MODELS.sarah); }
-  catch (err) {
-    await safeLog(order?.id ?? null, "error", { step: "sarah", message: (err as Error).message });
+  const transcriptForExtraction = userConversation.map((t) => `${t.role === "user" ? "OWNER" : "SARAH"}: ${t.content}`).join("\n\n");
+
+  // Sarah and the CRM extractor are independent for this turn, so run them in
+  // parallel. Previously the customer waited for Sarah and then waited again
+  // for extraction, making every reply feel much slower than the model itself.
+  const [sarahResult, extractionResult] = await Promise.allSettled([
+    chat(sarahSystemPrompt(), turns, MODELS.sarah),
+    json<Brief>(extractionPrompt(), transcriptForExtraction, MODELS.extract, 1400),
+  ]);
+
+  if (sarahResult.status === "rejected") {
+    await safeLog(order?.id ?? null, "error", { step: "sarah", message: String(sarahResult.reason instanceof Error ? sarahResult.reason.message : sarahResult.reason) });
     return withCors(req, NextResponse.json({ orderId: order?.id ?? null, reply: "Sorry — I couldn't get a reply through just now. Please try that message once more, or ring us on (01) 234 3300.", quickReplies: [], missing: [], readyToBuild: false, retryable: true, temporary: !persistenceAvailable }));
   }
 
-  const parsed = parseSarahReply(modelReply);
+  const parsed = parseSarahReply(sarahResult.value);
   const conversation = [...userConversation, { role: "assistant" as const, content: parsed.reply, at: new Date().toISOString() }];
 
-  let brief: Brief | null = null;
-  try {
-    const transcript = conversation.map((t) => `${t.role === "user" ? "OWNER" : "SARAH"}: ${t.content}`).join("\n\n");
-    brief = await json<Brief>(extractionPrompt(), transcript, MODELS.extract, 1400);
-  } catch (err) { await safeLog(order?.id ?? null, "error", { step: "extract", message: (err as Error).message }); }
+  let brief: Brief | null = extractionResult.status === "fulfilled" ? extractionResult.value : null;
+  if (extractionResult.status === "rejected") {
+    await safeLog(order?.id ?? null, "error", { step: "extract", message: String(extractionResult.reason instanceof Error ? extractionResult.reason.message : extractionResult.reason) });
+  }
   if (!brief && order?.brief) brief = order.brief as Brief;
   if (brief) {
     if (attribution) brief.attribution = attribution;

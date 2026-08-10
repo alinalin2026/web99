@@ -1,0 +1,21 @@
+[Unit]
+Description=Web99 standalone AWS Ops Agent
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=simple
+User=ubuntu
+Group=ubuntu
+WorkingDirectory=/srv/web99/app/ops-agent
+Environment=NODE_ENV=production
+Environment=WEB99_OPS_PORT=3011
+EnvironmentFile=/srv/web99/config/dashboard.env
+ExecStart=/usr/bin/env node /srv/web99/app/ops-agent/server.mjs
+Restart=always
+RestartSec=3
+NoNewPrivileges=true
+PrivateTmp=true
+
+[Install]
+WantedBy=multi-user.target

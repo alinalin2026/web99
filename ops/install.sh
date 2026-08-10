@@ -52,6 +52,19 @@ exec sudo env WEB99_ENV_FILE=/srv/web99/config/dashboard.env WEB99_BACKUP_DIR=/s
 EOF
 chmod 755 /usr/local/bin/web99-deploy /usr/local/bin/web99-doctor /usr/local/bin/web99-backup
 
+# First migration only: copy the currently-working production tree into the new
+# fixed live path before deploying anything. That gives the new deploy script a
+# real live.prev rollback target on its very first run.
+if [[ ! -d /srv/web99/live ]]; then
+  CURRENT_REAL="$(readlink -e /srv/web99/current 2>/dev/null || true)"
+  if [[ -n "$CURRENT_REAL" && -d "$CURRENT_REAL" ]]; then
+    log "seeding /srv/web99/live from current working production"
+    mkdir -p /srv/web99/live
+    cp -a "$CURRENT_REAL"/. /srv/web99/live/
+    chown -R ubuntu:ubuntu /srv/web99/live
+  fi
+fi
+
 log "deploying Web99 into the single live directory"
 bash "$SOURCE_DIR/ops/deploy.sh"
 

@@ -1,0 +1,36 @@
+name: Point Sarah chat to AWS
+
+on:
+  push:
+    paths:
+      - '.github/workflows/point-start-to-aws.yml'
+
+permissions:
+  contents: write
+
+jobs:
+  patch:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: main
+      - name: Point /start chat to AWS
+        run: |
+          python3 - <<'PY'
+          from pathlib import Path
+          p = Path('start/index.html')
+          s = p.read_text()
+          old = 'data-api="https://web99dashboard.vercel.app"'
+          new = 'data-api="https://dash.web99.ie"'
+          if old not in s:
+              raise SystemExit('old API URL not found')
+          p.write_text(s.replace(old, new))
+          PY
+      - name: Commit
+        run: |
+          git config user.name 'Web99 Factory'
+          git config user.email 'factory@web99.ie'
+          git add start/index.html
+          git commit -m 'Point Sarah chat to AWS factory'
+          git push origin main

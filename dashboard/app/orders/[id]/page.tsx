@@ -29,7 +29,8 @@ export default async function ProjectPage({ params }: { params: Promise<{ id: st
   const q = qualificationFor(order);
   const analysis = (order.analysis ?? {}) as Record<string, any>;
   const publishPending = Boolean(order.commit_sha?.startsWith("pending:github:"));
-  const effectivePreviewUrl = order.slug && order.generated ? `/preview/${order.slug}` : null;
+  const marketingUrl = (process.env.MARKETING_URL ?? "https://web99.ie").replace(/\/$/, "");
+  const effectivePreviewUrl = order.slug && order.generated ? `${marketingUrl}/demo/${order.slug}` : null;
   const visibleStage = humanStage(order.workflow_stage, order.state, Boolean(effectivePreviewUrl));
   const usefulEvents = events.filter((e) => !["state_change", "workflow", "image_ready", "job_completed"].includes(e.kind));
 

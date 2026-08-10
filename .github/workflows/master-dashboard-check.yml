@@ -6,6 +6,7 @@ on:
     paths:
       - 'dashboard/**'
       - 'ops/**'
+      - 'ops-agent/**'
       - 'ops-console/**'
       - 'assets/img/sarah*.svg'
       - '.github/workflows/master-dashboard-check.yml'
@@ -37,6 +38,11 @@ jobs:
       - name: Production build
         working-directory: dashboard
         run: npm run build
+
+      - name: Ops Agent syntax
+        run: |
+          node --check ops-agent/server.mjs
+          bash -n ops-agent/install.sh
 
       - name: Shell syntax
         run: |

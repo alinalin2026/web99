@@ -45,11 +45,17 @@ exec sudo bash /srv/web99/app/ops/deploy.sh "$@"
 EOF
 cat >/usr/local/bin/web99-doctor <<'EOF'
 #!/usr/bin/env bash
-exec sudo bash /srv/web99/current/ops/doctor.sh "$@"
+if [[ -f /srv/web99/current/ops/doctor.sh ]]; then
+  exec sudo bash /srv/web99/current/ops/doctor.sh "$@"
+fi
+exec sudo bash /srv/web99/app/ops/doctor.sh "$@"
 EOF
 cat >/usr/local/bin/web99-backup <<'EOF'
 #!/usr/bin/env bash
-exec sudo bash /srv/web99/current/ops/backup.sh "$@"
+if [[ -f /srv/web99/current/ops/backup.sh ]]; then
+  exec sudo bash /srv/web99/current/ops/backup.sh "$@"
+fi
+exec sudo bash /srv/web99/app/ops/backup.sh "$@"
 EOF
 chmod 755 /usr/local/bin/web99-deploy /usr/local/bin/web99-doctor /usr/local/bin/web99-backup
 

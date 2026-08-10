@@ -7,20 +7,28 @@ ENV_FILE="${WEB99_ENV_FILE:-/srv/web99/config/dashboard.env}"
 fail() { echo "[smoke] FAIL: $*" >&2; exit 1; }
 pass() { echo "[smoke] OK: $*"; }
 
-# Next + database from inside the box.
 LOCAL_HEALTH="$(curl -fsS --max-time 10 http://127.0.0.1:3000/control/api/health)" || fail "local health endpoint"
 echo "$LOCAL_HEALTH" | grep -q '"ok":true' || fail "local health says not ok"
-pass "Next app + PostgreSQL"
+echo "$LOCAL_HEALTH" | grep -q '"database":"ok"' || fail "database health"
+echo "$LOCAL_HEALTH" | grep -q '"openaiConfigured":true' || fail "OpenAI key is not configured"
+pass "Next app + PostgreSQL + OpenAI configuration"
 
-# Public front door.
 PUBLIC_HEALTH="$(curl -fsS --max-time 15 "$BASE_URL/api/health")" || fail "public health endpoint"
 echo "$PUBLIC_HEALTH" | grep -q '"ok":true' || fail "public health says not ok"
 pass "public API routing"
 
-START_HTML="$(curl -fsS --max-time 15 "$BASE_URL/start/")" || fail "/start"
+START_HTML="$(curl -fsS --max-time 15 -H 'Cache-Control: no-cache' "$BASE_URL/start/?smoke=$(date +%s)")" || fail "/start"
 echo "$START_HTML" | grep -q 'Tell us about your business' || fail "/start returned wrong page"
 echo "$START_HTML" | grep -q 'Sarah' || fail "Sarah intake missing"
-pass "Sarah intake"
+echo "$START_HTML" | grep -q 'sarah.svg' || fail "new Sarah avatar is not referenced"
+if echo "$START_HTML" | grep -q 'sarah-photo.svg'; then
+  fail "retired Sarah photo is still referenced"
+fi
+pass "Sarah intake + avatar"
+
+SARAH_ASSET="$(curl -fsS --max-time 10 "$BASE_URL/assets/img/sarah.svg")" || fail "Sarah avatar asset"
+echo "$SARAH_ASSET" | grep -qi '<svg' || fail "Sarah avatar did not return SVG"
+pass "Sarah avatar asset"
 
 CONTROL_CODE="$(curl -sS -o /dev/null --max-time 15 -w '%{http_code}' "$BASE_URL/control")"
 case "$CONTROL_CODE" in
@@ -28,13 +36,23 @@ case "$CONTROL_CODE" in
   *) fail "operator control route returned $CONTROL_CODE" ;;
 esac
 
-# If at least one generated site exists, prove customer previews work too.
-if [[ -f "$ENV_FILE" ]] && command -v psql >/dev/null 2>&1; then
-  set -a
-  # shellcheck disable=SC1090
-  source "$ENV_FILE"
-  set +a
-  if [[ -n "${DATABASE_URL:-}" ]]; then
+# Prove the public /api alias reaches the chat route without spending OpenAI
+# money. A GET should be rejected by the route/method, but must not be a 404.
+CHAT_CODE="$(curl -sS -o /dev/null --max-time 15 -w '%{http_code}' "$BASE_URL/api/chat")"
+case "$CHAT_CODE" in
+  200|400|401|405) pass "Sarah API route exists ($CHAT_CODE)" ;;
+  *) fail "Sarah API route returned unexpected $CHAT_CODE" ;;
+esac
+
+# The release contains source code, but Nginx must never serve the dashboard
+# source tree as static files.
+SOURCE_CODE="$(curl -sS -o /dev/null --max-time 10 -w '%{http_code}' "$BASE_URL/dashboard/package.json")"
+[[ "$SOURCE_CODE" == "404" || "$SOURCE_CODE" == "403" ]] || fail "dashboard source is publicly reachable ($SOURCE_CODE)"
+pass "source tree is not public"
+
+if [[ -f "$ENV_FILE" ]] && command -v node >/dev/null 2>&1 && command -v psql >/dev/null 2>&1; then
+  DATABASE_URL="$(node --env-file="$ENV_FILE" -e 'process.stdout.write(process.env.DATABASE_URL || "")')"
+  if [[ -n "$DATABASE_URL" ]]; then
     SLUG="$(psql "$DATABASE_URL" -Atqc "SELECT slug FROM orders WHERE generated IS NOT NULL AND slug IS NOT NULL ORDER BY updated_at DESC LIMIT 1" 2>/dev/null || true)"
     if [[ -n "$SLUG" ]]; then
       DEMO_CODE="$(curl -sS -o /dev/null --max-time 20 -w '%{http_code}' "$BASE_URL/demo/$SLUG")"

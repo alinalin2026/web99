@@ -13,12 +13,16 @@ function appPath(pathname: string): string {
   return pathname;
 }
 
-/* Public machine/customer endpoints. Everything else is operator-only. */
+/* Public-to-middleware endpoints. Some are genuinely public; others (notably
+   /api/ops-agent) intentionally bypass the browser-login redirect because the
+   route performs its own explicit bearer/cookie authentication and must return
+   JSON 401 rather than HTML/redirects to API callers. */
 const PUBLIC = [
   "/api/chat",
   "/api/stripe",
   "/api/login",
   "/api/health",
+  "/api/ops-agent",
   "/login",
   "/buy",
   "/choose",

@@ -2,6 +2,14 @@
 const nextConfig = {
   reactStrictMode: true,
   poweredByHeader: false,
+
+  // The operator dashboard now lives on the main Web99 domain at
+  // https://web99.ie/control. Keeping this as a real Next basePath means all
+  // dashboard navigation and _next assets remain namespaced away from the
+  // public marketing site. Nginx exposes selected public aliases such as
+  // /api/chat and /demo/* without needing a second dashboard hostname.
+  basePath: "/control",
+
   async headers() {
     return [
       {

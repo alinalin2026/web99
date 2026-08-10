@@ -46,7 +46,9 @@ log_action "$@"
 case "$ACTION" in
   status)
     need_no_args "$@"
-    echo "release=$(readlink -e /srv/web99/current 2>/dev/null || echo broken-or-missing)"
+    echo "live_dir=/srv/web99/live"
+    echo "live_exists=$([[ -f /srv/web99/live/dashboard/.next/BUILD_ID ]] && echo yes || echo no)"
+    echo "source_sha=$(git -C /srv/web99/app rev-parse --short HEAD 2>/dev/null || echo unknown)"
     for unit in nginx postgresql web99-dashboard web99-worker web99-backup.timer; do
       printf '%-22s %s\n' "$unit" "$(systemctl is-active "$unit" 2>/dev/null || true)"
     done
@@ -77,9 +79,7 @@ case "$ACTION" in
   restart)
     [[ $# -eq 1 ]] || fail "usage: restart <dashboard|worker|all>"
     case "$1" in
-      dashboard)
-        schedule_dashboard_restart
-        ;;
+      dashboard) schedule_dashboard_restart ;;
       worker)
         systemctl restart web99-worker
         systemctl is-active web99-worker
@@ -155,36 +155,6 @@ case "$ACTION" in
     echo
     ;;
 
-  release-status)
-    need_no_args "$@"
-    echo "--- current ---"
-    ls -ld /srv/web99/current 2>&1 || true
-    echo "resolved=$(readlink -e /srv/web99/current 2>/dev/null || echo broken-or-missing)"
-    echo "--- newest releases ---"
-    find /srv/web99/releases -mindepth 1 -maxdepth 1 -type d -printf '%T@ %p\n' 2>/dev/null \
-      | sort -nr | head -8 | cut -d' ' -f2-
-    ;;
-
-  repair-current)
-    need_no_args "$@"
-    LATEST=""
-    while IFS= read -r d; do
-      if [[ -f "$d/dashboard/.next/BUILD_ID" ]]; then
-        LATEST="$d"
-        break
-      fi
-    done < <(find /srv/web99/releases -mindepth 1 -maxdepth 1 -type d -printf '%T@ %p\n' 2>/dev/null \
-      | sort -nr | cut -d' ' -f2-)
-    [[ -n "$LATEST" ]] || fail "no completed release with dashboard/.next/BUILD_ID found"
-    rm -f /srv/web99/current /srv/web99/current.new /srv/web99/current.rollback
-    ln -s "$LATEST" /srv/web99/current
-    systemctl restart web99-worker
-    nginx -t
-    systemctl reload nginx
-    schedule_dashboard_restart
-    echo "current repaired to $LATEST; worker restarted; dashboard restart scheduled."
-    ;;
-
   show-config)
     [[ $# -eq 1 ]] || fail "usage: show-config <nginx|dashboard-service|worker-service>"
     case "$1" in
@@ -197,7 +167,5 @@ case "$ACTION" in
     sed -n '1,260p' "$FILE"
     ;;
 
-  *)
-    fail "unknown action: ${ACTION:-<empty>}"
-    ;;
+  *) fail "unknown action: ${ACTION:-<empty>}" ;;
 esac

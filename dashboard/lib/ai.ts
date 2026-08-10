@@ -35,13 +35,13 @@ function outputText(data: any): string {
   return parts.join("").trim();
 }
 
-async function complete(
+async function requestCompletion(
   system: string,
   turns: Turn[],
   model: string,
   maxTokens: number,
-  _temperature?: number
-): Promise<string> {
+  retry = false
+): Promise<{ data: any; raw: string; status: number }> {
   const response = await fetch(RESPONSES_URL, {
     method: "POST",
     headers: {
@@ -50,7 +50,9 @@ async function complete(
     },
     body: JSON.stringify({
       model,
-      instructions: system,
+      instructions: retry
+        ? `${system}\n\nIMPORTANT: Produce the requested final answer directly. Do not spend the entire output budget on internal reasoning.`
+        : system,
       input: turns.map((turn) => ({ role: turn.role, content: turn.content })),
       max_output_tokens: maxTokens,
     }),
@@ -66,9 +68,40 @@ async function complete(
     throw new Error(`OpenAI API ${response.status}: ${message}`);
   }
 
-  const text = outputText(data);
-  if (!text) throw new Error("OpenAI returned no text content.");
-  return text;
+  return { data, raw, status: response.status };
+}
+
+async function complete(
+  system: string,
+  turns: Turn[],
+  model: string,
+  maxTokens: number,
+  _temperature?: number
+): Promise<string> {
+  const first = await requestCompletion(system, turns, model, maxTokens, false);
+  const firstText = outputText(first.data);
+  if (firstText) return firstText;
+
+  const status = String(first.data?.status ?? "");
+  const reason = String(first.data?.incomplete_details?.reason ?? "");
+  const refusal = (first.data?.output ?? [])
+    .flatMap((item: any) => item?.content ?? [])
+    .find((block: any) => block?.type === "refusal")?.refusal;
+  if (refusal) throw new Error(`OpenAI refused the request: ${String(refusal).slice(0, 500)}`);
+
+  // A successful Responses API call may be incomplete before producing visible
+  // output (for example when max_output_tokens is exhausted). Retry once with
+  // a larger budget rather than failing an otherwise healthy website job.
+  const retryTokens = Math.min(Math.max(maxTokens + 4000, Math.ceil(maxTokens * 1.5)), 30000);
+  const second = await requestCompletion(system, turns, model, retryTokens, true);
+  const secondText = outputText(second.data);
+  if (secondText) return secondText;
+
+  const secondStatus = String(second.data?.status ?? "");
+  const secondReason = String(second.data?.incomplete_details?.reason ?? "");
+  throw new Error(
+    `OpenAI returned no text after automatic retry (status ${secondStatus || status || "unknown"}${secondReason || reason ? `; reason ${secondReason || reason}` : ""}).`
+  );
 }
 
 export async function chat(system: string, turns: Turn[], model: string = MODELS.sarah): Promise<string> {

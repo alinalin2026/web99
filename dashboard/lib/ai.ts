@@ -40,7 +40,8 @@ async function requestCompletion(
   turns: Turn[],
   model: string,
   maxTokens: number,
-  retry = false
+  retry = false,
+  reasoningEffort?: "minimal" | "low" | "medium" | "high"
 ): Promise<{ data: any; raw: string; status: number }> {
   const response = await fetch(RESPONSES_URL, {
     method: "POST",
@@ -55,6 +56,7 @@ async function requestCompletion(
         : system,
       input: turns.map((turn) => ({ role: turn.role, content: turn.content })),
       max_output_tokens: maxTokens,
+      ...(reasoningEffort ? { reasoning: { effort: reasoningEffort } } : {}),
     }),
   });
 
@@ -76,9 +78,10 @@ async function complete(
   turns: Turn[],
   model: string,
   maxTokens: number,
-  _temperature?: number
+  _temperature?: number,
+  reasoningEffort?: "minimal" | "low" | "medium" | "high"
 ): Promise<string> {
-  const first = await requestCompletion(system, turns, model, maxTokens, false);
+  const first = await requestCompletion(system, turns, model, maxTokens, false, reasoningEffort);
   const firstText = outputText(first.data);
   if (firstText) return firstText;
 
@@ -93,7 +96,7 @@ async function complete(
   // output (for example when max_output_tokens is exhausted). Retry once with
   // a larger budget rather than failing an otherwise healthy website job.
   const retryTokens = Math.min(Math.max(maxTokens + 4000, Math.ceil(maxTokens * 1.5)), 30000);
-  const second = await requestCompletion(system, turns, model, retryTokens, true);
+  const second = await requestCompletion(system, turns, model, retryTokens, true, reasoningEffort);
   const secondText = outputText(second.data);
   if (secondText) return secondText;
 
@@ -105,7 +108,8 @@ async function complete(
 }
 
 export async function chat(system: string, turns: Turn[], model: string = MODELS.sarah): Promise<string> {
-  return complete(system, turns, model, 900);
+  // Sarah is a customer-facing intake assistant: keep latency and cost low.
+  return complete(system, turns, model, 300, undefined, "minimal");
 }
 
 export async function text(

@@ -43,6 +43,14 @@ npm run typecheck
 npm test
 npm run build
 
+# Schema changes are additive/idempotent. Apply them only after the code has
+# passed all build checks, but before switching traffic to the release.
+set -a
+# shellcheck disable=SC1090
+source "$ENV_FILE"
+set +a
+npm run db:init
+
 # Install all machine configuration from the same tested release.
 install -m 0644 "$RELEASE/ops/web99-dashboard.service" /etc/systemd/system/web99-dashboard.service
 install -m 0644 "$RELEASE/ops/web99-worker.service" /etc/systemd/system/web99-worker.service
@@ -50,14 +58,13 @@ install -m 0644 "$RELEASE/ops/web99-backup.service" /etc/systemd/system/web99-ba
 install -m 0644 "$RELEASE/ops/web99-backup.timer" /etc/systemd/system/web99-backup.timer
 install -m 0644 "$RELEASE/ops/web99.nginx.conf" /etc/nginx/sites-available/web99
 ln -sfn /etc/nginx/sites-available/web99 /etc/nginx/sites-enabled/web99
-
-# Remove only the known superseded Web99 config. Other sites remain untouched.
 rm -f /etc/nginx/sites-enabled/web99-main
 
 nginx -t
 systemctl daemon-reload
 
 log "switching current release atomically"
+rm -f "${CURRENT_LINK}.new"
 ln -s "$RELEASE" "${CURRENT_LINK}.new"
 mv -Tf "${CURRENT_LINK}.new" "$CURRENT_LINK"
 
@@ -66,6 +73,7 @@ rollback() {
   log "new release failed: $reason"
   if [[ -n "$PREVIOUS" && -d "$PREVIOUS" ]]; then
     log "rolling back to $PREVIOUS"
+    rm -f "${CURRENT_LINK}.rollback"
     ln -s "$PREVIOUS" "${CURRENT_LINK}.rollback"
     mv -Tf "${CURRENT_LINK}.rollback" "$CURRENT_LINK"
     systemctl restart web99-dashboard || true
@@ -82,16 +90,18 @@ systemctl start web99-backup.timer
 systemctl reload nginx
 
 log "waiting for app"
+READY=0
 for _ in $(seq 1 20); do
   if curl -fsS --max-time 3 http://127.0.0.1:3000/control/api/health | grep -q '"ok":true'; then
+    READY=1
     break
   fi
   sleep 1
 done
+[[ "$READY" == "1" ]] || rollback "app did not become healthy"
 
 "$CURRENT_LINK/ops/smoke.sh" || rollback "smoke tests"
 
-# Keep a few complete rollback points; never delete the current target.
 CURRENT_REAL="$(readlink -f "$CURRENT_LINK")"
 mapfile -t OLD_RELEASES < <(find "$RELEASES_DIR" -mindepth 1 -maxdepth 1 -type d -printf '%T@ %p\n' | sort -nr | awk '{print $2}')
 COUNT=0

@@ -7,5 +7,5 @@ Type=oneshot
 User=ubuntu
 Group=ubuntu
 EnvironmentFile=/srv/web99/config/dashboard.env
-ExecStart=/srv/web99/current/ops/backup.sh
+ExecStart=/srv/web99/live/ops/backup.sh
 Nice=10

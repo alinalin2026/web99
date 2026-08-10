@@ -6,6 +6,7 @@ on:
     paths:
       - 'dashboard/**'
       - 'ops/**'
+      - 'ops-console/**'
       - 'assets/img/sarah*.svg'
       - '.github/workflows/master-dashboard-check.yml'
   workflow_dispatch:
@@ -38,4 +39,6 @@ jobs:
         run: npm run build
 
       - name: Shell syntax
-        run: bash -n ops/*.sh
+        run: |
+          bash -n ops/*.sh
+          bash -n ops/web99-ops-tool

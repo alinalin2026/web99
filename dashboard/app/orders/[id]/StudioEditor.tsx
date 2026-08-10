@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo, useState, useTransition } from "react";
+import { useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import type { ProjectAsset } from "@/lib/db";
 
@@ -15,11 +15,21 @@ async function post(id: string, body: Record<string, unknown>) {
   return json;
 }
 
+function humanStage(stage: string, state: string, previewUrl: string | null) {
+  if (previewUrl) return "Ready to review";
+  if (["job_failed", "failed"].includes(stage) || state === "failed") return "Needs you";
+  if (["qa", "checking", "repairing"].includes(stage)) return "Checking";
+  if (["queued_build", "studio_ready", "creating", "building", "fixing"].includes(stage) || state === "generating") return "Building";
+  if (["queued", "planning"].includes(stage) || state === "analysing") return "Planning";
+  if (stage === "plan_ready") return "Direction ready";
+  return "Ready";
+}
+
 export default function StudioEditor({
   id,
   planText,
-  studioCopy,
-  assets,
+  studioCopy: _studioCopy,
+  assets: _assets,
   previewUrl,
   email,
   workflowStage,
@@ -42,104 +52,150 @@ export default function StudioEditor({
   const [pending, startTransition] = useTransition();
   const [busy, setBusy] = useState<string | null>(null);
   const [error, setError] = useState("");
-  const [saved, setSaved] = useState("");
+  const [notice, setNotice] = useState("");
   const [plan, setPlan] = useState(planText ?? "");
-  const [copy, setCopy] = useState(studioCopy ?? "");
+  const [direction, setDirection] = useState("");
   const [fix, setFix] = useState("");
-  const [mode, setMode] = useState(autopilot || "assisted");
-  const initialPrompts = useMemo(() => Object.fromEntries(assets.map((a) => [a.id, a.prompt])), [assets]);
-  const [prompts, setPrompts] = useState<Record<string, string>>(initialPrompts);
+  const [autoBuild, setAutoBuild] = useState(autopilot === "full");
 
-  async function run(key: string, body: Record<string, unknown>) {
-    setBusy(key); setError(""); setSaved("");
+  async function run(key: string, body: Record<string, unknown>, message = "Done") {
+    setBusy(key); setError(""); setNotice("");
     try {
       await post(id, body);
-      setSaved("Saved");
+      setNotice(message);
       startTransition(() => router.refresh());
-    } catch (err) { setError((err as Error).message); }
-    finally { setBusy(null); }
+    } catch (err) {
+      setError((err as Error).message);
+    } finally {
+      setBusy(null);
+    }
   }
 
   const working = !!busy || pending;
-  const imageReady = assets.filter((a) => a.status === "ready").length;
+  const stage = humanStage(workflowStage, state, previewUrl);
+  const buildInProgress = !previewUrl && [
+    "queued_build", "studio_ready", "creating", "building", "qa", "checking", "repairing", "fixing"
+  ].includes(workflowStage);
 
   return (
     <div className="studio-editor">
-      {(error || saved) && <div className={`toast ${error ? "bad" : "good"}`}>{error || saved}</div>}
+      {(error || notice) && <div className={`toast ${error ? "bad" : "good"}`}>{error || notice}</div>}
 
       <section className="project-actions panel sticky-actions">
         <div className="action-summary">
-          <span className="eyebrow">CURRENT STEP</span>
-          <b>{workflowStage.replaceAll("_", " ")}</b>
+          <span className="eyebrow">STATUS</span>
+          <b>{stage}</b>
         </div>
-        <div className="button-row">
-          <button className="btn" disabled={working} onClick={() => run("next", { action: "runNext" })}>{busy === "next" ? "Agent working…" : "Run next step"}</button>
-          {previewUrl && <a className="btn btn--ghost" href={previewUrl} target="_blank" rel="noreferrer">See site</a>}
-        </div>
-        <label className="mini-field full-select"><span>Autopilot</span><select value={mode} disabled={working} onChange={(e) => { const v = e.target.value; setMode(v); run("mode", { action: "setAutopilot", mode: v }); }}><option value="manual">Manual — stop at every step</option><option value="assisted">Assisted — approve plan, automate the rest</option><option value="full">Full auto — build the whole demo</option></select></label>
+
+        {!planText && !previewUrl && !buildInProgress && (
+          <button className="btn" disabled={working} onClick={() => run("next", { action: "runNext" }, "Planning started — you can close this page") }>
+            {busy === "next" ? "Starting…" : "Prepare direction"}
+          </button>
+        )}
+
+        {previewUrl && (
+          <a className="btn" href={previewUrl} target="_blank" rel="noreferrer">Open finished website</a>
+        )}
+
+        <label className="mini-field" style={{ marginTop: 12 }}>
+          <span>Build automatically</span>
+          <input
+            type="checkbox"
+            checked={autoBuild}
+            disabled={working}
+            onChange={(e) => {
+              const checked = e.target.checked;
+              setAutoBuild(checked);
+              run("mode", { action: "setAutopilot", mode: checked ? "full" : "assisted" }, checked ? "Automatic builds enabled" : "Approval before build enabled");
+            }}
+          />
+        </label>
+        <p className="muted" style={{ margin: "8px 0 0" }}>
+          {autoBuild ? "Sarah can hand complete leads straight to the factory." : "You approve the direction once; Web99 handles everything after that."}
+        </p>
       </section>
 
-      {planText && (
-        <details className="editor-section panel" open={workflowStage === "plan_ready"}>
-          <summary><span><b>1. Web99 Agent build plan</b><small>OpenAI · editable · 500–600 words</small></span><span className="section-state ready">Ready</span></summary>
+      {planText && !previewUrl && !buildInProgress && (
+        <section className="editor-section panel">
           <div className="editor-body">
-            <textarea className="big-editor" rows={22} value={plan} onChange={(e) => setPlan(e.target.value)} />
-            <div className="button-row">
-              <button className="btn btn--ghost" disabled={working} onClick={() => run("savePlan", { action: "savePlan", plan })}>{busy === "savePlan" ? "Saving…" : "Save plan"}</button>
-              <button className="btn" disabled={working} onClick={() => run("approvePlan", { action: "approvePlan", plan })}>{busy === "approvePlan" ? "Approving…" : "Approve plan"}</button>
-            </div>
+            <span className="eyebrow">30-SECOND REVIEW</span>
+            <h2 style={{ marginTop: 6 }}>Website direction</h2>
+            <p className="muted">This is the only approval before the build. Change anything you care about; Web99 handles copy, images, layout, QA and deployment.</p>
+            <textarea className="big-editor" rows={18} value={plan} onChange={(e) => setPlan(e.target.value)} />
+
+            <label style={{ display: "block", marginTop: 16 }}>
+              <b>Change direction</b>
+              <textarea
+                rows={4}
+                value={direction}
+                onChange={(e) => setDirection(e.target.value)}
+                placeholder="Less corporate. Bigger phone button. Warmer look. Make the main service obvious…"
+              />
+            </label>
+
+            <button
+              className="btn"
+              style={{ width: "100%", marginTop: 16 }}
+              disabled={working || !plan.trim()}
+              onClick={() => run("approveBuild", { action: "approveBuild", plan, steer: direction }, "Approved. Building in the background — you can close the browser")}
+            >
+              {busy === "approveBuild" ? "Starting build…" : "Approve & Build"}
+            </button>
           </div>
-        </details>
+        </section>
       )}
 
-      <details className="editor-section panel" open={workflowStage === "studio_ready" || workflowStage === "creating"}>
-        <summary><span><b>2. Website copy</b><small>{studioCopy ? "OpenAI-written · fully editable" : "Generated after plan approval"}</small></span><span className={`section-state ${studioCopy ? "ready" : "waiting"}`}>{studioCopy ? "Ready" : "Waiting"}</span></summary>
-        <div className="editor-body">
-          {studioCopy ? <><textarea className="big-editor" rows={22} value={copy} onChange={(e) => setCopy(e.target.value)} /><button className="btn btn--ghost" disabled={working} onClick={() => run("saveCopy", { action: "saveCopy", copy })}>{busy === "saveCopy" ? "Saving…" : "Save copy"}</button></> : <p className="muted">Approve the plan and the Web99 Agent will write the finished page copy here.</p>}
-        </div>
-      </details>
+      {buildInProgress && (
+        <section className="panel" style={{ textAlign: "center", padding: "34px 24px" }}>
+          <h2>{stage}…</h2>
+          <p className="muted">Web99 is handling the copy, visuals, website build and checks in the background. You can close the browser.</p>
+        </section>
+      )}
 
-      <details className="editor-section panel" open={workflowStage === "studio_ready"}>
-        <summary><span><b>3. Images</b><small>{assets.length ? `${imageReady}/${assets.length} generated` : "Web99 Agent decides what the demo needs"}</small></span><span className={`section-state ${assets.length && imageReady === assets.length ? "ready" : "waiting"}`}>{assets.length && imageReady === assets.length ? "Ready" : assets.length ? "Prompts" : "None"}</span></summary>
-        <div className="editor-body">
-          {assets.length === 0 ? <p className="muted">No generated visuals are required for this build.</p> : <>
-            <div className="button-row image-all"><button className="btn" disabled={working} onClick={() => run("generateAll", { action: "generateAll" })}>{busy === "generateAll" ? "Generating…" : `Generate all ${assets.length}`}</button></div>
-            <div className="asset-stack">
-              {assets.map((asset) => (
-                <details className={`asset-card ${asset.status === "ready" ? "asset-ready" : ""}`} key={asset.id} open={asset.status !== "ready"}>
-                  <summary><div><b>{asset.title}</b><small>{asset.kind} · {asset.size || "auto"}</small></div><span className={`asset-status s-${asset.status}`}>{asset.status.replaceAll("_", " ")}</span></summary>
-                  <div className="asset-body">
-                    {asset.data_url && <img className="asset-preview" src={asset.data_url} alt={`${asset.title} generated preview`} />}
-                    <label>Prompt<textarea rows={8} value={prompts[asset.id] ?? asset.prompt} onChange={(e) => setPrompts((p) => ({ ...p, [asset.id]: e.target.value }))} /></label>
-                    {asset.error && <p className="inline-error">{asset.error}</p>}
-                    <div className="button-row">
-                      <button className="btn btn--ghost" disabled={working} onClick={() => run(`save-${asset.id}`, { action: "saveAssetPrompt", assetId: asset.id, prompt: prompts[asset.id] })}>Save prompt</button>
-                      <button className="btn" disabled={working} onClick={() => run(`image-${asset.id}`, { action: "generateAsset", assetId: asset.id, prompt: prompts[asset.id] })}>{busy === `image-${asset.id}` ? "Generating…" : asset.status === "ready" ? "Regenerate" : "Send!"}</button>
-                    </div>
-                  </div>
-                </details>
-              ))}
+      {previewUrl && (
+        <section className="editor-section panel">
+          <div className="editor-body">
+            <span className="eyebrow">FINAL REVIEW</span>
+            <h2 style={{ marginTop: 6 }}>What do you want to do?</h2>
+
+            <div className="button-row" style={{ marginTop: 14 }}>
+              <a className="btn" href={previewUrl} target="_blank" rel="noreferrer">Looks good — view it</a>
+              {email && (
+                <button className="btn btn--ghost" disabled={working} onClick={() => run("sendPreview", { action: "sendPreview" }, "Sent to customer") }>
+                  {busy === "sendPreview" ? "Sending…" : "Send to customer"}
+                </button>
+              )}
             </div>
-          </>}
-        </div>
-      </details>
 
-      <details className="editor-section panel" open={["building", "qa", "ready"].includes(workflowStage) || state === "live"}>
-        <summary><span><b>4. Build & deploy</b><small>OpenAI build agent → QA → auto-repair → preview</small></span><span className={`section-state ${previewUrl ? "ready" : "waiting"}`}>{previewUrl ? "Deployed" : workflowStage === "building" ? "Building" : "Waiting"}</span></summary>
-        <div className="editor-body">
-          <div className="button-row">
-            {!previewUrl && <button className="btn" disabled={working || (assets.length > 0 && imageReady !== assets.length)} onClick={() => run("build", { action: "startBuild" })}>{busy === "build" ? "Building…" : "Start build"}</button>}
-            {previewUrl && <a className="btn" href={previewUrl} target="_blank" rel="noreferrer">Open website</a>}
-            {previewUrl && email && <button className="btn btn--ghost" disabled={working} onClick={() => run("sendPreview", { action: "sendPreview" })}>{busy === "sendPreview" ? "Sending…" : "Send to customer"}</button>}
+            <div className="fix-box" style={{ marginTop: 22 }}>
+              <label>
+                <b>Fix something</b>
+                <textarea
+                  rows={5}
+                  value={fix}
+                  onChange={(e) => setFix(e.target.value)}
+                  placeholder="Change the hero photo, shorten the headline, make it warmer, move the phone button higher…"
+                />
+              </label>
+              <button className="btn" disabled={working || !fix.trim()} onClick={() => run("fix", { action: "fix", instruction: fix }, "Change queued — Web99 is fixing it in the background") }>
+                {busy === "fix" ? "Queuing…" : "Fix it"}
+              </button>
+            </div>
           </div>
-          {previewUrl && <div className="fix-box"><label>Tell the Web99 Agent what to change<textarea rows={5} value={fix} onChange={(e) => setFix(e.target.value)} placeholder="Make the hero brighter, move the phone button higher, make the logo smaller…" /></label><button className="btn" disabled={working || !fix.trim()} onClick={() => run("fix", { action: "fix", instruction: fix })}>{busy === "fix" ? "Applying…" : "Fix it & redeploy"}</button></div>}
-        </div>
-      </details>
+        </section>
+      )}
 
       {versions.length > 0 && (
         <details className="editor-section panel">
-          <summary><span><b>Versions</b><small>Every deploy is recoverable</small></span><span className="section-state ready">{versions.length}</span></summary>
-          <div className="version-list">{versions.map((v) => <div className="version-row" key={v.version_no}><div><b>v{v.version_no}</b><small>{v.note || "Website build"} · {new Date(v.created_at).toLocaleString("en-IE", { dateStyle: "medium", timeStyle: "short" })}</small></div><button className="tiny-btn" disabled={working} onClick={() => window.confirm(`Restore v${v.version_no}?`) && run(`restore-${v.version_no}`, { action: "restoreVersion", version: v.version_no })}>Restore</button></div>)}</div>
+          <summary><span><b>Previous versions</b><small>Only open this if you need to go back</small></span><span className="section-state ready">{versions.length}</span></summary>
+          <div className="version-list">
+            {versions.map((v) => (
+              <div className="version-row" key={v.version_no}>
+                <div><b>v{v.version_no}</b><small>{v.note || "Website build"} · {new Date(v.created_at).toLocaleString("en-IE", { dateStyle: "medium", timeStyle: "short" })}</small></div>
+                <button className="tiny-btn" disabled={working} onClick={() => window.confirm(`Restore v${v.version_no}?`) && run(`restore-${v.version_no}`, { action: "restoreVersion", version: v.version_no }, `Restored v${v.version_no}`)}>Restore</button>
+              </div>
+            ))}
+          </div>
         </details>
       )}
     </div>

@@ -15,7 +15,7 @@ die() { printf '[deploy] ERROR: %s\n' "$*" >&2; exit 1; }
 [[ $EUID -eq 0 ]] || die "run with sudo"
 [[ -d "$SOURCE_DIR/.git" ]] || die "missing Git checkout at $SOURCE_DIR"
 [[ -f "$ENV_FILE" ]] || die "missing runtime env at $ENV_FILE"
-for cmd in flock git tar node npm nginx systemctl curl psql; do
+for cmd in flock git tar node npm nginx systemctl curl psql visudo; do
   command -v "$cmd" >/dev/null 2>&1 || die "required command missing: $cmd"
 done
 
@@ -33,6 +33,21 @@ install_machine_config() {
   install -m 0644 "$release/ops/web99.nginx.conf" /etc/nginx/sites-available/web99
   ln -sfn /etc/nginx/sites-available/web99 /etc/nginx/sites-enabled/web99
   rm -f /etc/nginx/sites-enabled/web99-main /etc/nginx/sites-enabled/web99-dashboard
+
+  # The dashboard runs as ubuntu. Give it exactly one root entry point, whose
+  # own code validates every action/argument. The AI never gets general sudo or
+  # an arbitrary shell command.
+  if [[ -f "$release/ops/web99-ops-tool" ]]; then
+    install -d -m 0755 /usr/local/libexec
+    install -o root -g root -m 0755 "$release/ops/web99-ops-tool" /usr/local/libexec/web99-ops-tool
+    cat >/etc/sudoers.d/web99-ops-agent <<'EOF'
+# Web99 private Ops Agent: only the allowlisted root helper may be executed.
+ubuntu ALL=(root) NOPASSWD: /usr/local/libexec/web99-ops-tool *
+EOF
+    chmod 0440 /etc/sudoers.d/web99-ops-agent
+    visudo -cf /etc/sudoers.d/web99-ops-agent >/dev/null
+  fi
+
   systemctl daemon-reload
   nginx -t
 }
@@ -58,7 +73,7 @@ fi
 log "building release $SHORT without touching live traffic"
 mkdir -p "$RELEASE"
 git archive "$SHA" | tar -x -C "$RELEASE"
-chmod +x "$RELEASE"/ops/*.sh
+chmod +x "$RELEASE"/ops/*.sh "$RELEASE"/ops/web99-ops-tool 2>/dev/null || true
 ln -s "$ENV_FILE" "$RELEASE/dashboard/.env.local"
 
 cd "$RELEASE/dashboard"
@@ -132,6 +147,7 @@ for dir in "${OLD_RELEASES[@]}"; do
 done
 
 log "LIVE $SHA"
-log "dashboard: https://web99.ie/control"
-log "health:    https://web99.ie/api/health"
+log "dashboard:   https://web99.ie/control"
+log "ops console: https://web99.ie/ops-console/"
+log "health:      https://web99.ie/api/health"
 log "future deploys: sudo web99-deploy"

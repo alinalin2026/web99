@@ -14,7 +14,7 @@ import assert from "node:assert/strict";
 import { test } from "node:test";
 import { isPublicPath } from "../middleware.ts";
 
-/* [path, mustBePublic, why] */
+/* [path, mustBePublicToMiddleware, why] */
 const routes = [
   // Sarah's chat — talked to by anyone before they're a customer at all.
   ["/api/chat", true, "the /start/ page, unauthenticated visitors"],
@@ -22,6 +22,11 @@ const routes = [
   // Login itself. The bug: this was false.
   ["/login", true, "the login page"],
   ["/api/login", true, "what the login page's form actually submits to"],
+
+  // Ops Agent does its own requireOperator() check in the route. It bypasses
+  // middleware only so wrong/missing bearer auth returns JSON 401 instead of a
+  // browser redirect to /control/login.
+  ["/api/ops-agent", true, "route performs its own operator auth and needs API-style 401 responses"],
 
   // Post-payment customer pages/endpoints — no dashboard login exists for
   // a customer, so both halves of each of these must be public.
@@ -32,12 +37,11 @@ const routes = [
   // Stripe's webhook — Stripe, not a browser, calls this; it can't log in.
   ["/api/stripe", true, "Stripe's webhook, authenticated by signature not cookie"],
 
-  // Vercel's scheduler calls this daily — also can't log in, guards itself
-  // with CRON_SECRET the same way /api/stripe guards itself by signature.
-  ["/api/cron/expire-previews", true, "Vercel Cron, authenticated by CRON_SECRET not cookie"],
+  // Scheduler endpoints authenticate themselves with CRON_SECRET.
+  ["/api/cron/expire-previews", true, "scheduler endpoint, authenticated by CRON_SECRET not cookie"],
 
-  // Everything operator-only must be gated. If any of these ever turns up
-  // in PUBLIC, customer data or the ability to push a site is exposed.
+  // Everything operator-only that relies on middleware must be gated. If any
+  // of these ever turns up in PUBLIC, customer data or build actions leak.
   ["/", false, "the order queue"],
   ["/orders/abc-123", false, "a single order's review screen"],
   ["/api/orders/abc-123", false, "approve/reject/rebuild — real actions on real orders"],
@@ -45,15 +49,12 @@ const routes = [
 ];
 
 for (const [path, expected, why] of routes) {
-  test(`${path} is ${expected ? "public" : "gated"} (${why})`, () => {
+  test(`${path} is ${expected ? "public to middleware" : "gated by middleware"} (${why})`, () => {
     assert.equal(isPublicPath(path), expected, `${path}: expected public=${expected}`);
   });
 }
 
 test("a public page prefix does not leak into an unrelated /api path", () => {
-  // The exact shape of the bug: "/choose" must not be read as a prefix
-  // that also happens to cover "/api/choose" — they don't share a prefix
-  // at all, which is precisely why it's easy to miss.
   assert.equal(isPublicPath("/choose"), true);
   assert.equal(
     isPublicPath("/api/choose-something-unrelated"),

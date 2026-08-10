@@ -20,7 +20,7 @@ export async function generateImageDataUrl(input: {
   const allowed = new Set(["1024x1024", "1536x1024", "1024x1536"]);
   const size = input.size && allowed.has(input.size) ? input.size : logo ? "1024x1024" : "1536x1024";
   const safety = logo
-    ? "Create an original, simple logo mark suitable for a small website header. Do not copy an existing trademark. Transparent background. If lettering is not explicitly requested, make a mark only."
+    ? "Create an original, simple logo mark suitable for a small website header. Do not copy an existing trademark. Use a clean plain light background with strong separation around the mark. If lettering is not explicitly requested, make a mark only."
     : "This is illustrative website-demo imagery. Do not portray generated people, premises, signage, awards or completed work as documentary proof of the real business. No fake text or logos unless explicitly requested.";
 
   const response = await fetch(IMAGES_URL, {
@@ -31,7 +31,7 @@ export async function generateImageDataUrl(input: {
       prompt: `${input.prompt.trim()}\n\n${safety}`,
       size,
       quality: "medium",
-      background: logo ? "transparent" : "opaque",
+      background: "opaque",
       output_format: outputFormat,
     }),
   });

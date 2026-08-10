@@ -4,8 +4,9 @@ import {
 } from "@/lib/db";
 import {
   approvePlanAndContinue, finaliseMasterBuild, fixAndRedeploy, makeMasterPlan,
-  runNextStep, startMasterBuild,
+  startMasterBuild,
 } from "@/lib/master-pipeline";
+import { enqueueJob } from "@/lib/jobs";
 import { generateProjectAsset } from "@/lib/images";
 import { generateAllProjectAssets, prepareStudio } from "@/lib/studio";
 import { siteReady, send } from "@/lib/email";
@@ -117,8 +118,13 @@ export async function POST(
       }
 
       case "runNext": {
-        const step = await runNextStep(id);
-        return NextResponse.json({ ok: true, step });
+        const job = await enqueueJob(id, "run_next");
+        return NextResponse.json({
+          ok: true,
+          queued: true,
+          jobId: job.id,
+          alreadyQueued: job.alreadyQueued,
+        }, { status: 202 });
       }
 
       case "setAutopilot": {

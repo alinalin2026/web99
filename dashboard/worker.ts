@@ -1,5 +1,5 @@
 import { claimNextJob, completeJob, retryOrFailJob } from "./lib/jobs";
-import { approvePlanAndContinue, runNextStep } from "./lib/master-pipeline";
+import { approvePlanAndContinue, fixAndRedeploy, runNextStep } from "./lib/master-pipeline";
 import { sql } from "./lib/db";
 
 const POLL_MS = Number(process.env.WORKER_POLL_MS ?? 1200);
@@ -40,6 +40,14 @@ async function processOne(): Promise<boolean> {
         await approvePlanAndContinue(job.order_id, "operator");
         await completeJob(job, { step: "ready_for_review" });
         console.log(`[worker] job ${job.id} completed full approved build`);
+        return true;
+      }
+      case "fix_build": {
+        const instruction = String(job.payload?.instruction ?? "").trim();
+        if (!instruction) throw new Error("Missing fix instruction.");
+        await fixAndRedeploy(job.order_id, instruction, "operator");
+        await completeJob(job, { step: "ready_for_review" });
+        console.log(`[worker] job ${job.id} completed requested fix`);
         return true;
       }
       default:

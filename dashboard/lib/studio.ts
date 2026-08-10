@@ -115,19 +115,20 @@ export async function prepareStudio(orderId: string): Promise<StudioResult> {
     );
     if (!result.copyText?.trim()) throw new Error("Web99 Agent returned no website copy.");
 
-    let prompts = (result.imagePrompts ?? []).filter((p) => p?.key && p?.prompt).slice(0, 8);
+    let prompts: StudioImagePrompt[] = (result.imagePrompts ?? []).filter((p) => p?.key && p?.prompt).slice(0, 8);
 
     // Every sales preview needs a logo. If the model somehow omitted it, create
     // a deterministic fallback prompt rather than shipping a generic text header.
     const hasLogo = prompts.some((p) => p.kind === "logo" || p.key.toLowerCase() === "logo");
     if (!hasLogo) {
-      prompts = [{
+      const fallbackLogo: StudioImagePrompt = {
         key: "logo",
         title: `${order.business_name ?? "Business"} logo`,
         kind: "logo",
         size: "1024x1024",
         prompt: `Professional original logo for ${order.business_name ?? "this small business"}, a ${order.trade ?? "local service business"}${order.location ? ` in ${order.location}` : ""}. Match a polished ${result.visualStyle ?? "business-appropriate"} visual style. Simple distinctive mark and clean wordmark treatment, strong silhouette, legible at small mobile-header size, no mockup scene, no fake awards, no founding date, no certification badges, plain uncluttered background.`,
-      }, ...prompts].slice(0, 8);
+      };
+      prompts = [fallbackLogo, ...prompts].slice(0, 8);
     }
 
     await sql.begin(async (tx) => {

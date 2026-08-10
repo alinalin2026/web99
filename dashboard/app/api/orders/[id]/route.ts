@@ -53,10 +53,25 @@ export async function POST(
         const plan = String(body.plan ?? "").trim();
         if (!plan) throw new Error("The plan cannot be empty.");
         await sql`UPDATE orders SET plan_text = ${plan}, workflow_stage = 'plan_ready' WHERE id = ${id}`;
-        await logEvent(id, "plan_edited", { message: `${order.business_name ?? "Website"} plan edited by operator` });
+        await logEvent(id, "plan_edited", { message: `${order.business_name ?? "Website"} direction edited` });
         return NextResponse.json({ ok: true });
       }
 
+      case "approveBuild": {
+        const plan = String(body.plan ?? order.plan_text ?? "").trim();
+        if (!plan) throw new Error("There is no website direction to approve yet.");
+        const steer = String(body.steer ?? "").trim();
+        const job = await enqueueJob(id, "approve_build", { plan, steer });
+        await sql`UPDATE orders SET workflow_stage = 'queued_build', failure_reason = NULL WHERE id = ${id}`;
+        await logEvent(id, "build_approved", {
+          message: `${order.business_name ?? "Website"} approved — building everything now`,
+          jobId: job.id,
+        });
+        return NextResponse.json({ ok: true, queued: true, jobId: job.id, alreadyQueued: job.alreadyQueued }, { status: 202 });
+      }
+
+      // Legacy/manual actions remain available to old links, but the normal
+      // operator UI now uses approveBuild and does not stop for copy/images.
       case "approvePlan": {
         if (typeof body.plan === "string" && body.plan.trim()) {
           await sql`UPDATE orders SET plan_text = ${body.plan.trim()} WHERE id = ${id}`;
@@ -113,8 +128,11 @@ export async function POST(
       }
 
       case "fix": {
-        await fixAndRedeploy(id, String(body.instruction ?? ""), body.who ?? "operator");
-        return NextResponse.json({ ok: true });
+        const instruction = String(body.instruction ?? "").trim();
+        if (!instruction) throw new Error("Tell Web99 what you want changed.");
+        const job = await enqueueJob(id, "fix_build", { instruction });
+        await setWorkflow(id, "fixing", { message: "Applying your changes" });
+        return NextResponse.json({ ok: true, queued: true, jobId: job.id, alreadyQueued: job.alreadyQueued }, { status: 202 });
       }
 
       case "runNext": {
@@ -131,7 +149,7 @@ export async function POST(
         const mode = String(body.mode ?? "");
         if (!new Set(["manual", "assisted", "full"]).has(mode)) throw new Error("Invalid autopilot mode.");
         await sql`UPDATE orders SET autopilot = ${mode} WHERE id = ${id}`;
-        await logEvent(id, "autopilot", { message: `Autopilot set to ${mode}`, mode });
+        await logEvent(id, "autopilot", { message: mode === "full" ? "Build automatically enabled" : "Approval before build enabled", mode });
         return NextResponse.json({ ok: true, mode });
       }
 

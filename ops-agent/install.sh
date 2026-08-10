@@ -8,10 +8,12 @@ NGINX=/etc/nginx/sites-available/web99
 [[ $EUID -eq 0 ]] || { echo 'run with sudo'; exit 1; }
 [[ -d "$APP/.git" ]] || { echo 'missing /srv/web99/app git checkout'; exit 1; }
 [[ -f "$ENV" ]] || { echo 'missing /srv/web99/config/dashboard.env'; exit 1; }
+[[ -f "$APP/ops-agent/server.mjs" ]] || { echo 'missing ops-agent/server.mjs — pull the repo as ubuntu first'; exit 1; }
+[[ -f "$APP/ops-agent/web99-ops-agent.service" ]] || { echo 'missing ops-agent systemd unit'; exit 1; }
+[[ -f "$APP/ops/web99-ops-tool" ]] || { echo 'missing restricted ops helper'; exit 1; }
 
-cd "$APP"
-git fetch origin master-dashboard
-git reset --hard origin/master-dashboard
+# IMPORTANT: this installer never runs git. /srv/web99/app is owned and updated
+# by ubuntu. Running git as root here would recreate mixed ownership in .git/objects.
 
 install -m 0644 "$APP/ops-agent/web99-ops-agent.service" /etc/systemd/system/web99-ops-agent.service
 install -d -m 0755 /usr/local/libexec
@@ -33,10 +35,13 @@ s=p.read_text()
 marker='# WEB99_STANDALONE_OPS_AGENT'
 block='''\n    # WEB99_STANDALONE_OPS_AGENT\n    location = /ops-console { return 301 /ops-console/; }\n    location ^~ /ops-console/ {\n        proxy_pass http://127.0.0.1:3011/;\n        proxy_http_version 1.1;\n        proxy_set_header Host $host;\n        proxy_set_header X-Real-IP $remote_addr;\n        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;\n        proxy_set_header X-Forwarded-Proto $scheme;\n        proxy_read_timeout 300s;\n        add_header X-Robots-Tag "noindex, nofollow, noarchive" always;\n        add_header Cache-Control "no-store" always;\n        add_header X-Frame-Options "DENY" always;\n    }\n'''
 if marker not in s:
-    # Put it in the TLS server immediately before the operational-source deny rules.
     needle='    # Never expose operational source files from the live directory.\n'
     if needle not in s:
         needle='    location ^~ /dashboard/ { return 404; }\n'
+    if needle not in s:
+        # Last-resort insertion immediately before the TLS server's closing brace:
+        # use the final "location /" block as an anchor rather than guessing a server.
+        needle='    location / {\n'
     if needle not in s:
         raise SystemExit('could not find safe insertion point in nginx config')
     s=s.replace(needle,block+'\n'+needle,1)

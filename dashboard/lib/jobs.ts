@@ -31,7 +31,7 @@ export async function enqueueJob(
 
   if (rows[0]) {
     await logEvent(orderId, "job_queued", {
-      message: "Web99 Agent job queued",
+      message: "Work queued",
       action,
       jobId: rows[0].id,
     });
@@ -77,15 +77,30 @@ export async function completeJob(
     SET status = 'completed', result = ${jsonb(result)}, finished_at = now()
     WHERE id = ${job.id}`;
   await logEvent(job.order_id, "job_completed", {
-    message: "Web99 Agent finished background job",
+    message: "Work finished",
     action: job.action,
     jobId: job.id,
     ...result,
   });
 }
 
-export async function failJob(job: BackgroundJob, error: Error): Promise<void> {
+export async function retryOrFailJob(job: BackgroundJob, error: Error, maxAttempts = 3): Promise<"retry" | "failed"> {
   const message = error.message.slice(0, 4000);
+
+  if (job.attempts < maxAttempts) {
+    await sql`
+      UPDATE jobs
+      SET status = 'queued', error = ${message}, started_at = NULL, finished_at = NULL
+      WHERE id = ${job.id}`;
+    await logEvent(job.order_id, "job_retry", {
+      message: `Something went wrong; Web99 is retrying automatically (${job.attempts}/${maxAttempts})`,
+      action: job.action,
+      jobId: job.id,
+      attempt: job.attempts,
+    });
+    return "retry";
+  }
+
   await sql`
     UPDATE jobs
     SET status = 'failed', error = ${message}, finished_at = now()
@@ -95,9 +110,10 @@ export async function failJob(job: BackgroundJob, error: Error): Promise<void> {
     SET failure_reason = ${message}, workflow_stage = 'job_failed'
     WHERE id = ${job.order_id}`;
   await logEvent(job.order_id, "job_failed", {
-    message: "Web99 Agent background job failed",
+    message: "Web99 needs you — automatic retries did not fix this step",
     action: job.action,
     jobId: job.id,
     error: message,
   });
+  return "failed";
 }

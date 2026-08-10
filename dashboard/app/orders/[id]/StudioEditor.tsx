@@ -4,6 +4,22 @@ import { useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import type { ProjectAsset } from "@/lib/db";
 
+const VISUAL_STYLES = [
+  "Auto",
+  "Modern Local",
+  "Premium Dark",
+  "Warm Boutique",
+  "Bold Industrial",
+  "Minimal Editorial",
+  "Classic Professional",
+  "Colourful Creative",
+  "Luxury",
+  "Tech Futuristic",
+  "Friendly Family",
+  "Restaurant Hospitality",
+  "Ecommerce Product",
+];
+
 async function post(id: string, body: Record<string, unknown>) {
   const res = await fetch(`/api/orders/${id}`, {
     method: "POST",
@@ -55,6 +71,7 @@ export default function StudioEditor({
   const [notice, setNotice] = useState("");
   const [plan, setPlan] = useState(planText ?? "");
   const [direction, setDirection] = useState("");
+  const [style, setStyle] = useState("Auto");
   const [fix, setFix] = useState("");
   const [autoBuild, setAutoBuild] = useState(autopilot === "full");
 
@@ -76,6 +93,11 @@ export default function StudioEditor({
   const buildInProgress = !previewUrl && [
     "queued_build", "studio_ready", "creating", "building", "qa", "checking", "repairing", "fixing"
   ].includes(workflowStage);
+
+  const buildSteer = [
+    `VISUAL STYLE: ${style}. ${style === "Auto" ? "Choose the strongest Web99 style for this business." : `Follow the ${style} style family consistently.`}`,
+    direction.trim(),
+  ].filter(Boolean).join("\n\n");
 
   return (
     <div className="studio-editor">
@@ -120,11 +142,23 @@ export default function StudioEditor({
           <div className="editor-body">
             <span className="eyebrow">30-SECOND REVIEW</span>
             <h2 style={{ marginTop: 6 }}>Website direction</h2>
-            <p className="muted">This is the only approval before the build. Change anything you care about; Web99 handles copy, images, layout, QA and deployment.</p>
+            <p className="muted">This is the only approval before the build. Pick the feel, change anything you care about, then Web99 handles copy, logo, images, layout, checks and deployment.</p>
             <textarea className="big-editor" rows={18} value={plan} onChange={(e) => setPlan(e.target.value)} />
 
             <label style={{ display: "block", marginTop: 16 }}>
-              <b>Change direction</b>
+              <b>Style</b>
+              <select
+                value={style}
+                onChange={(e) => setStyle(e.target.value)}
+                style={{ width: "100%", minHeight: 48, marginTop: 8, borderRadius: 12, padding: "0 12px" }}
+              >
+                {VISUAL_STYLES.map((name) => <option value={name} key={name}>{name}</option>)}
+              </select>
+              <small className="muted" style={{ display: "block", marginTop: 6 }}>Auto is the default. We can keep adding styles to this list.</small>
+            </label>
+
+            <label style={{ display: "block", marginTop: 16 }}>
+              <b>Anything you want changed?</b>
               <textarea
                 rows={4}
                 value={direction}
@@ -137,7 +171,7 @@ export default function StudioEditor({
               className="btn"
               style={{ width: "100%", marginTop: 16 }}
               disabled={working || !plan.trim()}
-              onClick={() => run("approveBuild", { action: "approveBuild", plan, steer: direction }, "Approved. Building in the background — you can close the browser")}
+              onClick={() => run("approveBuild", { action: "approveBuild", plan, steer: buildSteer }, "Approved. Building in the background — you can close the browser")}
             >
               {busy === "approveBuild" ? "Starting build…" : "Approve & Build"}
             </button>
@@ -148,7 +182,7 @@ export default function StudioEditor({
       {buildInProgress && (
         <section className="panel" style={{ textAlign: "center", padding: "34px 24px" }}>
           <h2>{stage}…</h2>
-          <p className="muted">Web99 is handling the copy, visuals, website build and checks in the background. You can close the browser.</p>
+          <p className="muted">Web99 is handling the copy, logo, visuals, website build and checks in the background. You can close the browser.</p>
         </section>
       )}
 
@@ -160,6 +194,17 @@ export default function StudioEditor({
 
             <div className="button-row" style={{ marginTop: 14 }}>
               <a className="btn" href={previewUrl} target="_blank" rel="noreferrer">Looks good — view it</a>
+              <button
+                className="btn btn--ghost"
+                type="button"
+                onClick={async () => {
+                  const url = previewUrl.startsWith("http") ? previewUrl : `${window.location.origin}${previewUrl}`;
+                  await navigator.clipboard.writeText(url);
+                  setNotice("Customer link copied");
+                }}
+              >
+                Copy customer link
+              </button>
               {email && (
                 <button className="btn btn--ghost" disabled={working} onClick={() => run("sendPreview", { action: "sendPreview" }, "Sent to customer") }>
                   {busy === "sendPreview" ? "Sending…" : "Send to customer"}

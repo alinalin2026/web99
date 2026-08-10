@@ -1,13 +1,14 @@
 import http from 'node:http';
 import { execFile } from 'node:child_process';
 import { promisify } from 'node:util';
-import { timingSafeEqual } from 'node:crypto';
+import { createHmac, timingSafeEqual } from 'node:crypto';
 
 const execFileAsync = promisify(execFile);
 const PORT = Number(process.env.WEB99_OPS_PORT || 3011);
 const HOST = '127.0.0.1';
 const HELPER = process.env.WEB99_OPS_HELPER || '/usr/local/libexec/web99-ops-tool';
 const OPENAI_URL = 'https://api.openai.com/v1/responses';
+const COOKIE = 'w99ops';
 
 const SYSTEM = `You are the private Web99 server operations agent running on the same AWS EC2 server as Web99.
 Your only job is to diagnose and repair Web99 production through the provided restricted tools.
@@ -40,19 +41,50 @@ const MUTATING = new Set(['reload_nginx','restart_service','backup_database','st
 const mutationAllowed = m => /\b(fix|repair|restart|deploy|reload|restore|backup|recover|apply|enable|disable)\b|\bback\s+up\b/i.test(m);
 
 function secret(){ return (process.env.ADMIN_PASSWORD || '').trim(); }
+function safeEqual(a,b){
+  const aa=Buffer.from(String(a));
+  const bb=Buffer.from(String(b));
+  return aa.length===bb.length && aa.length>0 && timingSafeEqual(aa,bb);
+}
+function sessionToken(){ return createHmac('sha256',secret()).update('web99-ops-session-v1').digest('hex'); }
+function cookieValue(req,name){
+  const raw=req.headers.cookie || '';
+  for(const part of raw.split(';')){
+    const i=part.indexOf('=');
+    if(i<0) continue;
+    if(part.slice(0,i).trim()===name) return decodeURIComponent(part.slice(i+1).trim());
+  }
+  return '';
+}
 function authorised(req){
-  const h = req.headers.authorization || '';
-  if (!h.startsWith('Bearer ')) return false;
-  const a = Buffer.from(h.slice(7).trim());
-  const b = Buffer.from(secret());
-  return !!b.length && a.length === b.length && timingSafeEqual(a,b);
+  const configured=secret();
+  if(!configured) return false;
+  const h=req.headers.authorization || '';
+  if(h.startsWith('Bearer ') && safeEqual(h.slice(7).trim(),configured)) return true;
+  return safeEqual(cookieValue(req,COOKIE),sessionToken());
+}
+function escapeHtml(value){
+  return String(value ?? '').replace(/[&<>"']/g,ch=>({ '&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;' }[ch]));
+}
+function html(res,code,body,extra={}){
+  res.writeHead(code,{'content-type':'text/html; charset=utf-8','cache-control':'no-store','x-content-type-options':'nosniff','x-frame-options':'DENY',...extra});
+  res.end(body);
 }
 function json(res, code, body){
-  const data = JSON.stringify(body);
-  res.writeHead(code, {'content-type':'application/json; charset=utf-8','cache-control':'no-store','x-content-type-options':'nosniff'});
+  const data=JSON.stringify(body);
+  res.writeHead(code,{'content-type':'application/json; charset=utf-8','cache-control':'no-store','x-content-type-options':'nosniff'});
   res.end(data);
 }
 function clip(s,max=12000){ s=String(s||''); return s.length<=max?s:s.slice(0,max)+`\n...[truncated ${s.length-max} chars]`; }
+async function readBody(req,max=80000){
+  let raw='';
+  for await(const chunk of req){ raw+=chunk; if(raw.length>max) throw new Error('Request too large'); }
+  return raw;
+}
+function formData(raw){
+  const p=new URLSearchParams(raw);
+  return Object.fromEntries(p.entries());
+}
 
 async function helper(action,args=[],timeout=45000){
   try{
@@ -98,8 +130,8 @@ async function openai(input){
   return data;
 }
 
-async function runAgent(message,history=[]){
-  const input=[...history.slice(-10).filter(x=>x&&['user','assistant'].includes(x.role)&&typeof x.content==='string').map(x=>({role:x.role,content:x.content.slice(0,3500)})),{role:'user',content:message.slice(0,5000)}];
+async function runAgent(message){
+  const input=[{role:'user',content:message.slice(0,5000)}];
   const actions=[]; const canMutate=mutationAllowed(message);
   for(let round=0;round<7;round++){
     const response=await openai(input);
@@ -116,26 +148,60 @@ async function runAgent(message,history=[]){
   throw new Error('Ops Agent exceeded tool-call limit');
 }
 
-const PAGE=`<!doctype html><html><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover"><meta name="robots" content="noindex,nofollow"><title>Web99 Ops</title><style>*{box-sizing:border-box}body{margin:0;background:#0d1016;color:#f6f7fb;font-family:system-ui,-apple-system,sans-serif}.wrap{max-width:760px;margin:auto;padding:18px}.top{display:flex;align-items:center;gap:12px;margin-bottom:20px}.logo{width:42px;height:42px;border-radius:13px;background:#6d55ee;display:grid;place-items:center;font-weight:900}.muted{color:#9da6b6;font-size:13px}.card,.msg{background:#171c26;border:1px solid #293142;border-radius:18px;padding:15px;margin:10px 0}.user{background:#6250d8;margin-left:12%}.input{width:100%;padding:14px;border-radius:13px;border:1px solid #343d51;background:#0f131b;color:white;font:inherit}.row{display:flex;gap:8px}.btn{border:0;background:#826dff;color:white;border-radius:13px;padding:12px 15px;font-weight:750}.quick{display:flex;gap:7px;overflow:auto;margin:12px 0}.quick .btn{background:#202736;white-space:nowrap;font-size:12px}.tools{font:11px ui-monospace,monospace;color:#bcc5d6;white-space:pre-wrap;margin-top:9px}.composer{position:sticky;bottom:0;background:linear-gradient(transparent,#0d1016 25%);padding-top:24px;padding-bottom:env(safe-area-inset-bottom)}textarea{min-height:58px;resize:vertical}</style></head><body><div class="wrap"><div class="top"><div class="logo">99</div><div><b>Web99 Ops</b><div class="muted">Independent AWS repair agent</div></div></div><div id="login" class="card"><b>Operator access</b><p class="muted">Same password as Web99 Control.</p><div class="row"><input id="key" class="input" type="password" placeholder="Password"><button id="unlock" class="btn">Unlock</button></div><div id="err" class="muted"></div></div><div id="app" hidden><div class="card"><b>I run separately from the Web99 dashboard.</b><div class="muted">So I can diagnose it even when Control is down.</div><div class="quick"><button class="btn" data-p="Check the whole Web99 system and tell me what is wrong.">Check system</button><button class="btn" data-p="Fix why https://web99.ie/control is not working. Diagnose first, then repair and verify.">Fix Control</button><button class="btn" data-p="Check Sarah, /start, her avatar and the chat API. Fix anything clearly wrong and verify.">Fix Sarah</button></div></div><div id="msgs"></div><div class="composer row"><textarea id="prompt" class="input" placeholder="Tell Ops what to check or fix..."></textarea><button id="send" class="btn">Send</button></div></div></div><script>let token=sessionStorage.getItem('w99ops')||'',hist=[];const q=x=>document.querySelector(x),msgs=q('#msgs');function show(ok){q('#login').hidden=ok;q('#app').hidden=!ok}async function verify(t){let r=await fetch('./health',{headers:{Authorization:'Bearer '+t}});if(!r.ok)throw Error('Wrong password or agent unavailable');}q('#unlock').onclick=async()=>{try{token=q('#key').value.trim();await verify(token);sessionStorage.setItem('w99ops',token);show(true)}catch(e){q('#err').textContent=e.message}};function add(role,text,actions=[]){let d=document.createElement('div');d.className='msg '+(role==='user'?'user':'');d.textContent=text;if(actions.length){let t=document.createElement('div');t.className='tools';t.textContent=actions.map(a=>(a.ok?'✓ ':'× ')+a.name+'\n'+a.summary).join('\n\n');d.appendChild(t)}msgs.appendChild(d);d.scrollIntoView({behavior:'smooth'})}async function ask(text){text=text.trim();if(!text)return;add('user',text);q('#prompt').value='';let w=document.createElement('div');w.className='msg';w.textContent='Checking AWS…';msgs.appendChild(w);try{let r=await fetch('./api',{method:'POST',headers:{'content-type':'application/json',Authorization:'Bearer '+token},body:JSON.stringify({message:text,history:hist})});let data=await r.json();w.remove();if(!r.ok)throw Error(data.error||'Agent failed');add('assistant',data.message,data.actions||[]);hist.push({role:'user',content:text},{role:'assistant',content:data.message});hist=hist.slice(-10)}catch(e){w.remove();add('assistant','ERROR: '+e.message)}}q('#send').onclick=()=>ask(q('#prompt').value);q('#prompt').onkeydown=e=>{if(e.key==='Enter'&&!e.shiftKey){e.preventDefault();ask(q('#prompt').value)}};document.querySelectorAll('[data-p]').forEach(b=>b.onclick=()=>ask(b.dataset.p));if(token)verify(token).then(()=>show(true)).catch(()=>{token='';sessionStorage.removeItem('w99ops');show(false)});else show(false);</script></body></html>`;
+const CSS=`*{box-sizing:border-box}body{margin:0;background:#0d1016;color:#f6f7fb;font-family:system-ui,-apple-system,sans-serif}.wrap{max-width:760px;margin:auto;padding:18px}.top{display:flex;align-items:center;gap:12px;margin-bottom:20px}.logo{width:46px;height:46px;border-radius:14px;background:#6d55ee;display:grid;place-items:center;font-weight:900;font-size:20px}.muted{color:#9da6b6;font-size:14px}.card{background:#171c26;border:1px solid #293142;border-radius:18px;padding:17px;margin:12px 0}.input{width:100%;padding:14px;border-radius:13px;border:1px solid #343d51;background:#0f131b;color:white;font:inherit}.row{display:flex;gap:9px}.btn{border:0;background:#826dff;color:white;border-radius:13px;padding:13px 16px;font-weight:750;font-size:15px}.secondary{background:#242c3b}.quick{display:flex;gap:8px;overflow:auto;margin:14px 0}.quick form{min-width:max-content}.result{white-space:pre-wrap;line-height:1.45}.tools{font:12px ui-monospace,monospace;color:#bcc5d6;white-space:pre-wrap;border-top:1px solid #30394b;margin-top:14px;padding-top:12px}textarea{min-height:110px;resize:vertical}.error{color:#ff9c9c}.ok{color:#9ee8b2}.logout{margin-left:auto}form{margin:0}@media(max-width:560px){.row{align-items:stretch}.loginrow{flex-direction:column}.btn{min-height:48px}}`;
+function shell(content){
+  return `<!doctype html><html><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover"><meta name="robots" content="noindex,nofollow"><title>Web99 Ops</title><style>${CSS}</style></head><body><div class="wrap"><div class="top"><div class="logo">99</div><div><b style="font-size:22px">Web99 Ops</b><div class="muted">Independent AWS repair agent</div></div></div>${content}</div></body></html>`;
+}
+function loginPage(error=''){
+  return shell(`<div class="card"><b style="font-size:21px">Operator access</b><p class="muted">Same password as Web99 Control.</p>${error?`<p class="error">${escapeHtml(error)}</p>`:''}<form method="post" action="/ops-console/login"><div class="row loginrow"><input class="input" type="password" name="password" autocomplete="current-password" placeholder="Password" required autofocus><button class="btn" type="submit">Unlock</button></div></form></div>`);
+}
+function consolePage(result=null,error=''){
+  const actionHtml=result?.actions?.length?`<div class="tools">${result.actions.map(a=>`${a.ok?'✓':'×'} ${escapeHtml(a.name)}\n${escapeHtml(a.summary)}`).join('\n\n')}</div>`:'';
+  const resultHtml=result?`<div class="card"><b>Ops result</b><div class="result">${escapeHtml(result.message)}</div>${actionHtml}</div>`:'';
+  return shell(`<div class="card"><div class="row"><div><b>Repair console</b><div class="muted">This runs separately from Control and the website builder.</div></div><form class="logout" method="post" action="/ops-console/logout"><button class="btn secondary" type="submit">Lock</button></form></div>${error?`<p class="error">${escapeHtml(error)}</p>`:''}<div class="quick"><form method="post" action="/ops-console/ask"><input type="hidden" name="message" value="Check the whole Web99 system and tell me what is wrong."><button class="btn secondary" type="submit">Check system</button></form><form method="post" action="/ops-console/ask"><input type="hidden" name="message" value="Fix why https://web99.ie/control is not working. Diagnose first, then repair and verify."><button class="btn secondary" type="submit">Fix Control</button></form><form method="post" action="/ops-console/ask"><input type="hidden" name="message" value="Check Sarah, /start, her avatar and the chat API. Fix anything clearly wrong and verify."><button class="btn secondary" type="submit">Fix Sarah</button></form></div><form method="post" action="/ops-console/ask"><textarea class="input" name="message" placeholder="Tell Ops what to check or fix..." required></textarea><div style="margin-top:9px"><button class="btn" type="submit">Run on AWS</button></div></form></div>${resultHtml}`);
+}
 
 const server=http.createServer(async(req,res)=>{
   try{
     const url=new URL(req.url,'http://localhost');
-    if(req.method==='GET'&&(url.pathname==='/'||url.pathname==='/index.html')){res.writeHead(200,{'content-type':'text/html; charset=utf-8','cache-control':'no-store','x-frame-options':'DENY'});return res.end(PAGE);}
+    if(req.method==='GET' && (url.pathname==='/'||url.pathname==='/index.html')){
+      return html(res,200,authorised(req)?consolePage():loginPage());
+    }
+    if(req.method==='POST' && url.pathname==='/login'){
+      const body=formData(await readBody(req,10000));
+      if(!safeEqual(String(body.password||'').trim(),secret())) return html(res,401,loginPage('Wrong password.'));
+      return html(res,303,'',{'set-cookie':`${COOKIE}=${encodeURIComponent(sessionToken())}; Path=/ops-console/; HttpOnly; Secure; SameSite=Strict; Max-Age=43200`,'location':'/ops-console/'});
+    }
+    if(req.method==='POST' && url.pathname==='/logout'){
+      return html(res,303,'',{'set-cookie':`${COOKIE}=; Path=/ops-console/; HttpOnly; Secure; SameSite=Strict; Max-Age=0`,'location':'/ops-console/'});
+    }
     if(url.pathname==='/health'){
       if(!authorised(req)) return json(res,401,{ok:false,error:'Not authorised'});
       return json(res,200,{ok:true,service:'web99-ops-agent'});
     }
+    if(req.method==='POST' && url.pathname==='/ask'){
+      if(!authorised(req)) return html(res,401,loginPage('Session expired. Unlock again.'));
+      const body=formData(await readBody(req));
+      const message=String(body.message||'').trim();
+      if(!message) return html(res,400,consolePage(null,'Message required.'));
+      try{
+        const result=await runAgent(message);
+        return html(res,200,consolePage(result));
+      }catch(e){
+        return html(res,500,consolePage(null,e?.message||String(e)));
+      }
+    }
     if(url.pathname==='/api'&&req.method==='POST'){
       if(!authorised(req)) return json(res,401,{error:'Not authorised'});
-      let raw=''; for await(const chunk of req){raw+=chunk;if(raw.length>80000)throw new Error('Request too large');}
-      const body=JSON.parse(raw||'{}');
+      const body=JSON.parse(await readBody(req)||'{}');
       if(typeof body.message!=='string'||!body.message.trim()) return json(res,400,{error:'message required'});
-      const result=await runAgent(body.message,Array.isArray(body.history)?body.history:[]);
-      return json(res,200,result);
+      return json(res,200,await runAgent(body.message));
     }
     json(res,404,{error:'Not found'});
-  }catch(e){json(res,500,{error:e?.message||String(e)});}
+  }catch(e){
+    if(!res.headersSent) json(res,500,{error:e?.message||String(e)});
+    else res.end();
+  }
 });
 
 server.listen(PORT,HOST,()=>console.log(`Web99 Ops Agent listening on http://${HOST}:${PORT}`));

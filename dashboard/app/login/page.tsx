@@ -1,10 +1,9 @@
 "use client";
 
 import { useState, Suspense } from "react";
-import { useRouter, useSearchParams } from "next/navigation";
+import { useSearchParams } from "next/navigation";
 
 function LoginForm() {
-  const router = useRouter();
   const params = useSearchParams();
   const [secret, setSecret] = useState("");
   const [error, setError] = useState<string | null>(null);
@@ -21,18 +20,14 @@ function LoginForm() {
     });
     setBusy(false);
     if (res.ok) {
-      router.push(params.get("next") || "/");
-      router.refresh();
+      const next = params.get("next") || "/";
+      // Be explicit here instead of relying on router/basePath interaction.
+      window.location.href = next === "/" ? "/control" : `/control${next}`;
       return;
     }
 
-    /* A wrong password and a broken deployment look identical from a plain
-       "That's not it" — which is exactly the ambiguity that made this bug
-       hard to diagnose remotely. Show what the server actually said. */
     if (res.status === 503) {
-      setError(
-        "The dashboard doesn't have an operator key configured on this deployment at all — this isn't a wrong password, ADMIN_PASSWORD isn't set (or isn't set for this Environment) in Vercel. Check Settings → Environment Variables, then redeploy."
-      );
+      setError("The operator key is not configured on this AWS deployment. Set ADMIN_PASSWORD in .env.local and restart the dashboard.");
     } else {
       setError("That's not it.");
     }
@@ -41,7 +36,7 @@ function LoginForm() {
   return (
     <form className="card" onSubmit={submit} style={{ maxWidth: 380, margin: "80px auto" }}>
       <h1 style={{ fontSize: 20, marginTop: 0, display: "flex", alignItems: "center", gap: 8 }}>
-        <img src="/brand/icon-192.png" alt="" width={26} height={26} />
+        <img src="/control/brand/icon-192.png" alt="" width={26} height={26} />
         Web99
       </h1>
       <label htmlFor="secret">Operator key</label>

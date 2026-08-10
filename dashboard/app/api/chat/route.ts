@@ -82,17 +82,31 @@ export async function POST(req: NextRequest) {
     return withCors(req, NextResponse.json({ orderId: order.id, reply: "Thanks — we've got enough to get started. We'll send the first draft to your email when it's ready.", quickReplies: [], missing: [], readyToBuild: true }));
   }
 
-  const savedTurns: Turn[] = order ? order.conversation.map((t) => ({ role: t.role, content: t.content })) : browserHistory;
-  const turns: Turn[] = [...savedTurns, { role: "user", content: message }];
+  const now = new Date().toISOString();
+  const baseConversation = order?.conversation ?? browserHistory.map((t) => ({ ...t, at: now }));
+  const userConversation = [...baseConversation, { role: "user" as const, content: message, at: now }];
+
+  // Save the customer's message BEFORE calling OpenAI. This makes every chat attempt
+  // visible in Control even if Sarah times out or the model/extraction fails later.
+  if (order && persistenceAvailable) {
+    try {
+      await sql`UPDATE orders SET conversation=${jsonb(userConversation)} WHERE id=${order.id}`;
+    } catch (err) {
+      persistenceAvailable = false;
+      console.error("chat immediate user-message save failed", err);
+    }
+  }
+
+  const turns: Turn[] = userConversation.map((t) => ({ role: t.role, content: t.content }));
   let modelReply: string;
   try { modelReply = await chat(sarahSystemPrompt(), turns, MODELS.sarah); }
   catch (err) {
     await safeLog(order?.id ?? null, "error", { step: "sarah", message: (err as Error).message });
-    return withCors(req, NextResponse.json({ orderId: order?.id ?? null, reply: "Sorry — I couldn't get a reply through just now. Please try that message once more, or ring us on (01) 234 3300.", quickReplies: [], missing: [], readyToBuild: false, retryable: true }));
+    return withCors(req, NextResponse.json({ orderId: order?.id ?? null, reply: "Sorry — I couldn't get a reply through just now. Please try that message once more, or ring us on (01) 234 3300.", quickReplies: [], missing: [], readyToBuild: false, retryable: true, temporary: !persistenceAvailable }));
   }
 
-  const parsed = parseSarahReply(modelReply); const now = new Date().toISOString();
-  const conversation = [...(order?.conversation ?? browserHistory.map((t) => ({ ...t, at: now }))), { role: "user" as const, content: message, at: now }, { role: "assistant" as const, content: parsed.reply, at: now }];
+  const parsed = parseSarahReply(modelReply);
+  const conversation = [...userConversation, { role: "assistant" as const, content: parsed.reply, at: new Date().toISOString() }];
 
   let brief: Brief | null = null;
   try {

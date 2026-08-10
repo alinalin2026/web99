@@ -4,6 +4,7 @@ import { getOrder, listAssets, logEvent, sql } from "./lib/db";
 import { generateAllProjectAssets, prepareStudio } from "./lib/studio";
 
 const POLL_MS = Number(process.env.WORKER_POLL_MS ?? 1200);
+const PUBLIC_BASE = (process.env.APP_URL ?? "https://web99.ie").replace(/\/+$/, "");
 let stopping = false;
 
 process.on("SIGTERM", () => { stopping = true; });
@@ -11,6 +12,20 @@ process.on("SIGINT", () => { stopping = true; });
 
 function sleep(ms: number) {
   return new Promise((resolve) => setTimeout(resolve, ms));
+}
+
+async function normalizePreviewUrl(orderId: string): Promise<string | null> {
+  const order = await getOrder(orderId);
+  if (!order?.generated || !order.slug) return null;
+  const previewUrl = `${PUBLIC_BASE}/demo/${encodeURIComponent(order.slug)}`;
+  if (order.preview_url !== previewUrl || order.commit_sha) {
+    await sql`UPDATE orders SET preview_url = ${previewUrl}, commit_sha = NULL WHERE id = ${orderId}`;
+    await logEvent(orderId, "preview_ready", {
+      message: `${order.business_name ?? "Website"} customer preview is ready`,
+      previewUrl,
+    });
+  }
+  return previewUrl;
 }
 
 async function runApprovedBuild(orderId: string, plan: string, steer: string) {
@@ -39,6 +54,7 @@ async function runApprovedBuild(orderId: string, plan: string, steer: string) {
   if (!beforeBuild?.generated || beforeBuild.state === "failed" || !beforeBuild.preview_url) {
     await startMasterBuild(orderId, "operator", steer || undefined);
   }
+  return normalizePreviewUrl(orderId);
 }
 
 async function processOne(): Promise<boolean> {
@@ -54,15 +70,16 @@ async function processOne(): Promise<boolean> {
         if (order?.autopilot === "full" && step === "plan") {
           step = await runNextStep(job.order_id);
         }
-        await completeJob(job, { step });
+        const previewUrl = await normalizePreviewUrl(job.order_id);
+        await completeJob(job, { step, ...(previewUrl ? { previewUrl } : {}) });
         console.log(`[worker] job ${job.id} completed step=${step}`);
         return true;
       }
       case "approve_build": {
         const plan = String(job.payload?.plan ?? "").trim();
         const steer = String(job.payload?.steer ?? "").trim();
-        await runApprovedBuild(job.order_id, plan, steer);
-        await completeJob(job, { step: "ready_for_review" });
+        const previewUrl = await runApprovedBuild(job.order_id, plan, steer);
+        await completeJob(job, { step: "ready_for_review", ...(previewUrl ? { previewUrl } : {}) });
         console.log(`[worker] job ${job.id} completed full approved build`);
         return true;
       }
@@ -70,7 +87,8 @@ async function processOne(): Promise<boolean> {
         const instruction = String(job.payload?.instruction ?? "").trim();
         if (!instruction) throw new Error("Missing fix instruction.");
         await fixAndRedeploy(job.order_id, instruction, "operator");
-        await completeJob(job, { step: "ready_for_review" });
+        const previewUrl = await normalizePreviewUrl(job.order_id);
+        await completeJob(job, { step: "ready_for_review", ...(previewUrl ? { previewUrl } : {}) });
         console.log(`[worker] job ${job.id} completed requested fix`);
         return true;
       }

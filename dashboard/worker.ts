@@ -1,5 +1,7 @@
-import { claimNextJob, completeJob, failJob } from "./lib/jobs";
-import { runNextStep } from "./lib/master-pipeline";
+import "dotenv/config";
+import { claimNextJob, completeJob, retryOrFailJob } from "./lib/jobs";
+import { approvePlanAndContinue, runNextStep } from "./lib/master-pipeline";
+import { sql } from "./lib/db";
 
 const POLL_MS = Number(process.env.WORKER_POLL_MS ?? 1200);
 let stopping = false;
@@ -24,13 +26,31 @@ async function processOne(): Promise<boolean> {
         console.log(`[worker] job ${job.id} completed step=${step}`);
         return true;
       }
+      case "approve_build": {
+        const plan = String(job.payload?.plan ?? "").trim();
+        const steer = String(job.payload?.steer ?? "").trim();
+        if (plan) {
+          await sql`UPDATE orders SET plan_text = ${plan} WHERE id = ${job.order_id}`;
+        }
+        if (steer) {
+          await sql`
+            UPDATE orders
+            SET analysis = COALESCE(analysis, '{}'::jsonb) || ${sql.json({ operatorDirection: steer })}
+            WHERE id = ${job.order_id}`;
+        }
+        await approvePlanAndContinue(job.order_id, "operator");
+        await completeJob(job, { step: "ready_for_review" });
+        console.log(`[worker] job ${job.id} completed full approved build`);
+        return true;
+      }
       default:
         throw new Error(`Unknown background job action: ${job.action}`);
     }
   } catch (error) {
     const err = error instanceof Error ? error : new Error(String(error));
     console.error(`[worker] job ${job.id} failed`, err);
-    await failJob(job, err);
+    const outcome = await retryOrFailJob(job, err, 3);
+    if (outcome === "retry") await sleep(2000);
     return true;
   }
 }

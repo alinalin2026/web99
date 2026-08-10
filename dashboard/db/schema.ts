@@ -108,6 +108,24 @@ CREATE TABLE IF NOT EXISTS followups (
 );
 CREATE INDEX IF NOT EXISTS followups_due_idx ON followups (status, due_at) WHERE status = 'pending';
 
+CREATE TABLE IF NOT EXISTS jobs (
+  id bigserial PRIMARY KEY,
+  order_id uuid NOT NULL REFERENCES orders(id) ON DELETE CASCADE,
+  action text NOT NULL,
+  payload jsonb NOT NULL DEFAULT '{}'::jsonb,
+  status text NOT NULL DEFAULT 'queued' CHECK (status IN ('queued','running','completed','failed')),
+  attempts integer NOT NULL DEFAULT 0,
+  error text,
+  result jsonb,
+  created_at timestamptz NOT NULL DEFAULT now(),
+  started_at timestamptz,
+  finished_at timestamptz
+);
+CREATE INDEX IF NOT EXISTS jobs_status_idx ON jobs (status, created_at);
+CREATE INDEX IF NOT EXISTS jobs_order_idx ON jobs (order_id, created_at DESC);
+CREATE UNIQUE INDEX IF NOT EXISTS jobs_active_order_action_idx
+  ON jobs (order_id, action) WHERE status IN ('queued','running');
+
 CREATE OR REPLACE FUNCTION touch_updated_at() RETURNS trigger AS $$
 BEGIN NEW.updated_at = now(); RETURN NEW; END;
 $$ LANGUAGE plpgsql;

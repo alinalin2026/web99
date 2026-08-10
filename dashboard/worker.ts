@@ -1,6 +1,7 @@
 import { claimNextJob, completeJob, retryOrFailJob } from "./lib/jobs";
-import { approvePlanAndContinue, fixAndRedeploy, runNextStep } from "./lib/master-pipeline";
-import { sql } from "./lib/db";
+import { fixAndRedeploy, runNextStep, startMasterBuild } from "./lib/master-pipeline";
+import { getOrder, listAssets, logEvent, sql } from "./lib/db";
+import { generateAllProjectAssets, prepareStudio } from "./lib/studio";
 
 const POLL_MS = Number(process.env.WORKER_POLL_MS ?? 1200);
 let stopping = false;
@@ -12,6 +13,36 @@ function sleep(ms: number) {
   return new Promise((resolve) => setTimeout(resolve, ms));
 }
 
+async function runApprovedBuild(orderId: string, plan: string, steer: string) {
+  if (plan) await sql`UPDATE orders SET plan_text = ${plan} WHERE id = ${orderId}`;
+  if (steer) {
+    await sql`
+      UPDATE orders
+      SET analysis = COALESCE(analysis, '{}'::jsonb) || ${sql.json({ operatorDirection: steer })}
+      WHERE id = ${orderId}`;
+  }
+
+  const initial = await getOrder(orderId);
+  if (!initial?.plan_text && !plan) throw new Error("There is no website direction to build from.");
+
+  await sql`UPDATE orders SET approved_by = 'operator', approved_at = now(), failure_reason = NULL WHERE id = ${orderId}`;
+  await logEvent(orderId, "direction_approved", { message: `${initial?.business_name ?? "Website"} direction approved` });
+
+  // Reuse completed work. A retry at the end of a build should not rewrite copy
+  // or regenerate paid images that are already ready.
+  if (!initial?.studio_copy) await prepareStudio(orderId);
+
+  const assets = await listAssets(orderId);
+  if (assets.some((asset) => asset.status !== "ready")) {
+    await generateAllProjectAssets(orderId);
+  }
+
+  const beforeBuild = await getOrder(orderId);
+  if (!beforeBuild?.generated || beforeBuild.state === "failed" || !beforeBuild.preview_url) {
+    await startMasterBuild(orderId, "operator", steer || undefined);
+  }
+}
+
 async function processOne(): Promise<boolean> {
   const job = await claimNextJob();
   if (!job) return false;
@@ -20,7 +51,13 @@ async function processOne(): Promise<boolean> {
   try {
     switch (job.action) {
       case "run_next": {
-        const step = await runNextStep(job.order_id);
+        let step = await runNextStep(job.order_id);
+        const order = await getOrder(job.order_id);
+        // Full auto means exactly that: after the plan is made, continue through
+        // copy, images, build and QA without asking for another browser tap.
+        if (order?.autopilot === "full" && step === "plan") {
+          step = await runNextStep(job.order_id);
+        }
         await completeJob(job, { step });
         console.log(`[worker] job ${job.id} completed step=${step}`);
         return true;
@@ -28,16 +65,7 @@ async function processOne(): Promise<boolean> {
       case "approve_build": {
         const plan = String(job.payload?.plan ?? "").trim();
         const steer = String(job.payload?.steer ?? "").trim();
-        if (plan) {
-          await sql`UPDATE orders SET plan_text = ${plan} WHERE id = ${job.order_id}`;
-        }
-        if (steer) {
-          await sql`
-            UPDATE orders
-            SET analysis = COALESCE(analysis, '{}'::jsonb) || ${sql.json({ operatorDirection: steer })}
-            WHERE id = ${job.order_id}`;
-        }
-        await approvePlanAndContinue(job.order_id, "operator");
+        await runApprovedBuild(job.order_id, plan, steer);
         await completeJob(job, { step: "ready_for_review" });
         console.log(`[worker] job ${job.id} completed full approved build`);
         return true;

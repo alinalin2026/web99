@@ -49,6 +49,36 @@ export async function enqueueJob(
   return { id: existing?.id ?? 0, alreadyQueued: true };
 }
 
+/**
+ * There is deliberately one Web99 worker for the first production phase.
+ * Therefore a job still marked running when that worker starts can only belong
+ * to a worker process that was interrupted by a deploy/reboot/crash. Requeue it
+ * immediately instead of leaving the customer project stuck forever.
+ */
+export async function recoverInterruptedJobs(): Promise<number> {
+  await ensureMasterSchema();
+  const rows = await sql<{ id: number; order_id: string; action: string }[]>`
+    UPDATE jobs
+    SET status = 'queued',
+        started_at = NULL,
+        finished_at = NULL,
+        error = CASE
+          WHEN error IS NULL OR error = '' THEN 'Recovered after worker restart'
+          ELSE error || E'\nRecovered after worker restart'
+        END
+    WHERE status = 'running'
+    RETURNING id, order_id, action`;
+
+  for (const row of rows) {
+    await logEvent(row.order_id, "job_recovered", {
+      message: "Web99 recovered interrupted work automatically",
+      action: row.action,
+      jobId: row.id,
+    });
+  }
+  return rows.length;
+}
+
 export async function claimNextJob(): Promise<BackgroundJob | null> {
   await ensureMasterSchema();
   const rows = await sql<BackgroundJob[]>`

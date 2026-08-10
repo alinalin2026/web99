@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import {
-  getOrder, getAsset, jsonb, logEvent, scheduleLeadFollowups, setState, setWorkflow, sql,
+  getOrder, getAsset, logEvent, scheduleLeadFollowups, setState, setWorkflow, sql,
 } from "@/lib/db";
 import {
   approvePlanAndContinue, finaliseMasterBuild, fixAndRedeploy, makeMasterPlan,
@@ -35,13 +35,11 @@ export async function POST(
       case "queue": {
         if (order.state === "lost" || order.state === "won") throw new Error("This project is closed.");
         if (order.state === "collecting" || order.state === "failed") {
-          await sql`UPDATE orders SET state = 'ready' WHERE id = ${id}`;
+          await sql`UPDATE orders SET state = 'ready', failure_reason = NULL WHERE id = ${id}`;
         }
-        await setWorkflow(id, "queued", { message: `${order.business_name ?? "Lead"} added to the planning queue` });
-        await makeMasterPlan(id, body.steer);
-        const fresh = await getOrder(id);
-        if (fresh?.autopilot === "full") await approvePlanAndContinue(id, body.who ?? "operator");
-        return NextResponse.json({ ok: true, stage: "plan_ready" });
+        await setWorkflow(id, "queued", { message: `${order.business_name ?? "Lead"} sent to Web99` });
+        const job = await enqueueJob(id, "run_next", body.steer ? { steer: String(body.steer) } : {});
+        return NextResponse.json({ ok: true, queued: true, jobId: job.id, alreadyQueued: job.alreadyQueued }, { status: 202 });
       }
 
       case "makePlan": {

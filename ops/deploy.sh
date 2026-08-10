@@ -53,7 +53,11 @@ rollback() {
     rm -rf "${LIVE_DIR}.failed"
     if [[ -d "$LIVE_DIR" ]]; then mv "$LIVE_DIR" "${LIVE_DIR}.failed"; fi
     mv "${LIVE_DIR}.prev" "$LIVE_DIR"
-    install_machine_config "$LIVE_DIR" || true
+    if [[ -f "$LIVE_DIR/ops/web99.nginx.conf" ]]; then
+      install_machine_config "$LIVE_DIR" || true
+    else
+      log "previous live tree has no tracked machine config; keeping current Nginx/systemd files"
+    fi
     systemctl restart web99-dashboard || true
     systemctl restart web99-worker || true
     nginx -t && systemctl reload nginx || true
@@ -94,6 +98,7 @@ rm -rf "${LIVE_DIR}.new"
 mkdir -p "${LIVE_DIR}.new"
 cd "$SOURCE_DIR"
 tar --exclude='./.git' -cf - . | tar -xf - -C "${LIVE_DIR}.new"
+chmod +x "${LIVE_DIR}.new"/ops/*.sh "${LIVE_DIR}.new"/ops/web99-ops-tool 2>/dev/null || true
 chown -R ubuntu:ubuntu "${LIVE_DIR}.new"
 
 # Keep exactly one previous copy for immediate rollback. Directory rename on the
@@ -121,7 +126,7 @@ for _ in $(seq 1 25); do
 done
 [[ "$READY" == "1" ]] || rollback "app did not become healthy"
 
-"$LIVE_DIR/ops/smoke.sh" || rollback "production smoke tests"
+bash "$LIVE_DIR/ops/smoke.sh" || rollback "production smoke tests"
 
 rm -rf "${LIVE_DIR}.failed"
 log "LIVE $SHA"

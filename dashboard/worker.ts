@@ -1,4 +1,4 @@
-import { claimNextJob, completeJob, retryOrFailJob } from "./lib/jobs";
+import { claimNextJob, completeJob, recoverInterruptedJobs, retryOrFailJob } from "./lib/jobs";
 import { fixAndRedeploy, runNextStep, startMasterBuild } from "./lib/master-pipeline";
 import { getOrder, listAssets, logEvent, sql } from "./lib/db";
 import { generateAllProjectAssets, prepareStudio } from "./lib/studio";
@@ -28,8 +28,6 @@ async function runApprovedBuild(orderId: string, plan: string, steer: string) {
   await sql`UPDATE orders SET approved_by = 'operator', approved_at = now(), failure_reason = NULL WHERE id = ${orderId}`;
   await logEvent(orderId, "direction_approved", { message: `${initial?.business_name ?? "Website"} direction approved` });
 
-  // Reuse completed work. A retry at the end of a build should not rewrite copy
-  // or regenerate paid images that are already ready.
   if (!initial?.studio_copy) await prepareStudio(orderId);
 
   const assets = await listAssets(orderId);
@@ -53,8 +51,6 @@ async function processOne(): Promise<boolean> {
       case "run_next": {
         let step = await runNextStep(job.order_id);
         const order = await getOrder(job.order_id);
-        // Full auto means exactly that: after the plan is made, continue through
-        // copy, images, build and QA without asking for another browser tap.
         if (order?.autopilot === "full" && step === "plan") {
           step = await runNextStep(job.order_id);
         }
@@ -91,7 +87,8 @@ async function processOne(): Promise<boolean> {
 }
 
 async function main() {
-  console.log(`[worker] Web99 worker started; polling every ${POLL_MS}ms`);
+  const recovered = await recoverInterruptedJobs();
+  console.log(`[worker] Web99 worker started; polling every ${POLL_MS}ms; recovered=${recovered}`);
   while (!stopping) {
     try {
       const worked = await processOne();

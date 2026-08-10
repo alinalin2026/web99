@@ -1,6 +1,6 @@
 -- ===========================================================================
 -- WEB99 MASTER DASHBOARD — SCHEMA
--- Sarah lead intake + operator approvals + AI studio + build/deploy history.
+-- Sarah lead intake + operator approvals + AI studio + durable background jobs.
 -- Safe to re-run.
 -- ===========================================================================
 
@@ -17,36 +17,28 @@ END $$;
 CREATE TABLE IF NOT EXISTS orders (
   id              uuid PRIMARY KEY DEFAULT gen_random_uuid(),
   state           order_state NOT NULL DEFAULT 'collecting',
-
   business_name   text,
   trade           text,
   location        text,
   email           text,
   phone           text,
-
   conversation    jsonb NOT NULL DEFAULT '[]'::jsonb,
   brief           jsonb,
   analysis        jsonb,
   generated       jsonb,
   generator_notes text,
-
   slug            text UNIQUE,
   preview_url     text,
   commit_sha      text,
-
   stripe_session_id       text,
   stripe_payment_intent   text,
   paid_at                 timestamptz,
   retention       text CHECK (retention IN ('stayed', 'left')),
-
   failure_reason  text,
   approved_by     text,
   approved_at     timestamptz,
   sent_at         timestamptz,
   expires_at      timestamptz,
-
-  -- Master dashboard workflow. Kept separate from the legacy order_state so
-  -- existing Sarah/Stripe/preview code keeps working.
   qualification   text NOT NULL DEFAULT 'incomplete',
   workflow_stage  text NOT NULL DEFAULT 'new',
   autopilot       text NOT NULL DEFAULT 'assisted',
@@ -59,12 +51,10 @@ CREATE TABLE IF NOT EXISTS orders (
   version_no      integer NOT NULL DEFAULT 0,
   customer_status text NOT NULL DEFAULT 'new',
   followup_enabled boolean NOT NULL DEFAULT true,
-
   created_at      timestamptz NOT NULL DEFAULT now(),
   updated_at      timestamptz NOT NULL DEFAULT now()
 );
 
--- Existing installs get the new master-dashboard columns here.
 ALTER TABLE orders ADD COLUMN IF NOT EXISTS qualification text NOT NULL DEFAULT 'incomplete';
 ALTER TABLE orders ADD COLUMN IF NOT EXISTS workflow_stage text NOT NULL DEFAULT 'new';
 ALTER TABLE orders ADD COLUMN IF NOT EXISTS autopilot text NOT NULL DEFAULT 'assisted';
@@ -78,12 +68,11 @@ ALTER TABLE orders ADD COLUMN IF NOT EXISTS version_no integer NOT NULL DEFAULT 
 ALTER TABLE orders ADD COLUMN IF NOT EXISTS customer_status text NOT NULL DEFAULT 'new';
 ALTER TABLE orders ADD COLUMN IF NOT EXISTS followup_enabled boolean NOT NULL DEFAULT true;
 
-CREATE INDEX IF NOT EXISTS orders_state_idx    ON orders (state, created_at DESC);
-CREATE INDEX IF NOT EXISTS orders_stage_idx    ON orders (workflow_stage, updated_at DESC);
-CREATE INDEX IF NOT EXISTS orders_qual_idx     ON orders (qualification, updated_at DESC);
-CREATE INDEX IF NOT EXISTS orders_email_idx    ON orders (email);
-CREATE INDEX IF NOT EXISTS orders_expires_idx  ON orders (expires_at)
-  WHERE state IN ('sent', 'live');
+CREATE INDEX IF NOT EXISTS orders_state_idx ON orders (state, created_at DESC);
+CREATE INDEX IF NOT EXISTS orders_stage_idx ON orders (workflow_stage, updated_at DESC);
+CREATE INDEX IF NOT EXISTS orders_qual_idx ON orders (qualification, updated_at DESC);
+CREATE INDEX IF NOT EXISTS orders_email_idx ON orders (email);
+CREATE INDEX IF NOT EXISTS orders_expires_idx ON orders (expires_at) WHERE state IN ('sent', 'live');
 
 CREATE TABLE IF NOT EXISTS order_events (
   id          bigserial PRIMARY KEY,
@@ -92,10 +81,8 @@ CREATE TABLE IF NOT EXISTS order_events (
   detail      jsonb NOT NULL DEFAULT '{}'::jsonb,
   created_at  timestamptz NOT NULL DEFAULT now()
 );
-CREATE INDEX IF NOT EXISTS order_events_order_idx
-  ON order_events (order_id, created_at DESC);
-CREATE INDEX IF NOT EXISTS order_events_created_idx
-  ON order_events (created_at DESC);
+CREATE INDEX IF NOT EXISTS order_events_order_idx ON order_events (order_id, created_at DESC);
+CREATE INDEX IF NOT EXISTS order_events_created_idx ON order_events (created_at DESC);
 
 CREATE TABLE IF NOT EXISTS project_assets (
   id          uuid PRIMARY KEY DEFAULT gen_random_uuid(),
@@ -113,8 +100,7 @@ CREATE TABLE IF NOT EXISTS project_assets (
   updated_at  timestamptz NOT NULL DEFAULT now(),
   UNIQUE(order_id, asset_key)
 );
-CREATE INDEX IF NOT EXISTS project_assets_order_idx
-  ON project_assets (order_id, sort_order, created_at);
+CREATE INDEX IF NOT EXISTS project_assets_order_idx ON project_assets (order_id, sort_order, created_at);
 
 CREATE TABLE IF NOT EXISTS project_versions (
   id          bigserial PRIMARY KEY,
@@ -127,8 +113,7 @@ CREATE TABLE IF NOT EXISTS project_versions (
   created_at  timestamptz NOT NULL DEFAULT now(),
   UNIQUE(order_id, version_no)
 );
-CREATE INDEX IF NOT EXISTS project_versions_order_idx
-  ON project_versions (order_id, version_no DESC);
+CREATE INDEX IF NOT EXISTS project_versions_order_idx ON project_versions (order_id, version_no DESC);
 
 CREATE TABLE IF NOT EXISTS followups (
   id          bigserial PRIMARY KEY,
@@ -141,8 +126,25 @@ CREATE TABLE IF NOT EXISTS followups (
   sent_at     timestamptz,
   created_at  timestamptz NOT NULL DEFAULT now()
 );
-CREATE INDEX IF NOT EXISTS followups_due_idx
-  ON followups (status, due_at) WHERE status = 'pending';
+CREATE INDEX IF NOT EXISTS followups_due_idx ON followups (status, due_at) WHERE status = 'pending';
+
+CREATE TABLE IF NOT EXISTS jobs (
+  id          bigserial PRIMARY KEY,
+  order_id    uuid NOT NULL REFERENCES orders(id) ON DELETE CASCADE,
+  action      text NOT NULL,
+  payload     jsonb NOT NULL DEFAULT '{}'::jsonb,
+  status      text NOT NULL DEFAULT 'queued' CHECK (status IN ('queued','running','completed','failed')),
+  attempts    integer NOT NULL DEFAULT 0,
+  error       text,
+  result      jsonb,
+  created_at  timestamptz NOT NULL DEFAULT now(),
+  started_at  timestamptz,
+  finished_at timestamptz
+);
+CREATE INDEX IF NOT EXISTS jobs_status_idx ON jobs (status, created_at);
+CREATE INDEX IF NOT EXISTS jobs_order_idx ON jobs (order_id, created_at DESC);
+CREATE UNIQUE INDEX IF NOT EXISTS jobs_active_order_action_idx
+  ON jobs (order_id, action) WHERE status IN ('queued','running');
 
 CREATE OR REPLACE FUNCTION touch_updated_at() RETURNS trigger AS $$
 BEGIN

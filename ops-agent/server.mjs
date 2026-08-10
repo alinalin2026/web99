@@ -1,7 +1,9 @@
 import http from 'node:http';
 import { execFile } from 'node:child_process';
 import { promisify } from 'node:util';
-import { createHmac, timingSafeEqual } from 'node:crypto';
+import { createHmac, timingSafeEqual, randomUUID } from 'node:crypto';
+import { mkdir, readdir, readFile, rename, writeFile } from 'node:fs/promises';
+import path from 'node:path';
 
 const execFileAsync = promisify(execFile);
 const PORT = Number(process.env.WEB99_OPS_PORT || 3011);
@@ -9,6 +11,7 @@ const HOST = '127.0.0.1';
 const HELPER = process.env.WEB99_OPS_HELPER || '/usr/local/libexec/web99-ops-tool';
 const OPENAI_URL = 'https://api.openai.com/v1/responses';
 const COOKIE = 'w99ops';
+const JOB_DIR = process.env.WEB99_OPS_JOB_DIR || '/srv/web99/ops-jobs';
 
 const SYSTEM = `You are the private Web99 server operations agent running on the same AWS EC2 server as Web99.
 Your only job is to diagnose and repair Web99 production through the provided restricted tools.
@@ -41,50 +44,28 @@ const MUTATING = new Set(['reload_nginx','restart_service','backup_database','st
 const mutationAllowed = m => /\b(fix|repair|restart|deploy|reload|restore|backup|recover|apply|enable|disable)\b|\bback\s+up\b/i.test(m);
 
 function secret(){ return (process.env.ADMIN_PASSWORD || '').trim(); }
-function safeEqual(a,b){
-  const aa=Buffer.from(String(a));
-  const bb=Buffer.from(String(b));
-  return aa.length===bb.length && aa.length>0 && timingSafeEqual(aa,bb);
-}
+function safeEqual(a,b){ const aa=Buffer.from(String(a)); const bb=Buffer.from(String(b)); return aa.length===bb.length && aa.length>0 && timingSafeEqual(aa,bb); }
 function sessionToken(){ return createHmac('sha256',secret()).update('web99-ops-session-v1').digest('hex'); }
 function cookieValue(req,name){
   const raw=req.headers.cookie || '';
   for(const part of raw.split(';')){
-    const i=part.indexOf('=');
-    if(i<0) continue;
+    const i=part.indexOf('='); if(i<0) continue;
     if(part.slice(0,i).trim()===name) return decodeURIComponent(part.slice(i+1).trim());
   }
   return '';
 }
 function authorised(req){
-  const configured=secret();
-  if(!configured) return false;
+  const configured=secret(); if(!configured) return false;
   const h=req.headers.authorization || '';
   if(h.startsWith('Bearer ') && safeEqual(h.slice(7).trim(),configured)) return true;
   return safeEqual(cookieValue(req,COOKIE),sessionToken());
 }
-function escapeHtml(value){
-  return String(value ?? '').replace(/[&<>"']/g,ch=>({ '&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;' }[ch]));
-}
-function html(res,code,body,extra={}){
-  res.writeHead(code,{'content-type':'text/html; charset=utf-8','cache-control':'no-store','x-content-type-options':'nosniff','x-frame-options':'DENY',...extra});
-  res.end(body);
-}
-function json(res, code, body){
-  const data=JSON.stringify(body);
-  res.writeHead(code,{'content-type':'application/json; charset=utf-8','cache-control':'no-store','x-content-type-options':'nosniff'});
-  res.end(data);
-}
+function escapeHtml(value){ return String(value ?? '').replace(/[&<>"']/g,ch=>({ '&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;' }[ch])); }
+function html(res,code,body,extra={}){ res.writeHead(code,{'content-type':'text/html; charset=utf-8','cache-control':'no-store','x-content-type-options':'nosniff','x-frame-options':'DENY',...extra}); res.end(body); }
+function json(res,code,body){ const data=JSON.stringify(body); res.writeHead(code,{'content-type':'application/json; charset=utf-8','cache-control':'no-store','x-content-type-options':'nosniff'}); res.end(data); }
 function clip(s,max=12000){ s=String(s||''); return s.length<=max?s:s.slice(0,max)+`\n...[truncated ${s.length-max} chars]`; }
-async function readBody(req,max=80000){
-  let raw='';
-  for await(const chunk of req){ raw+=chunk; if(raw.length>max) throw new Error('Request too large'); }
-  return raw;
-}
-function formData(raw){
-  const p=new URLSearchParams(raw);
-  return Object.fromEntries(p.entries());
-}
+async function readBody(req,max=80000){ let raw=''; for await(const chunk of req){ raw+=chunk; if(raw.length>max) throw new Error('Request too large'); } return raw; }
+function formData(raw){ return Object.fromEntries(new URLSearchParams(raw).entries()); }
 
 async function helper(action,args=[],timeout=45000){
   try{
@@ -94,7 +75,6 @@ async function helper(action,args=[],timeout=45000){
     return {ok:false,output:clip([e?.stdout,e?.stderr,e?.message||String(e)].filter(Boolean).join('\n'))};
   }
 }
-
 async function execute(name,args,canMutate){
   if(MUTATING.has(name)&&!canMutate) return {ok:false,output:'Mutation blocked: the operator did not explicitly ask to fix/restart/deploy/reload/restore/back up.'};
   switch(name){
@@ -112,24 +92,17 @@ async function execute(name,args,canMutate){
     default: return {ok:false,output:`Unknown tool: ${name}`};
   }
 }
-
 function outputText(data){
   if(typeof data?.output_text==='string'&&data.output_text.trim()) return data.output_text.trim();
   const out=[];
   for(const item of data?.output||[]) if(item?.type==='message') for(const block of item.content||[]) if(block?.type==='output_text'&&block.text) out.push(block.text);
   return out.join('').trim();
 }
-
 async function openai(input){
-  const key=(process.env.OPENAI_API_KEY||'').trim();
-  if(!key) throw new Error('OPENAI_API_KEY is not configured');
+  const key=(process.env.OPENAI_API_KEY||'').trim(); if(!key) throw new Error('OPENAI_API_KEY is not configured');
   const r=await fetch(OPENAI_URL,{method:'POST',headers:{authorization:`Bearer ${key}`,'content-type':'application/json'},body:JSON.stringify({model:process.env.OPENAI_OPS_MODEL||process.env.OPENAI_AGENT_MODEL||'gpt-5.1',instructions:SYSTEM,input,tools:TOOLS,tool_choice:'auto',max_output_tokens:2200,store:false}),signal:AbortSignal.timeout(90000)});
-  const raw=await r.text(); let data;
-  try{data=raw?JSON.parse(raw):{};}catch{throw new Error(`OpenAI invalid JSON (${r.status})`);}
-  if(!r.ok) throw new Error(data?.error?.message||`OpenAI HTTP ${r.status}`);
-  return data;
+  const raw=await r.text(); let data; try{data=raw?JSON.parse(raw):{};}catch{throw new Error(`OpenAI invalid JSON (${r.status})`);} if(!r.ok) throw new Error(data?.error?.message||`OpenAI HTTP ${r.status}`); return data;
 }
-
 async function runAgent(message){
   const input=[{role:'user',content:message.slice(0,5000)}];
   const actions=[]; const canMutate=mutationAllowed(message);
@@ -148,60 +121,102 @@ async function runAgent(message){
   throw new Error('Ops Agent exceeded tool-call limit');
 }
 
-const CSS=`*{box-sizing:border-box}body{margin:0;background:#0d1016;color:#f6f7fb;font-family:system-ui,-apple-system,sans-serif}.wrap{max-width:760px;margin:auto;padding:18px}.top{display:flex;align-items:center;gap:12px;margin-bottom:20px}.logo{width:46px;height:46px;border-radius:14px;background:#6d55ee;display:grid;place-items:center;font-weight:900;font-size:20px}.muted{color:#9da6b6;font-size:14px}.card{background:#171c26;border:1px solid #293142;border-radius:18px;padding:17px;margin:12px 0}.input{width:100%;padding:14px;border-radius:13px;border:1px solid #343d51;background:#0f131b;color:white;font:inherit}.row{display:flex;gap:9px}.btn{border:0;background:#826dff;color:white;border-radius:13px;padding:13px 16px;font-weight:750;font-size:15px}.secondary{background:#242c3b}.quick{display:flex;gap:8px;overflow:auto;margin:14px 0}.quick form{min-width:max-content}.result{white-space:pre-wrap;line-height:1.45}.tools{font:12px ui-monospace,monospace;color:#bcc5d6;white-space:pre-wrap;border-top:1px solid #30394b;margin-top:14px;padding-top:12px}textarea{min-height:110px;resize:vertical}.error{color:#ff9c9c}.ok{color:#9ee8b2}.logout{margin-left:auto}form{margin:0}@media(max-width:560px){.row{align-items:stretch}.loginrow{flex-direction:column}.btn{min-height:48px}}`;
-function shell(content){
-  return `<!doctype html><html><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover"><meta name="robots" content="noindex,nofollow"><title>Web99 Ops</title><style>${CSS}</style></head><body><div class="wrap"><div class="top"><div class="logo">99</div><div><b style="font-size:22px">Web99 Ops</b><div class="muted">Independent AWS repair agent</div></div></div>${content}</div></body></html>`;
+async function ensureJobDir(){ await mkdir(JOB_DIR,{recursive:true}); }
+function jobFile(id){ return path.join(JOB_DIR,`${id}.json`); }
+async function saveJob(job){
+  const file=jobFile(job.id); const tmp=`${file}.tmp-${process.pid}`;
+  await writeFile(tmp,JSON.stringify(job,null,2),{mode:0o600}); await rename(tmp,file);
 }
-function loginPage(error=''){
-  return shell(`<div class="card"><b style="font-size:21px">Operator access</b><p class="muted">Same password as Web99 Control.</p>${error?`<p class="error">${escapeHtml(error)}</p>`:''}<form method="post" action="/ops-console/login"><div class="row loginrow"><input class="input" type="password" name="password" autocomplete="current-password" placeholder="Password" required autofocus><button class="btn" type="submit">Unlock</button></div></form></div>`);
+async function loadJob(id){ try{return JSON.parse(await readFile(jobFile(id),'utf8'));}catch{return null;} }
+async function listJobs(){
+  await ensureJobDir();
+  const names=(await readdir(JOB_DIR)).filter(n=>/^[a-f0-9-]+\.json$/i.test(n));
+  const jobs=[];
+  for(const n of names){ try{jobs.push(JSON.parse(await readFile(path.join(JOB_DIR,n),'utf8')));}catch{} }
+  return jobs.sort((a,b)=>String(b.createdAt).localeCompare(String(a.createdAt))).slice(0,30);
 }
-function consolePage(result=null,error=''){
-  const actionHtml=result?.actions?.length?`<div class="tools">${result.actions.map(a=>`${a.ok?'✓':'×'} ${escapeHtml(a.name)}\n${escapeHtml(a.summary)}`).join('\n\n')}</div>`:'';
-  const resultHtml=result?`<div class="card"><b>Ops result</b><div class="result">${escapeHtml(result.message)}</div>${actionHtml}</div>`:'';
-  return shell(`<div class="card"><div class="row"><div><b>Repair console</b><div class="muted">This runs separately from Control and the website builder.</div></div><form class="logout" method="post" action="/ops-console/logout"><button class="btn secondary" type="submit">Lock</button></form></div>${error?`<p class="error">${escapeHtml(error)}</p>`:''}<div class="quick"><form method="post" action="/ops-console/ask"><input type="hidden" name="message" value="Check the whole Web99 system and tell me what is wrong."><button class="btn secondary" type="submit">Check system</button></form><form method="post" action="/ops-console/ask"><input type="hidden" name="message" value="Fix why https://web99.ie/control is not working. Diagnose first, then repair and verify."><button class="btn secondary" type="submit">Fix Control</button></form><form method="post" action="/ops-console/ask"><input type="hidden" name="message" value="Check Sarah, /start, her avatar and the chat API. Fix anything clearly wrong and verify."><button class="btn secondary" type="submit">Fix Sarah</button></form></div><form method="post" action="/ops-console/ask"><textarea class="input" name="message" placeholder="Tell Ops what to check or fix..." required></textarea><div style="margin-top:9px"><button class="btn" type="submit">Run on AWS</button></div></form></div>${resultHtml}`);
+async function enqueue(message){
+  const now=new Date().toISOString();
+  const job={id:randomUUID(),message:message.slice(0,5000),status:'queued',createdAt:now,startedAt:null,finishedAt:null,attempts:0,result:null,error:null};
+  await saveJob(job); kickWorker(); return job;
+}
+let workerBusy=false;
+async function recoverInterrupted(){
+  const jobs=await listJobs();
+  for(const job of jobs.filter(j=>j.status==='running')){ job.status='queued'; job.error='Ops Agent restarted while this job was running; automatically queued again.'; await saveJob(job); }
+}
+async function nextQueued(){ return (await listJobs()).filter(j=>j.status==='queued').sort((a,b)=>String(a.createdAt).localeCompare(String(b.createdAt)))[0] || null; }
+async function workerLoop(){
+  if(workerBusy) return; workerBusy=true;
+  try{
+    for(;;){
+      const job=await nextQueued(); if(!job) break;
+      job.status='running'; job.startedAt=new Date().toISOString(); job.attempts=(job.attempts||0)+1; job.error=null; await saveJob(job);
+      try{
+        job.result=await runAgent(job.message); job.status='done';
+      }catch(e){
+        job.error=e?.message||String(e); job.status='failed';
+      }
+      job.finishedAt=new Date().toISOString(); await saveJob(job);
+    }
+  }finally{ workerBusy=false; }
+}
+function kickWorker(){ setTimeout(()=>workerLoop().catch(e=>console.error('Ops job worker failed:',e)),25); }
+
+const CSS=`*{box-sizing:border-box}body{margin:0;background:#0d1016;color:#f6f7fb;font-family:system-ui,-apple-system,sans-serif}.wrap{max-width:780px;margin:auto;padding:18px}.top{display:flex;align-items:center;gap:12px;margin-bottom:20px}.logo{width:46px;height:46px;border-radius:14px;background:#6d55ee;display:grid;place-items:center;font-weight:900;font-size:20px}.muted{color:#9da6b6;font-size:14px}.card{background:#171c26;border:1px solid #293142;border-radius:18px;padding:17px;margin:12px 0}.input{width:100%;padding:14px;border-radius:13px;border:1px solid #343d51;background:#0f131b;color:white;font:inherit}.row{display:flex;gap:9px}.btn{border:0;background:#826dff;color:white;border-radius:13px;padding:13px 16px;font-weight:750;font-size:15px}.secondary{background:#242c3b}.quick{display:flex;gap:8px;overflow:auto;margin:14px 0}.quick form{min-width:max-content}.result{white-space:pre-wrap;line-height:1.45}.tools{font:12px ui-monospace,monospace;color:#bcc5d6;white-space:pre-wrap;border-top:1px solid #30394b;margin-top:14px;padding-top:12px}textarea{min-height:105px;resize:vertical}.error{color:#ff9c9c}.ok{color:#9ee8b2}.logout{margin-left:auto}.pill{display:inline-block;border-radius:99px;padding:5px 9px;font-size:12px;font-weight:800;text-transform:uppercase}.queued{background:#403a21;color:#ffe68a}.running{background:#223d55;color:#9ed8ff}.done{background:#214333;color:#9ee8b2}.failed{background:#4c292d;color:#ffb1b1}.jobhead{display:flex;align-items:flex-start;justify-content:space-between;gap:10px}.jobmsg{font-weight:750;margin:8px 0}.small{font-size:12px}.actions{margin-top:8px}details summary{cursor:pointer;color:#c9d0dc}form{margin:0}@media(max-width:560px){.row{align-items:stretch}.loginrow{flex-direction:column}.btn{min-height:48px}.jobhead{align-items:center}}`;
+function shell(content,autoRefresh=false){
+  return `<!doctype html><html><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover"><meta name="robots" content="noindex,nofollow">${autoRefresh?'<meta http-equiv="refresh" content="5">':''}<title>Web99 Ops</title><style>${CSS}</style></head><body><div class="wrap"><div class="top"><div class="logo">99</div><div><b style="font-size:22px">Web99 Ops</b><div class="muted">Independent AWS repair agent</div></div></div>${content}</div></body></html>`;
+}
+function loginPage(error=''){ return shell(`<div class="card"><b style="font-size:21px">Operator access</b><p class="muted">Same password as Web99 Control.</p>${error?`<p class="error">${escapeHtml(error)}</p>`:''}<form method="post" action="/ops-console/login"><div class="row loginrow"><input class="input" type="password" name="password" autocomplete="current-password" placeholder="Password" required autofocus><button class="btn" type="submit">Unlock</button></div></form></div>`); }
+function fmtTime(v){ if(!v) return ''; try{return new Date(v).toLocaleString('en-IE',{dateStyle:'short',timeStyle:'short'});}catch{return v;} }
+function jobCard(job){
+  const r=job.result;
+  const actionHtml=r?.actions?.length?`<details class="actions"><summary>Tools used (${r.actions.length})</summary><div class="tools">${r.actions.map(a=>`${a.ok?'✓':'×'} ${escapeHtml(a.name)}\n${escapeHtml(a.summary)}`).join('\n\n')}</div></details>`:'';
+  const resultHtml=r?`<div class="result">${escapeHtml(r.message)}</div>${actionHtml}`:job.error?`<div class="error result">${escapeHtml(job.error)}</div>`:`<div class="muted">${job.status==='running'?'Working on AWS now…':'Waiting for the Ops worker…'}</div>`;
+  return `<div class="card"><div class="jobhead"><div><span class="pill ${escapeHtml(job.status)}">${escapeHtml(job.status)}</span><div class="jobmsg">${escapeHtml(job.message)}</div></div><div class="muted small">${escapeHtml(fmtTime(job.createdAt))}</div></div>${resultHtml}<div class="muted small" style="margin-top:10px">Job ${escapeHtml(job.id.slice(0,8))}${job.attempts?` · attempt ${job.attempts}`:''}</div></div>`;
+}
+function consolePage(jobs=[],error=''){
+  const active=jobs.some(j=>j.status==='queued'||j.status==='running');
+  const jobsHtml=jobs.length?`<div style="margin-top:20px"><div class="row" style="justify-content:space-between;align-items:center"><b>Jobs</b>${active?'<span class="muted small">Auto-refreshes every 5 sec while work is running</span>':''}</div>${jobs.map(jobCard).join('')}</div>`:'<div class="card muted">No Ops jobs yet.</div>';
+  const body=`<div class="card"><div class="row"><div><b>Repair dashboard</b><div class="muted">Submit a job, close the tab, come back later. AWS keeps working.</div></div><form class="logout" method="post" action="/ops-console/logout"><button class="btn secondary" type="submit">Lock</button></form></div>${error?`<p class="error">${escapeHtml(error)}</p>`:''}<div class="quick"><form method="post" action="/ops-console/ask"><input type="hidden" name="message" value="Check the whole Web99 system and tell me what is wrong."><button class="btn secondary" type="submit">Check system</button></form><form method="post" action="/ops-console/ask"><input type="hidden" name="message" value="Fix why https://web99.ie/control is not working. Diagnose first, then repair and verify."><button class="btn secondary" type="submit">Fix Control</button></form><form method="post" action="/ops-console/ask"><input type="hidden" name="message" value="Check Sarah, /start, her avatar and the chat API. Fix anything clearly wrong and verify."><button class="btn secondary" type="submit">Fix Sarah</button></form></div><form method="post" action="/ops-console/ask"><textarea class="input" name="message" placeholder="Tell Ops what to check or fix..." required></textarea><div style="margin-top:9px"><button class="btn" type="submit">Queue job</button></div></form></div>${jobsHtml}`;
+  return shell(body,active);
 }
 
 const server=http.createServer(async(req,res)=>{
   try{
     const url=new URL(req.url,'http://localhost');
-    if(req.method==='GET' && (url.pathname==='/'||url.pathname==='/index.html')){
-      return html(res,200,authorised(req)?consolePage():loginPage());
-    }
+    if(req.method==='GET' && (url.pathname==='/'||url.pathname==='/index.html')) return html(res,200,authorised(req)?consolePage(await listJobs()):loginPage());
     if(req.method==='POST' && url.pathname==='/login'){
       const body=formData(await readBody(req,10000));
       if(!safeEqual(String(body.password||'').trim(),secret())) return html(res,401,loginPage('Wrong password.'));
       return html(res,303,'',{'set-cookie':`${COOKIE}=${encodeURIComponent(sessionToken())}; Path=/ops-console/; HttpOnly; Secure; SameSite=Strict; Max-Age=43200`,'location':'/ops-console/'});
     }
-    if(req.method==='POST' && url.pathname==='/logout'){
-      return html(res,303,'',{'set-cookie':`${COOKIE}=; Path=/ops-console/; HttpOnly; Secure; SameSite=Strict; Max-Age=0`,'location':'/ops-console/'});
-    }
+    if(req.method==='POST' && url.pathname==='/logout') return html(res,303,'',{'set-cookie':`${COOKIE}=; Path=/ops-console/; HttpOnly; Secure; SameSite=Strict; Max-Age=0`,'location':'/ops-console/'});
     if(url.pathname==='/health'){
       if(!authorised(req)) return json(res,401,{ok:false,error:'Not authorised'});
-      return json(res,200,{ok:true,service:'web99-ops-agent'});
+      const jobs=await listJobs(); return json(res,200,{ok:true,service:'web99-ops-agent',queued:jobs.filter(j=>j.status==='queued').length,running:jobs.filter(j=>j.status==='running').length});
     }
     if(req.method==='POST' && url.pathname==='/ask'){
       if(!authorised(req)) return html(res,401,loginPage('Session expired. Unlock again.'));
-      const body=formData(await readBody(req));
-      const message=String(body.message||'').trim();
-      if(!message) return html(res,400,consolePage(null,'Message required.'));
-      try{
-        const result=await runAgent(message);
-        return html(res,200,consolePage(result));
-      }catch(e){
-        return html(res,500,consolePage(null,e?.message||String(e)));
-      }
+      const body=formData(await readBody(req)); const message=String(body.message||'').trim();
+      if(!message) return html(res,400,consolePage(await listJobs(),'Message required.'));
+      await enqueue(message); return html(res,303,'',{'location':'/ops-console/'});
     }
     if(url.pathname==='/api'&&req.method==='POST'){
       if(!authorised(req)) return json(res,401,{error:'Not authorised'});
       const body=JSON.parse(await readBody(req)||'{}');
       if(typeof body.message!=='string'||!body.message.trim()) return json(res,400,{error:'message required'});
-      return json(res,200,await runAgent(body.message));
+      const job=await enqueue(body.message.trim()); return json(res,202,{ok:true,jobId:job.id,status:job.status});
+    }
+    if(url.pathname.startsWith('/api/jobs/')&&req.method==='GET'){
+      if(!authorised(req)) return json(res,401,{error:'Not authorised'});
+      const id=url.pathname.slice('/api/jobs/'.length); const job=await loadJob(id); return job?json(res,200,job):json(res,404,{error:'Job not found'});
     }
     json(res,404,{error:'Not found'});
-  }catch(e){
-    if(!res.headersSent) json(res,500,{error:e?.message||String(e)});
-    else res.end();
-  }
+  }catch(e){ if(!res.headersSent) json(res,500,{error:e?.message||String(e)}); else res.end(); }
 });
 
-server.listen(PORT,HOST,()=>console.log(`Web99 Ops Agent listening on http://${HOST}:${PORT}`));
+await ensureJobDir();
+await recoverInterrupted();
+kickWorker();
+server.listen(PORT,HOST,()=>console.log(`Web99 Ops Agent listening on http://${HOST}:${PORT}; jobs=${JOB_DIR}`));

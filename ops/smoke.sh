@@ -51,11 +51,31 @@ case "$CHAT_CODE" in
   *) fail "Sarah API route returned unexpected $CHAT_CODE" ;;
 esac
 
-# The release contains source code, but Nginx must never serve the dashboard
-# source tree as static files.
+# Ops console must load independently of /control so it is still available when
+# the dashboard route is the thing being repaired.
+OPS_HTML="$(curl -fsS --max-time 15 "$BASE_URL/ops-console/")" || fail "Ops console"
+echo "$OPS_HTML" | grep -q '<title>Web99 Ops</title>' || fail "Ops console returned wrong page"
+pass "Ops console"
+
+# The Ops API must exist but reject unauthenticated callers. This proves routing
+# and auth without spending an OpenAI request during deployment.
+OPS_CODE="$(curl -sS -o /dev/null --max-time 15 -w '%{http_code}' "$BASE_URL/api/ops-agent")"
+[[ "$OPS_CODE" == "401" ]] || fail "Ops API should reject anonymous access with 401, got $OPS_CODE"
+pass "Ops API authentication gate"
+
+# Prove the dashboard's ubuntu user can invoke only the installed root helper.
+[[ -x /usr/local/libexec/web99-ops-tool ]] || fail "Ops root helper is not installed"
+sudo -u ubuntu sudo -n /usr/local/libexec/web99-ops-tool status >/dev/null \
+  || fail "ubuntu cannot invoke restricted Ops helper"
+pass "restricted Ops root helper"
+
+# The release contains source code, but Nginx must never serve dashboard or ops
+# scripts as static files.
 SOURCE_CODE="$(curl -sS -o /dev/null --max-time 10 -w '%{http_code}' "$BASE_URL/dashboard/package.json")"
 [[ "$SOURCE_CODE" == "404" || "$SOURCE_CODE" == "403" ]] || fail "dashboard source is publicly reachable ($SOURCE_CODE)"
-pass "source tree is not public"
+OPS_SOURCE_CODE="$(curl -sS -o /dev/null --max-time 10 -w '%{http_code}' "$BASE_URL/ops/web99-ops-tool")"
+[[ "$OPS_SOURCE_CODE" == "404" || "$OPS_SOURCE_CODE" == "403" ]] || fail "ops source is publicly reachable ($OPS_SOURCE_CODE)"
+pass "source trees are not public"
 
 if [[ -f "$ENV_FILE" ]] && command -v node >/dev/null 2>&1 && command -v psql >/dev/null 2>&1; then
   DATABASE_URL="$(node --env-file="$ENV_FILE" -e 'process.stdout.write(process.env.DATABASE_URL || "")')"

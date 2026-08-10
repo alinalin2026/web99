@@ -1,4 +1,3 @@
-import "dotenv/config";
 import { claimNextJob, completeJob, retryOrFailJob } from "./lib/jobs";
 import { approvePlanAndContinue, runNextStep } from "./lib/master-pipeline";
 import { sql } from "./lib/db";

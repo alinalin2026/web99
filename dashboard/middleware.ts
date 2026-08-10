@@ -1,15 +1,20 @@
 import { NextRequest, NextResponse } from "next/server";
 import { isOperator } from "@/lib/auth";
 
-/* Everything except Sarah's endpoint, the login page and the customer-facing
-   buy/choose pages is operator-only. Enforced here as well as in each route
-   so a new dashboard page can't be added without a gate by accident. */
+const BASE_PATH = "/control";
 
-/* Every one of these needs BOTH the page/route itself and its API route
-   listed separately — "/choose" does not cover "/api/choose/*", they're
-   unrelated path prefixes. Missing the /api one is exactly the bug that
-   locked out login: the page loaded, but the endpoint it called was
-   silently gated behind the very auth check the page exists to satisfy. */
+/* Next may expose middleware paths either with or without basePath depending on
+   the request shape. Normalize once so the auth rules stay stable. */
+function appPath(pathname: string): string {
+  if (pathname === BASE_PATH) return "/";
+  if (pathname.startsWith(BASE_PATH + "/")) {
+    return pathname.slice(BASE_PATH.length) || "/";
+  }
+  return pathname;
+}
+
+/* Everything except Sarah's endpoint, the login page and customer-facing
+   payment/choice endpoints is operator-only. */
 const PUBLIC = [
   "/api/chat",
   "/api/stripe",
@@ -18,18 +23,17 @@ const PUBLIC = [
   "/buy",
   "/choose",
   "/api/choose",
-  /* Triggered by Vercel's scheduler, not a logged-in operator — it can't
-     carry the operator cookie, so it guards itself with CRON_SECRET
-     instead (same shape as /api/stripe guarding itself by signature). */
   "/api/cron",
 ];
 
 export function isPublicPath(pathname: string): boolean {
-  return PUBLIC.some((p) => pathname === p || pathname.startsWith(p + "/"));
+  const normalized = appPath(pathname);
+  return PUBLIC.some((p) => normalized === p || normalized.startsWith(p + "/"));
 }
 
 export async function middleware(req: NextRequest) {
   const { pathname } = req.nextUrl;
+  const normalized = appPath(pathname);
 
   if (isPublicPath(pathname)) {
     return NextResponse.next();
@@ -37,8 +41,10 @@ export async function middleware(req: NextRequest) {
 
   if (await isOperator(req)) return NextResponse.next();
 
-  const login = new URL("/login", req.url);
-  login.searchParams.set("next", pathname);
+  // The dashboard really lives under /control. Never send an operator to the
+  // marketing site's /login route.
+  const login = new URL(`${BASE_PATH}/login`, req.url);
+  login.searchParams.set("next", normalized);
   return NextResponse.redirect(login);
 }
 

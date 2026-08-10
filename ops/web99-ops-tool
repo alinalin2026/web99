@@ -1,0 +1,202 @@
+#!/usr/bin/env bash
+set -Eeuo pipefail
+
+# Root-side execution boundary for the Web99 Ops Agent.
+# The model never receives an arbitrary shell. It can only select one of the
+# explicit actions below, and every argument is validated before use.
+
+ACTION="${1:-}"
+shift || true
+
+log_action() {
+  logger -t web99-ops-agent -- "action=$ACTION args=$* user=${SUDO_USER:-root}"
+}
+
+fail() {
+  printf 'ERROR: %s\n' "$*" >&2
+  exit 1
+}
+
+need_no_args() {
+  [[ $# -eq 0 ]] || fail "$ACTION takes no arguments"
+}
+
+valid_lines() {
+  [[ "$1" =~ ^[0-9]+$ ]] && (( "$1" >= 10 && "$1" <= 250 ))
+}
+
+service_unit() {
+  case "$1" in
+    dashboard) echo web99-dashboard ;;
+    worker) echo web99-worker ;;
+    nginx) echo nginx ;;
+    *) return 1 ;;
+  esac
+}
+
+schedule_dashboard_restart() {
+  local unit="web99-ops-restart-dashboard-$(date +%s)"
+  systemd-run --quiet --unit="$unit" --on-active=12s --collect \
+    /bin/systemctl restart web99-dashboard
+  echo "Dashboard restart scheduled in about 12 seconds ($unit)."
+}
+
+log_action "$@"
+
+case "$ACTION" in
+  status)
+    need_no_args "$@"
+    echo "release=$(readlink -e /srv/web99/current 2>/dev/null || echo broken-or-missing)"
+    for unit in nginx postgresql web99-dashboard web99-worker web99-backup.timer; do
+      printf '%-22s %s\n' "$unit" "$(systemctl is-active "$unit" 2>/dev/null || true)"
+    done
+    echo "--- local health ---"
+    curl -fsS --max-time 6 http://127.0.0.1:3000/control/api/health || true
+    ;;
+
+  logs)
+    [[ $# -ge 1 && $# -le 2 ]] || fail "usage: logs <dashboard|worker|nginx> [lines]"
+    UNIT="$(service_unit "$1")" || fail "unknown service"
+    LINES="${2:-80}"
+    valid_lines "$LINES" || fail "lines must be 10-250"
+    journalctl -u "$UNIT" -n "$LINES" --no-pager -o short-iso
+    ;;
+
+  nginx-test)
+    need_no_args "$@"
+    nginx -t 2>&1
+    ;;
+
+  nginx-reload)
+    need_no_args "$@"
+    nginx -t
+    systemctl reload nginx
+    echo "Nginx configuration valid and reloaded."
+    ;;
+
+  restart)
+    [[ $# -eq 1 ]] || fail "usage: restart <dashboard|worker|all>"
+    case "$1" in
+      dashboard)
+        schedule_dashboard_restart
+        ;;
+      worker)
+        systemctl restart web99-worker
+        systemctl is-active web99-worker
+        ;;
+      all)
+        systemctl restart web99-worker
+        schedule_dashboard_restart
+        echo "Worker restarted now; dashboard restart is scheduled."
+        ;;
+      *) fail "restart target must be dashboard, worker or all" ;;
+    esac
+    ;;
+
+  backup)
+    need_no_args "$@"
+    WEB99_ENV_FILE=/srv/web99/config/dashboard.env \
+    WEB99_BACKUP_DIR=/srv/web99/backups \
+      bash /srv/web99/app/ops/backup.sh
+    ;;
+
+  deploy)
+    need_no_args "$@"
+    UNIT="web99-ops-deploy-$(date +%s)"
+    printf '%s\n' "$UNIT" >/run/web99-ops-last-deploy
+    systemd-run --quiet --unit="$UNIT" --collect --no-block \
+      /bin/bash /srv/web99/app/ops/deploy.sh
+    echo "Deployment started as $UNIT. It continues independently if the dashboard restarts."
+    ;;
+
+  deploy-status)
+    need_no_args "$@"
+    if [[ ! -s /run/web99-ops-last-deploy ]]; then
+      echo "No Ops Agent deployment has been started since boot."
+      exit 0
+    fi
+    UNIT="$(cat /run/web99-ops-last-deploy)"
+    [[ "$UNIT" =~ ^web99-ops-deploy-[0-9]+$ ]] || fail "invalid recorded deploy unit"
+    systemctl status "$UNIT" --no-pager -l 2>&1 || true
+    echo "--- recent deploy log ---"
+    journalctl -u "$UNIT" -n 100 --no-pager -o short-iso 2>&1 || true
+    ;;
+
+  restore-config)
+    need_no_args "$@"
+    SRC=/srv/web99/app/ops
+    [[ -f "$SRC/web99.nginx.conf" ]] || fail "tracked nginx config is missing"
+    install -m 0644 "$SRC/web99.nginx.conf" /etc/nginx/sites-available/web99
+    ln -sfn /etc/nginx/sites-available/web99 /etc/nginx/sites-enabled/web99
+    rm -f /etc/nginx/sites-enabled/web99-main /etc/nginx/sites-enabled/web99-dashboard
+    install -m 0644 "$SRC/web99-dashboard.service" /etc/systemd/system/web99-dashboard.service
+    install -m 0644 "$SRC/web99-worker.service" /etc/systemd/system/web99-worker.service
+    install -m 0644 "$SRC/web99-backup.service" /etc/systemd/system/web99-backup.service
+    install -m 0644 "$SRC/web99-backup.timer" /etc/systemd/system/web99-backup.timer
+    systemctl daemon-reload
+    nginx -t
+    systemctl reload nginx
+    echo "Tracked Nginx and systemd configuration restored. Dashboard was not restarted automatically."
+    ;;
+
+  check-url)
+    [[ $# -eq 1 ]] || fail "usage: check-url </path>"
+    PATH_PART="$1"
+    [[ "$PATH_PART" == /* ]] || fail "path must start with /"
+    [[ "$PATH_PART" =~ ^/[A-Za-z0-9_./?&=%:+~-]*$ ]] || fail "path contains unsupported characters"
+    TMP="$(mktemp /tmp/web99-ops-url.XXXXXX)"
+    trap 'rm -f "$TMP"' EXIT
+    curl -sS -L --max-redirs 5 --max-time 20 -o "$TMP" \
+      -w 'http=%{http_code}\nfinal=%{url_effective}\ntype=%{content_type}\n' \
+      "https://web99.ie$PATH_PART"
+    echo "--- body preview ---"
+    head -c 1600 "$TMP" | tr '\000' ' '
+    echo
+    ;;
+
+  release-status)
+    need_no_args "$@"
+    echo "--- current ---"
+    ls -ld /srv/web99/current 2>&1 || true
+    echo "resolved=$(readlink -e /srv/web99/current 2>/dev/null || echo broken-or-missing)"
+    echo "--- newest releases ---"
+    find /srv/web99/releases -mindepth 1 -maxdepth 1 -type d -printf '%T@ %p\n' 2>/dev/null \
+      | sort -nr | head -8 | cut -d' ' -f2-
+    ;;
+
+  repair-current)
+    need_no_args "$@"
+    LATEST=""
+    while IFS= read -r d; do
+      if [[ -f "$d/dashboard/.next/BUILD_ID" ]]; then
+        LATEST="$d"
+        break
+      fi
+    done < <(find /srv/web99/releases -mindepth 1 -maxdepth 1 -type d -printf '%T@ %p\n' 2>/dev/null \
+      | sort -nr | cut -d' ' -f2-)
+    [[ -n "$LATEST" ]] || fail "no completed release with dashboard/.next/BUILD_ID found"
+    rm -f /srv/web99/current /srv/web99/current.new /srv/web99/current.rollback
+    ln -s "$LATEST" /srv/web99/current
+    systemctl restart web99-worker
+    nginx -t
+    systemctl reload nginx
+    schedule_dashboard_restart
+    echo "current repaired to $LATEST; worker restarted; dashboard restart scheduled."
+    ;;
+
+  show-config)
+    [[ $# -eq 1 ]] || fail "usage: show-config <nginx|dashboard-service|worker-service>"
+    case "$1" in
+      nginx) FILE=/etc/nginx/sites-available/web99 ;;
+      dashboard-service) FILE=/etc/systemd/system/web99-dashboard.service ;;
+      worker-service) FILE=/etc/systemd/system/web99-worker.service ;;
+      *) fail "unknown config target" ;;
+    esac
+    [[ -f "$FILE" ]] || fail "$FILE does not exist"
+    sed -n '1,260p' "$FILE"
+    ;;
+
+  *)
+    fail "unknown action: ${ACTION:-<empty>}"
+    ;;
+esac

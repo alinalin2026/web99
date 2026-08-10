@@ -1,0 +1,22 @@
+[Unit]
+Description=Web99 background build worker
+After=network-online.target postgresql.service
+Wants=network-online.target
+
+[Service]
+Type=simple
+User=ubuntu
+Group=ubuntu
+WorkingDirectory=/srv/web99/current/dashboard
+Environment=NODE_ENV=production
+EnvironmentFile=/srv/web99/config/dashboard.env
+ExecStart=/usr/bin/env npm run worker
+Restart=always
+RestartSec=3
+TimeoutStopSec=45
+KillSignal=SIGTERM
+NoNewPrivileges=true
+PrivateTmp=true
+
+[Install]
+WantedBy=multi-user.target

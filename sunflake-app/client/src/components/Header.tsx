@@ -38,11 +38,11 @@ export default function Header() {
         <Link
           href="/"
           className={cn(
-            "flex items-center gap-2 shrink-0 rounded-full px-3 py-1.5 transition-colors duration-300",
-            scrolled || !onHome ? "bg-transparent px-0 py-0" : "bg-white/85 backdrop-blur-sm shadow-sm"
+            "flex items-center gap-2 shrink-0 rounded-full px-4 py-2.5 transition-colors duration-300",
+            scrolled || !onHome ? "bg-transparent px-0 py-0" : "bg-white/90 backdrop-blur-sm shadow-sm"
           )}
         >
-          <img src={logoLockup} alt="SunFlake Holidays" className="h-7 md:h-8 w-auto" />
+          <img src={logoLockup} alt="SunFlake Holidays" className="h-9 md:h-11 w-auto" />
         </Link>
 
         {onHome && (

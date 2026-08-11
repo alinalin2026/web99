@@ -1,0 +1,342 @@
+@import url('https://fonts.googleapis.com/css2?family=Playfair+Display:wght@600;700&family=Outfit:wght@400;500;600;700&display=swap');
+@import "tailwindcss";
+@import "tw-animate-css";
+
+/* SunFlake Holidays Design System */
+/* Warm Minimalism with Cinematic Depth */
+/* Color Story: Warm Coral/Amber + Alpine Blue */
+
+@custom-variant dark (&:is(.dark *));
+
+@theme inline {
+  --radius-sm: calc(var(--radius) - 4px);
+  --radius-md: calc(var(--radius) - 2px);
+  --radius-lg: var(--radius);
+  --radius-xl: calc(var(--radius) + 4px);
+  --color-background: var(--background);
+  --color-foreground: var(--foreground);
+  --color-card: var(--card);
+  --color-card-foreground: var(--card-foreground);
+  --color-popover: var(--popover);
+  --color-popover-foreground: var(--popover-foreground);
+  --color-primary: var(--primary);
+  --color-primary-foreground: var(--primary-foreground);
+  --color-secondary: var(--secondary);
+  --color-secondary-foreground: var(--secondary-foreground);
+  --color-muted: var(--muted);
+  --color-muted-foreground: var(--muted-foreground);
+  --color-accent: var(--accent);
+  --color-accent-foreground: var(--accent-foreground);
+  --color-destructive: var(--destructive);
+  --color-destructive-foreground: var(--destructive-foreground);
+  --color-border: var(--border);
+  --color-input: var(--input);
+  --color-ring: var(--ring);
+  --color-chart-1: var(--chart-1);
+  --color-chart-2: var(--chart-2);
+  --color-chart-3: var(--chart-3);
+  --color-chart-4: var(--chart-4);
+  --color-chart-5: var(--chart-5);
+  --color-sidebar: var(--sidebar);
+  --color-sidebar-foreground: var(--sidebar-foreground);
+  --color-sidebar-primary: var(--sidebar-primary);
+  --color-sidebar-primary-foreground: var(--sidebar-primary-foreground);
+  --color-sidebar-accent: var(--sidebar-accent);
+  --color-sidebar-accent-foreground: var(--sidebar-accent-foreground);
+  --color-sidebar-border: var(--sidebar-border);
+  --color-sidebar-ring: var(--sidebar-ring);
+}
+
+:root {
+  /* SunFlake Brand Colors */
+  --coral-warm: #E8704A;
+  --coral-light: #F5A962;
+  --blue-alpine: #2B6BA6;
+  --blue-light: #4A8BC2;
+  --neutral-cream: #F8F5F0;
+  --neutral-dark: #2C2C2C;
+  
+  /* Tailwind Semantic Colors - Light Theme */
+  --primary: #E8704A; /* Warm Coral */
+  --primary-foreground: #FFFFFF;
+  --secondary: #2B6BA6; /* Alpine Blue */
+  --secondary-foreground: #FFFFFF;
+  --accent: #F5A962; /* Light Coral */
+  --accent-foreground: #2C2C2C;
+  --muted: #E8E8E8;
+  --muted-foreground: #666666;
+  --destructive: #DC2626;
+  --destructive-foreground: #FFFFFF;
+  --border: #E0E0E0;
+  --input: #F5F5F5;
+  --ring: #E8704A;
+  
+  /* Sidebar colors */
+  --sidebar: #FFFFFF;
+  --sidebar-foreground: #2C2C2C;
+  --sidebar-primary: #E8704A;
+  --sidebar-primary-foreground: #FFFFFF;
+  --sidebar-accent: #F5A962;
+  --sidebar-accent-foreground: #2C2C2C;
+  --sidebar-border: #E0E0E0;
+  --sidebar-ring: #E8704A;
+  
+  /* Chart colors */
+  --chart-1: #E8704A;
+  --chart-2: #2B6BA6;
+  --chart-3: #F5A962;
+  --chart-4: #4A8BC2;
+  --chart-5: #D4A574;
+  
+  /* Base theme */
+  --background: #F8F5F0;
+  --foreground: #2C2C2C;
+  --card: #FFFFFF;
+  --card-foreground: #2C2C2C;
+  --popover: #FFFFFF;
+  --popover-foreground: #2C2C2C;
+  
+  --radius: 0.5rem;
+  
+  /* Typography */
+  --font-display: 'Playfair Display', serif;
+  --font-body: 'Outfit', sans-serif;
+}
+
+.dark {
+  /* Dark theme - not used for this project, but included for completeness */
+  --background: #1A1A1A;
+  --foreground: #F8F5F0;
+  --card: #2C2C2C;
+  --card-foreground: #F8F5F0;
+  --popover: #2C2C2C;
+  --popover-foreground: #F8F5F0;
+  --primary: #F5A962;
+  --primary-foreground: #1A1A1A;
+  --secondary: #4A8BC2;
+  --secondary-foreground: #F8F5F0;
+  --accent: #E8704A;
+  --accent-foreground: #F8F5F0;
+  --muted: #444444;
+  --muted-foreground: #AAAAAA;
+  --border: #444444;
+  --input: #333333;
+  --ring: #F5A962;
+}
+
+@layer base {
+  html {
+    scroll-behavior: smooth;
+  }
+  * {
+    @apply border-border outline-ring/50;
+  }
+  body {
+    @apply bg-background text-foreground;
+    font-family: 'Outfit', sans-serif;
+  }
+  h1, h2, h3, h4, h5, h6 {
+    font-family: 'Playfair Display', serif;
+    @apply font-bold;
+  }
+  h1 {
+    @apply text-4xl md:text-5xl lg:text-6xl;
+  }
+  h2 {
+    @apply text-3xl md:text-4xl;
+  }
+  h3 {
+    @apply text-2xl md:text-3xl;
+  }
+  button:not(:disabled),
+  [role="button"]:not([aria-disabled="true"]),
+  [type="button"]:not(:disabled),
+  [type="submit"]:not(:disabled),
+  [type="reset"]:not(:disabled),
+  a[href],
+  select:not(:disabled),
+  input[type="checkbox"]:not(:disabled),
+  input[type="radio"]:not(:disabled) {
+    @apply cursor-pointer;
+  }
+}
+
+@layer components {
+  /**
+   * Custom container utility that centers content and adds responsive padding.
+   *
+   * This overrides Tailwind's default container behavior to:
+   * - Auto-center content (mx-auto)
+   * - Add responsive horizontal padding
+   * - Set max-width for large screens
+   *
+   * Usage: <div className="container">...</div>
+   *
+   * For custom widths, use max-w-* utilities directly:
+   * <div className="max-w-6xl mx-auto px-4">...</div>
+   */
+  .container {
+    width: 100%;
+    margin-left: auto;
+    margin-right: auto;
+    padding-left: 1rem; /* 16px - mobile padding */
+    padding-right: 1rem;
+  }
+
+  .flex {
+    min-height: 0;
+    min-width: 0;
+  }
+  
+  /* SunFlake Custom Components */
+  .btn-coral {
+    @apply bg-[#E8704A] text-white hover:bg-[#D85A38] transition-colors duration-200;
+    font-weight: 600;
+  }
+  
+  .btn-blue {
+    @apply bg-[#2B6BA6] text-white hover:bg-[#1F4A75] transition-colors duration-200;
+    font-weight: 600;
+  }
+  
+  .text-coral {
+    @apply text-[#E8704A];
+  }
+  
+  .text-blue {
+    @apply text-[#2B6BA6];
+  }
+  
+  .section-divider {
+    @apply h-px bg-gradient-to-r from-transparent via-[#E0E0E0] to-transparent;
+  }
+  
+  .font-outfit {
+    font-family: 'Outfit', sans-serif;
+  }
+  
+  .font-display {
+    font-family: 'Playfair Display', serif;
+  }
+  
+  /* Premium Animations */
+  @keyframes fadeInUp {
+    from {
+      opacity: 0;
+      transform: translateY(30px);
+    }
+    to {
+      opacity: 1;
+      transform: translateY(0);
+    }
+  }
+  
+  @keyframes fadeIn {
+    from {
+      opacity: 0;
+    }
+    to {
+      opacity: 1;
+    }
+  }
+  
+  @keyframes slideInLeft {
+    from {
+      opacity: 0;
+      transform: translateX(-40px);
+    }
+    to {
+      opacity: 1;
+      transform: translateX(0);
+    }
+  }
+  
+  @keyframes slideInRight {
+    from {
+      opacity: 0;
+      transform: translateX(40px);
+    }
+    to {
+      opacity: 1;
+      transform: translateX(0);
+    }
+  }
+  
+  @keyframes glow {
+    0%, 100% {
+      box-shadow: 0 0 20px rgba(232, 112, 74, 0.3);
+    }
+    50% {
+      box-shadow: 0 0 30px rgba(232, 112, 74, 0.5);
+    }
+  }
+  
+  .animate-fadeInUp {
+    animation: fadeInUp 0.8s cubic-bezier(0.23, 1, 0.32, 1) forwards;
+  }
+  
+  .animate-fadeIn {
+    animation: fadeIn 0.8s cubic-bezier(0.23, 1, 0.32, 1) forwards;
+  }
+  
+  .animate-slideInLeft {
+    animation: slideInLeft 0.8s cubic-bezier(0.23, 1, 0.32, 1) forwards;
+  }
+  
+  .animate-slideInRight {
+    animation: slideInRight 0.8s cubic-bezier(0.23, 1, 0.32, 1) forwards;
+  }
+  
+  /* Premium Button Effects */
+  .btn-coral, .btn-blue {
+    position: relative;
+    overflow: hidden;
+    transition: all 0.3s cubic-bezier(0.23, 1, 0.32, 1);
+  }
+  
+  .btn-coral:hover, .btn-blue:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 12px 24px rgba(0, 0, 0, 0.15);
+  }
+  
+  .btn-coral:active, .btn-blue:active {
+    transform: translateY(0);
+  }
+  
+  /* Smooth Link Transitions */
+  a {
+    transition: color 0.3s ease;
+  }
+  
+  /* Card Elevation on Hover */
+  .group {
+    transition: all 0.3s cubic-bezier(0.23, 1, 0.32, 1);
+  }
+  
+  /* Refined Input Focus */
+  input:focus, textarea:focus {
+    box-shadow: 0 0 0 3px rgba(232, 112, 74, 0.1);
+    transition: box-shadow 0.2s ease;
+  }
+  
+  /* Stagger animations for lists */
+  .stagger-1 { animation-delay: 0.1s; }
+  .stagger-2 { animation-delay: 0.2s; }
+  .stagger-3 { animation-delay: 0.3s; }
+  .stagger-4 { animation-delay: 0.4s; }
+
+  @media (min-width: 640px) {
+    .container {
+      padding-left: 1.5rem; /* 24px - tablet padding */
+      padding-right: 1.5rem;
+    }
+  }
+
+  @media (min-width: 1024px) {
+    .container {
+      padding-left: 2rem; /* 32px - desktop padding */
+      padding-right: 2rem;
+      max-width: 1280px; /* Standard content width */
+    }
+  }
+}

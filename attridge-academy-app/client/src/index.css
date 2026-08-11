@@ -1,0 +1,327 @@
+@import "tailwindcss";
+@import "tw-animate-css";
+
+@custom-variant dark (&:is(.dark *));
+
+@theme inline {
+  --radius-sm: calc(var(--radius) - 4px);
+  --radius-md: calc(var(--radius) - 2px);
+  --radius-lg: var(--radius);
+  --radius-xl: calc(var(--radius) + 4px);
+  --color-background: var(--background);
+  --color-foreground: var(--foreground);
+  --color-card: var(--card);
+  --color-card-foreground: var(--card-foreground);
+  --color-popover: var(--popover);
+  --color-popover-foreground: var(--popover-foreground);
+  --color-primary: var(--primary);
+  --color-primary-foreground: var(--primary-foreground);
+  --color-secondary: var(--secondary);
+  --color-secondary-foreground: var(--secondary-foreground);
+  --color-muted: var(--muted);
+  --color-muted-foreground: var(--muted-foreground);
+  --color-accent: var(--accent);
+  --color-accent-foreground: var(--accent-foreground);
+  --color-destructive: var(--destructive);
+  --color-destructive-foreground: var(--destructive-foreground);
+  --color-border: var(--border);
+  --color-input: var(--input);
+  --color-ring: var(--ring);
+  --color-chart-1: var(--chart-1);
+  --color-chart-2: var(--chart-2);
+  --color-chart-3: var(--chart-3);
+  --color-chart-4: var(--chart-4);
+  --color-chart-5: var(--chart-5);
+  --color-sidebar: var(--sidebar);
+  --color-sidebar-foreground: var(--sidebar-foreground);
+  --color-sidebar-primary: var(--sidebar-primary);
+  --color-sidebar-primary-foreground: var(--sidebar-primary-foreground);
+  --color-sidebar-accent: var(--sidebar-accent);
+  --color-sidebar-accent-foreground: var(--sidebar-accent-foreground);
+  --color-sidebar-border: var(--sidebar-border);
+  --color-sidebar-ring: var(--sidebar-ring);
+}
+
+/* Attridge Academy Design Tokens */
+:root {
+  /* The Reliquary color palette */
+  --forge: #0A1F17;        /* deep forge green — page ground */
+  --moss: #143A2A;         /* raised panel green */
+  --enamel: #5B2A86;       /* purple, from the logo — the accent */
+  --enamel-lo: #3A1B57;    /* purple in shadow, for borders */
+  --goldleaf: #C9A227;     /* gold — rules, seals, active states ONLY */
+  --vellum: #EDE6D6;       /* bone/parchment — body text on dark, panels on light */
+  --ink: #1A1512;          /* text on vellum */
+
+  /* Tailwind overrides for the artefact */
+  --primary: var(--enamel);
+  --primary-foreground: var(--vellum);
+  --secondary: var(--moss);
+  --secondary-foreground: var(--vellum);
+  --accent: var(--enamel);
+  --accent-foreground: var(--vellum);
+  --background: var(--forge);
+  --foreground: var(--vellum);
+  --card: var(--moss);
+  --card-foreground: var(--vellum);
+  --border: var(--enamel-lo);
+  --ring: var(--goldleaf);
+  --radius: 0.5rem;
+
+  /* Sidebar tokens */
+  --sidebar: var(--forge);
+  --sidebar-foreground: var(--vellum);
+  --sidebar-primary: var(--enamel);
+  --sidebar-primary-foreground: var(--vellum);
+  --sidebar-accent: var(--goldleaf);
+  --sidebar-accent-foreground: var(--forge);
+  --sidebar-border: var(--enamel-lo);
+  --sidebar-ring: var(--goldleaf);
+
+  /* Typography */
+  --font-display: "Cormorant Garamond", serif;
+  --font-body: "Source Serif 4", serif;
+  --font-utility: "Inter", sans-serif;
+
+  /* Animation easings */
+  --ease-out: cubic-bezier(0.23, 1, 0.32, 1);
+  --ease-in-out: cubic-bezier(0.77, 0, 0.175, 1);
+
+  /* Chart colors */
+  --chart-1: var(--enamel);
+  --chart-2: var(--moss);
+  --chart-3: var(--goldleaf);
+  --chart-4: var(--enamel-lo);
+  --chart-5: var(--vellum);
+}
+
+.dark {
+  /* Dark mode uses the same palette */
+  --primary: var(--enamel);
+  --primary-foreground: var(--vellum);
+  --secondary: var(--moss);
+  --secondary-foreground: var(--vellum);
+  --accent: var(--enamel);
+  --accent-foreground: var(--vellum);
+  --background: var(--forge);
+  --foreground: var(--vellum);
+  --card: var(--moss);
+  --card-foreground: var(--vellum);
+  --border: var(--enamel-lo);
+  --ring: var(--goldleaf);
+  --sidebar: var(--forge);
+  --sidebar-foreground: var(--vellum);
+  --sidebar-primary: var(--enamel);
+  --sidebar-primary-foreground: var(--vellum);
+  --sidebar-accent: var(--goldleaf);
+  --sidebar-accent-foreground: var(--forge);
+  --sidebar-border: var(--enamel-lo);
+  --sidebar-ring: var(--goldleaf);
+}
+
+@layer base {
+  * {
+    @apply border-border outline-ring/50;
+  }
+
+  html {
+    scroll-behavior: smooth;
+  }
+
+  body {
+    @apply bg-background text-foreground;
+    font-family: var(--font-body);
+  }
+
+  h1, h2, h3, h4, h5, h6 {
+    font-family: var(--font-display);
+    font-weight: 700;
+    letter-spacing: -0.02em;
+  }
+
+  button:not(:disabled),
+  [role="button"]:not([aria-disabled="true"]),
+  [type="button"]:not(:disabled),
+  [type="submit"]:not(:disabled),
+  [type="reset"]:not(:disabled),
+  a[href],
+  select:not(:disabled),
+  input[type="checkbox"]:not(:disabled),
+  input[type="radio"]:not(:disabled) {
+    @apply cursor-pointer;
+  }
+
+  /* Utility text uses Inter */
+  button, [role="button"], label, input, select, textarea {
+    font-family: var(--font-utility);
+  }
+}
+
+@layer components {
+  /* Custom container utility */
+  .container {
+    width: 100%;
+    margin-left: auto;
+    margin-right: auto;
+    padding-left: 1rem;
+    padding-right: 1rem;
+  }
+
+  .flex {
+    min-height: 0;
+    min-width: 0;
+  }
+
+  @media (min-width: 640px) {
+    .container {
+      padding-left: 1.5rem;
+      padding-right: 1.5rem;
+    }
+  }
+
+  @media (min-width: 1024px) {
+    .container {
+      padding-left: 2rem;
+      padding-right: 2rem;
+      max-width: 1280px;
+    }
+  }
+
+  /* Attridge-specific components */
+
+  /* Knotwork border utility */
+  .knotwork-border {
+    border-color: var(--enamel-lo);
+    border-width: 1px;
+    position: relative;
+  }
+
+  .knotwork-border::before {
+    content: "";
+    position: absolute;
+    top: -8px;
+    left: 0;
+    right: 0;
+    height: 1px;
+    background: linear-gradient(
+      to right,
+      var(--enamel-lo) 0%,
+      var(--goldleaf) 50%,
+      var(--enamel-lo) 100%
+    );
+  }
+
+  /* Gold underline animation for links */
+  .link-gold {
+    position: relative;
+    color: var(--vellum);
+    text-decoration: none;
+    transition: color 200ms var(--ease-out);
+  }
+
+  .link-gold::after {
+    content: "";
+    position: absolute;
+    bottom: -2px;
+    left: 0;
+    width: 0;
+    height: 2px;
+    background: var(--goldleaf);
+    transition: width 300ms var(--ease-out);
+  }
+
+  .link-gold:hover {
+    color: var(--goldleaf);
+  }
+
+  .link-gold:hover::after {
+    width: 100%;
+  }
+
+  /* Button with gold accent */
+  .btn-primary {
+    font-family: var(--font-utility);
+    background-color: var(--enamel);
+    color: var(--vellum);
+    padding: 0.75rem 1.5rem;
+    border-radius: 0.25rem;
+    border: 1px solid var(--enamel);
+    font-weight: 600;
+    transition: all 160ms var(--ease-out);
+    cursor: pointer;
+  }
+
+  .btn-primary:hover {
+    background-color: var(--enamel-lo);
+    border-color: var(--goldleaf);
+    box-shadow: 0 0 0 2px var(--goldleaf);
+  }
+
+  .btn-primary:active {
+    transform: scale(0.97);
+  }
+
+  /* Secondary button (outlined) */
+  .btn-secondary {
+    font-family: var(--font-utility);
+    background-color: transparent;
+    color: var(--vellum);
+    padding: 0.75rem 1.5rem;
+    border-radius: 0.25rem;
+    border: 1px solid var(--vellum);
+    font-weight: 600;
+    transition: all 160ms var(--ease-out);
+    cursor: pointer;
+  }
+
+  .btn-secondary:hover {
+    background-color: var(--vellum);
+    color: var(--forge);
+    border-color: var(--goldleaf);
+  }
+
+  .btn-secondary:active {
+    transform: scale(0.97);
+  }
+
+  /* Scroll reveal animation */
+  .scroll-reveal {
+    opacity: 0;
+    transform: translateY(12px);
+    transition: opacity 400ms var(--ease-out), transform 400ms var(--ease-out);
+  }
+
+  .scroll-reveal.visible {
+    opacity: 1;
+    transform: translateY(0);
+  }
+
+  /* Fade-in animation for hero */
+  @keyframes fadeIn {
+    from {
+      opacity: 0;
+    }
+    to {
+      opacity: 1;
+    }
+  }
+
+  .animate-fade-in {
+    animation: fadeIn 1.2s ease-out;
+  }
+
+  /* Reduced motion support */
+  @media (prefers-reduced-motion: reduce) {
+    * {
+      animation-duration: 0.01ms !important;
+      animation-iteration-count: 1 !important;
+      transition-duration: 0.01ms !important;
+      scroll-behavior: auto !important;
+    }
+
+    .scroll-reveal {
+      opacity: 1;
+      transform: translateY(0);
+    }
+  }
+}

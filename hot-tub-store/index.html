@@ -1,0 +1,230 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Hot Tub Chemical Super Store | Professional Grade Water Care</title>
+    <link rel="icon" href="images/logo.png">
+    <link rel="stylesheet" href="css/style.css">
+</head>
+<body>
+    <!-- Header -->
+    <header class="header" id="header">
+        <div class="container">
+            <div class="header-content">
+                <div class="logo">
+                    <h1>Hot Tub Chemical Super Store</h1>
+                    <p>Premium Water Care</p>
+                </div>
+                <nav class="nav">
+                    <a href="#products">Products</a>
+                    <a href="#why-us">Why Us</a>
+                    <a href="#calculator">Calculator</a>
+                    <a href="#reviews">Reviews</a>
+                    <a href="#faq">FAQ</a>
+                </nav>
+                <button class="cart-btn" id="cartBtn">
+                    🛒 Cart <span class="cart-count" id="cartCount">0</span>
+                </button>
+            </div>
+        </div>
+    </header>
+
+    <!-- Hero Section -->
+    <section class="hero" style="background-image: url('images/hero.jpg'); background-size: cover; background-position: center;">
+        <div class="hero-overlay"></div>
+        <div class="container">
+            <div class="hero-content">
+                <div class="usp-badges">
+                    <span class="badge">✓ Next-Day Ireland Delivery</span>
+                    <span class="badge">✓ Secure Checkout</span>
+                    <span class="badge">✓ Professional Grade</span>
+                </div>
+                <h2 class="hero-title">Crystal-Clear Water, <span class="gradient">Every Time</span></h2>
+                <p class="hero-subtitle">Professional-grade hot tub chemicals and accessories delivered to your doorstep. Trusted by Irish spa owners since day one.</p>
+                <div class="hero-buttons">
+                    <button class="btn btn-primary" onclick="document.getElementById('products').scrollIntoView({behavior: 'smooth'})">Shop Now →</button>
+                    <button class="btn btn-secondary" onclick="document.getElementById('calculator').scrollIntoView({behavior: 'smooth'})">Calculate Dosage</button>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <!-- Categories Section -->
+    <section class="categories" id="categories">
+        <div class="container">
+            <h2>Featured Categories</h2>
+            <div class="category-grid">
+                <div class="category-card">
+                    <h3>Sanitizers & Chlorine</h3>
+                    <p>Professional-grade chlorine granules and tablets</p>
+                </div>
+                <div class="category-card">
+                    <h3>pH Balancing</h3>
+                    <p>Maintain perfect water chemistry</p>
+                </div>
+                <div class="category-card">
+                    <h3>Shock Treatments</h3>
+                    <p>Deep cleaning and oxidation</p>
+                </div>
+                <div class="category-card">
+                    <h3>Filters & Accessories</h3>
+                    <p>Replacement filters and cleaning tools</p>
+                </div>
+                <div class="category-card">
+                    <h3>Water Testing</h3>
+                    <p>Test strips and digital meters</p>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <!-- Products Section -->
+    <section class="products" id="products">
+        <div class="container">
+            <h2>Our Best-Selling Products</h2>
+            <div class="product-grid" id="productGrid">
+                <!-- Products will be inserted here by JavaScript -->
+            </div>
+        </div>
+    </section>
+
+    <!-- Calculator Section -->
+    <section class="calculator" id="calculator">
+        <div class="container">
+            <h2>Water Care Dosage Calculator</h2>
+            <div class="calculator-content">
+                <div class="calculator-form">
+                    <label>Hot Tub Volume (Gallons)</label>
+                    <input type="number" id="tubVolume" placeholder="e.g., 500" min="1">
+                    <button class="btn btn-primary" onclick="calculateDosage()">Calculate</button>
+                </div>
+                <div class="calculator-results" id="calculatorResults" style="display: none;">
+                    <h3>Recommended Chemical Amounts</h3>
+                    <div class="result-item">
+                        <span>Chlorine:</span>
+                        <strong id="chlorineAmount">0</strong> oz
+                    </div>
+                    <div class="result-item">
+                        <span>pH Increaser:</span>
+                        <strong id="phAmount">0</strong> oz
+                    </div>
+                    <div class="result-item">
+                        <span>Shock Treatment:</span>
+                        <strong id="shockAmount">0</strong> oz
+                    </div>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <!-- Why Choose Us Section -->
+    <section class="why-us" id="why-us">
+        <div class="container">
+            <h2>The Hot Tub Chemical Super Store Difference</h2>
+            <div class="trust-grid">
+                <div class="trust-card">
+                    <h3>Irish-owned</h3>
+                    <p>Supporting local business with premium service</p>
+                </div>
+                <div class="trust-card">
+                    <h3>Lab-tested Purity</h3>
+                    <p>All products tested for quality and safety</p>
+                </div>
+                <div class="trust-card">
+                    <h3>Bulk Savings</h3>
+                    <p>Save more when you buy in larger quantities</p>
+                </div>
+                <div class="trust-card">
+                    <h3>Expert Guides</h3>
+                    <p>Free advice and water care resources</p>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <!-- Reviews Section -->
+    <section class="reviews" id="reviews">
+        <div class="container">
+            <h2>Loved by Irish Spa Owners</h2>
+            <div class="review-grid">
+                <div class="review-card">
+                    <p>"Best chemicals I've used. Water stays crystal clear!"</p>
+                    <strong>— Sarah M., Dublin</strong>
+                </div>
+                <div class="review-card">
+                    <p>"Fast delivery and excellent customer service."</p>
+                    <strong>— Michael K., Cork</strong>
+                </div>
+                <div class="review-card">
+                    <p>"Prices are competitive and quality is unmatched."</p>
+                    <strong>— Emma T., Galway</strong>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <!-- FAQ Section -->
+    <section class="faq" id="faq">
+        <div class="container">
+            <h2>Frequently Asked Questions</h2>
+            <div class="faq-grid">
+                <div class="faq-item">
+                    <h3>Shipping Across Ireland</h3>
+                    <p>We offer next-day delivery to most of Ireland. Orders placed before 2 PM are typically delivered the next business day.</p>
+                </div>
+                <div class="faq-item">
+                    <h3>Accepted Payment Methods</h3>
+                    <p>We accept all major credit cards (Visa, Mastercard), PayPal, and bank transfers. All payments are secure and encrypted.</p>
+                </div>
+                <div class="faq-item">
+                    <h3>Chemical Safety</h3>
+                    <p>All our chemicals are food-grade and safe for use. Always follow dosage instructions and wear protective equipment when handling.</p>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <!-- Footer -->
+    <footer class="footer">
+        <div class="container">
+            <div class="footer-content">
+                <div class="footer-section">
+                    <h4>Contact</h4>
+                    <p>Email: evan.daytona@gmail.com</p>
+                </div>
+                <div class="footer-section">
+                    <h4>Newsletter</h4>
+                    <input type="email" placeholder="Your email" class="newsletter-input">
+                    <button class="btn btn-primary">Subscribe</button>
+                </div>
+                <div class="footer-section">
+                    <h4>Payment Methods</h4>
+                    <p>💳 Visa • Mastercard • PayPal</p>
+                </div>
+            </div>
+            <div class="footer-bottom">
+                <p>&copy; 2026 Hot Tub Chemical Super Store. All rights reserved.</p>
+            </div>
+        </div>
+    </footer>
+
+    <!-- Cart Drawer -->
+    <div class="cart-drawer" id="cartDrawer">
+        <div class="cart-header">
+            <h3>Your Cart</h3>
+            <button class="close-btn" onclick="closeCart()">✕</button>
+        </div>
+        <div class="cart-items" id="cartItems"></div>
+        <div class="cart-footer">
+            <div class="cart-total">
+                <strong>Subtotal:</strong>
+                <strong id="cartTotal">€0.00</strong>
+            </div>
+            <button class="btn btn-primary" style="width: 100%;">Proceed to Checkout</button>
+        </div>
+    </div>
+
+    <script src="js/app.js"></script>
+</body>
+</html>

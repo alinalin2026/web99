@@ -121,7 +121,7 @@ export const capabilities: Capability[] = [
     status: "included",
     label: "Three changes after they pay, free",
     detail:
-      "Anything not right — hours, phone number, photos, wording. Three rounds, no charge, no argument. THREE, not ongoing — moving things, colours, text; not rebuilds. A fourth request is never refused, it is quoted. Regular posting or new articles are separate paid work.",
+      "Anything not right — hours, phone number, photos, wording. Three rounds, no charge, no argument. THREE, not ongoing — moving things, colours, rewording; not rebuilds. Small factual fixes (hours, phone, spelling, one price) are free forever and never count against these. A fourth edit request is never refused, it is quoted. Regular posting or new articles are separate paid work.",
   },
   {
     id: "ownership",

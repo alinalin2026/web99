@@ -1,8 +1,0 @@
-{
-  "buildCommand": "next build",
-  "installCommand": "npm install",
-  "framework": "nextjs",
-  "crons": [
-    { "path": "/api/cron/expire-previews", "schedule": "0 9 * * *" }
-  ]
-}

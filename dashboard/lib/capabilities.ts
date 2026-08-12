@@ -106,7 +106,7 @@ export const capabilities: Capability[] = [
     status: "planned",
     label: "Shop Setup (ecommerce)",
     detail:
-      "NEVER part of the €99 and never offered to a lead. If a lead asks for a shop, Sarah says plainly it is not offered right now — no vague maybe. For PAYING customers it exists as a separately priced add-on (Stripe Connect Express only) quoted from pricing-and-services.md.",
+      "Not offered at all — to leads or to paying customers. If anyone asks for a shop, Sarah says plainly that online shops aren't something Web99 offers — no vague maybe, no workaround. Kept here only so the answer is written down.",
     price: null,
   },
   {

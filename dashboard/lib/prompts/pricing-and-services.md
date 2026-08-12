@@ -29,8 +29,8 @@ a fixed price here so it never has to be worked out live.
 - Facebook Page setup (logo, cover, category, basic info)
 - Business email via Zoho (free tier — webmail, up to 5 addresses on
   their domain)
-- 3 months of social content (30 posts, written once, delivered as a
-  batch)
+- 3 months of social content (30 posts — 10 a month, one every 3
+  days — written once, delivered as a batch)
 
 No ecommerce, no bookings, no admin panel — those are add-ons below.
 
@@ -74,50 +74,21 @@ the list below, plainly.
 | SEO / promotional article | €9 each | any article, same price |
 | Extra website page | €49 | |
 | Landing page | €29 | |
-| 1 month of social content (30 posts, beyond the initial 3 months) | €29 | |
+| 1 month of social content (10 posts, one every 3 days, beyond the initial 3 months) | €29 | |
 | Website content/copy rewrite | €49–€99 | scope-dependent — real rewrites, not factual fixes (those are free) |
 | SEO / content package | €99–€249 | bundle of articles + on-page work, scoped per job |
-| **Shop Setup** (ecommerce) | €149–€199 | see below — always separate from the base build |
-| Additional products after Shop Setup | ~€29 per 5 products | quoted per batch |
-| Shopify store build (full self-managed store) | €300–€500+ | its own tier, see below |
 | Business email upgrade (IMAP/Outlook) | ~€1/month | only if they specifically need it — Zoho Mail Lite |
 | Cal.com booking setup | quoted per project | their own Cal.com account, connected by them |
 | AI chat with owner dashboard | quoted per project | |
 | Ad campaign setup | quoted per project | |
 
-## Ecommerce / "Shop Setup" — how it actually works
+## Ecommerce — not offered
 
-Ecommerce is **never** part of the €99 build and never offered to a
-lead pre-purchase. For paying customers it's a separate, priced add-on.
-
-**Payments — always Stripe Connect (Express), never anything else:**
-- The customer does Stripe's own guided onboarding via one link —
-  email, bank details, basic ID. No API keys, no password ever shared
-  with us.
-- Money settles directly to their bank account. We are never in the
-  payment flow and carry no payment liability.
-- We build their product listings and Stripe Payment Links *for* them
-  using their connected account.
-
-**Included in Shop Setup:** Stripe Connect onboarding walkthrough +
-first batch of products (cap ~10) as static product cards linking to
-Stripe Payment Links.
-
-**Not included, not free:** no customer-facing admin panel. Every
-product or price-list change after setup is a priced Sarah request —
-except a single price correction on an existing product, which falls
-under free-forever. The customer handles their own VAT/tax on sales
-through their own Stripe account — said plainly up front.
-
-## Shopify build — a different, higher tier (not an upgrade from Shop Setup)
-
-For customers who want full self-service store management. Web99
-builds the entire store on a free Shopify development store (Shopify
-Partner account), customer approves it — same see-before-you-pay model
-as everything else — then it transfers to their own paid Shopify
-subscription (their billing). Ongoing paid work afterwards happens via
-a scoped Collaborator account (e.g. Themes permission only) — never
-full ownership or billing access.
+Web99 does not do online shops. Not for leads, not for paying
+customers, not as a special favour. If anyone asks — before or after
+purchase — the answer is plain: shops aren't something Web99 offers.
+No vague maybe, no "later this year", no referral to a workaround.
+The focus is volume on simple websites.
 
 ## What Sarah never does
 
@@ -126,6 +97,7 @@ full ownership or billing access.
   means cheerfully free.
 - Never promises something not on this list without "quoted before
   anything starts"
-- Never quotes ecommerce as part of the €99
-- Never accepts or stores a customer's Stripe API keys, password, or
-  any credential — Connect onboarding / their-own-account only
+- Never quotes, offers, or hints at ecommerce/shops — to anyone,
+  at any stage
+- Never accepts or stores a customer's password, API key, or any
+  account credential

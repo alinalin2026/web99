@@ -76,9 +76,9 @@ export const capabilities: Capability[] = [
   {
     id: "enquiry",
     status: "included",
-    label: "A booking and enquiry system",
+    label: "An enquiry form with instant email alerts",
     detail:
-      "A form that reaches them by email. Suitable for appointments, quotes and general enquiries.",
+      "A form on the site that reaches the owner by email the moment someone sends it. Standard on every site, like the WhatsApp button — never an upsell.",
   },
   {
     id: "whatsapp-button",
@@ -95,17 +95,19 @@ export const capabilities: Capability[] = [
   },
   {
     id: "ai-assistant",
-    status: "included",
-    label: "An AI assistant on the site",
+    status: "addon",
+    label: "An AI chat assistant on the site, with an owner dashboard",
     detail:
-      "Answers common questions from the site's own content — opening hours, services, location.",
+      "Answers common questions from the site's own content — hours, services, location — with a dashboard so the owner sees the conversations. Fits considered-purchase businesses best. Always quoted before anything starts.",
+    price: "quoted per project, before anything starts",
   },
   {
     id: "shop",
-    status: "included",
-    label: "Selling online, if they need it",
+    status: "planned",
+    label: "Shop Setup (ecommerce)",
     detail:
-      "Card payments through a shop, or a simple order form where that suits better. Included in the €99. The payment provider's own transaction fee is not ours and is not included.",
+      "Not offered at all — to leads or to paying customers. If anyone asks for a shop, Sarah says plainly that online shops aren't something Web99 offers — no vague maybe, no workaround. Kept here only so the answer is written down.",
+    price: null,
   },
   {
     id: "language",
@@ -119,7 +121,7 @@ export const capabilities: Capability[] = [
     status: "included",
     label: "Three changes after they pay, free",
     detail:
-      "Anything not right — hours, phone number, photos, wording. Three rounds, no charge, no argument. THREE, not ongoing. Regular posting, new articles or weekly photo updates are not this — they are the content assistant, which is a separate paid thing.",
+      "Anything not right — hours, phone number, photos, wording. Three rounds, no charge, no argument. THREE, not ongoing — moving things, colours, rewording; not rebuilds. Small factual fixes (hours, phone, spelling, one price) are free forever and never count against these. A fourth edit request is never refused, it is quoted. Regular posting or new articles are separate paid work.",
   },
   {
     id: "ownership",
@@ -131,15 +133,16 @@ export const capabilities: Capability[] = [
   {
     id: "speed",
     status: "included",
-    label: "Ready in 24 hours",
-    detail: "Built and sent as a live link the next day.",
+    label: "Preview within 48 hours, live within 5 business days",
+    detail:
+      "They see a real visual preview within 48 hours of the conversation, before paying anything. After payment, the finished site is live within 5 business days — the clock starts when their full details are in hand, not at payment.",
   },
   {
     id: "see-first",
     status: "included",
-    label: "They see it finished and live before paying anything",
+    label: "They see a real visual preview before paying anything",
     detail:
-      "No card details up front. If they do not want it, they pay nothing and there is nothing to cancel.",
+      "A live preview of the look and feel, no card details required. If they do not want it, they pay nothing and there is nothing to cancel. The full site is built after they pay.",
   },
   {
     id: "google-basic",
@@ -155,8 +158,24 @@ export const capabilities: Capability[] = [
     status: "addon",
     label: "Keeping the domain and hosting after the first year",
     detail:
-      "Covers the domain registration and hosting for year two onward. That is the whole bill — no setup fee, no support fee, nothing that renews without being told first.",
-    price: "€39 a year",
+      "Covers the domain registration and hosting for year two onward. No setup fee, no support fee, nothing renews without being told first.",
+    price: "€45 a year",
+  },
+  {
+    id: "email-renewal",
+    status: "addon",
+    label: "Keeping the business email after the first year",
+    detail: "The Zoho business email continuing from year two onward.",
+    price: "€15 a year",
+  },
+
+  {
+    id: "cal-booking",
+    status: "addon",
+    label: "Online booking through Cal.com",
+    detail:
+      "Real self-serve appointment booking. Fits appointment trades best. Always the customer's OWN Cal.com account, created and connected by them — we never hold their login. Quoted before anything starts.",
+    price: "quoted per project, before anything starts",
   },
 
   /* =========================================================================
@@ -318,9 +337,10 @@ export const neverPromise: string[] = [
   "Professional photography, or that we will send a photographer.",
   "Running or managing paid advertising.",
   "A complete rebuild from scratch later at no cost. Three changes are free; a different site months later is a separate conversation.",
-  "Any date faster than 24 hours, or same-day delivery.",
+  "Any date faster than the two SLAs: preview within 48 hours, live site within 5 business days of full details being in hand. Never same-day.",
   "Absorbing the customer's card-processing fees if they sell online. Those are the payment provider's and stay with the customer.",
-  "Any price other than €99 once and €39 a year after the first year. If asked about anything else, say we will confirm it before charging anything.",
+  "Any price other than €99 once, €45 a year for domain and hosting after year one, and €15 a year for email after year one. Anything else is quoted from the price list before it is agreed — never improvised.",
+  "A refund, in any form. Refunds are never raised as a possibility. Work begins immediately on payment with the customer's consent and all sales are final.",
   "Migrating or rebuilding an existing complex system (a booking platform, a stock system, an existing shop's database) without a human confirming it first.",
 ];
 
@@ -407,12 +427,16 @@ export const commercials = {
   price: "€99",
   priceNumeric: 9900,
   currency: "EUR",
-  renewal: "€39 a year",
-  turnaround: "24 hours",
+  renewal: "€45 a year",
+  emailRenewal: "€15 a year",
+  previewSla: "within 48 hours",
+  deliverySla:
+    "live within 5 business days — the clock starts when the full details are in hand, not at payment",
+  turnaround: "48 hours to a visual preview, then 5 business days to live once details are in",
   freeChanges: 3,
-  paymentTiming: "after they have seen the finished site and said yes",
+  paymentTiming: "after they have seen the preview and decided to go ahead",
   refundPosition:
-    "There is nothing to refund, because nothing is charged until they have seen it and agreed.",
+    "No refunds exist and they are never raised as a possibility. If asked directly: work begins immediately on payment with the customer's consent, and all sales are final.",
 };
 
 /* --- helpers used by the prompt builders --------------------------------- */

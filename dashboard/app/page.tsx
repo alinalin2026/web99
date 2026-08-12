@@ -3,10 +3,11 @@ import {
   ensureMasterSchema, listOrders, listWorkEvents, qualificationFor, type Order,
 } from "@/lib/db";
 import { LeadControls } from "./MasterActions";
+import { EmailComposer, type EmailOrderOption } from "./EmailComposer";
 
 export const dynamic = "force-dynamic";
 
-type Tab = "work" | "leads" | "plan";
+type Tab = "work" | "leads" | "plan" | "email";
 
 function ago(iso: string): string {
   const mins = Math.max(0, Math.floor((Date.now() - new Date(iso).getTime()) / 60000));
@@ -47,6 +48,7 @@ function tabs(active: Tab) {
     { key: "work", label: "Work" },
     { key: "leads", label: "Leads" },
     { key: "plan", label: "Plan" },
+    { key: "email", label: "Email" },
   ];
   return (
     <nav className="top-pills" aria-label="Dashboard sections">
@@ -67,7 +69,7 @@ export default async function MasterDashboard({
   const query = await searchParams;
   // Old queue/studio bookmarks land on the new combined Plan screen.
   const requested = query.tab === "queue" || query.tab === "studio" ? "plan" : query.tab;
-  const active = (["work", "leads", "plan"].includes(requested ?? "") ? requested : "work") as Tab;
+  const active = (["work", "leads", "plan", "email"].includes(requested ?? "") ? requested : "work") as Tab;
 
   try {
     await ensureMasterSchema();
@@ -78,7 +80,7 @@ export default async function MasterDashboard({
         <header className="master-header">
           <div>
             <div className="brandline">Web<span>99</span> <b>Control</b></div>
-            <p>{active === "work" ? "What needs you right now" : active === "leads" ? "New Sarah conversations" : "Approve direction once, then let Web99 build"}</p>
+            <p>{active === "work" ? "What needs you right now" : active === "leads" ? "New Sarah conversations" : active === "email" ? "Send someone an email by hand" : "Approve direction once, then let Web99 build"}</p>
           </div>
           <div className="header-dot" title="Dashboard online" />
         </header>
@@ -87,6 +89,7 @@ export default async function MasterDashboard({
         {active === "work" && <WorkTab orders={orders} events={events} />}
         {active === "leads" && <LeadsTab orders={orders} group={query.group ?? "all"} />}
         {active === "plan" && <PlanTab orders={orders} />}
+        {active === "email" && <EmailTab orders={orders} />}
       </main>
     );
   } catch (err) {
@@ -248,6 +251,28 @@ function PlanTab({ orders }: { orders: Order[] }) {
           </article>
         );
       })}
+    </section>
+  );
+}
+
+function EmailTab({ orders }: { orders: Order[] }) {
+  const eligible = orders.filter((o) => o.conversation?.length || o.email);
+  const options: EmailOrderOption[] = eligible
+    .sort((a, b) => +new Date(b.updated_at) - +new Date(a.updated_at))
+    .map((o) => ({
+      id: o.id,
+      label: `${name(o)}${o.email ? ` — ${o.email}` : ""}`,
+      email: o.email,
+      businessName: name(o),
+      previewUrl: o.preview_url,
+      done: o.state === "won",
+    }));
+
+  return (
+    <section>
+      <div className="section-title"><h1>Email</h1><span>{options.length} people</span></div>
+      <p className="section-copy">Pick someone from Leads or Done, or type an address in by hand. Choose a template and fill in whatever it needs — everything's editable before you send.</p>
+      <EmailComposer orders={options} />
     </section>
   );
 }

@@ -46,6 +46,7 @@ const routes = [
   ["/orders/abc-123", false, "a single order's review screen"],
   ["/api/orders/abc-123", false, "approve/reject/rebuild — real actions on real orders"],
   ["/api/setup", false, "runs SQL against the database"],
+  ["/api/send-email", false, "sends an email as Web99 to whatever address is typed in"],
 ];
 
 for (const [path, expected, why] of routes) {

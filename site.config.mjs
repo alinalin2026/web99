@@ -34,7 +34,8 @@ export const config = {
   counterLabel: "Irish businesses brought online.",
 
   /* --- Year two renewal (FAQ + pricing) -------------------------------- */
-  renewalPrice: "€39 a year",
+  renewalPrice: "€45 a year",
+  emailRenewalPrice: "€15 a year",
 
   /* --- Testimonials ----------------------------------------------------- */
   /* Leave empty until there are REAL customers who have agreed to be named.
@@ -51,9 +52,9 @@ export const config = {
     { item: "Domain name, first year", value: 15 },
     { item: "Hosting, first year", value: 120 },
     { item: "Business email and auto-replies", value: 90 },
-    { item: "AI assistant setup", value: 200 },
     { item: "Written content for your pages", value: 150 },
-    { item: "Booking and enquiry system", value: 100 },
+    { item: "Enquiry form with instant email alerts", value: 100 },
+    { item: "WhatsApp contact button", value: 40 },
     { item: "3 months of written content", value: 250 },
     { item: "Facebook page, set up and scheduled", value: 120 },
   ],

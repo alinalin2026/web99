@@ -82,7 +82,7 @@ const businessJsonLd = `<script type="application/ld+json">${JSON.stringify({
   "@type": "ProfessionalService",
   name: "Web99.ie",
   description:
-    "A Dublin web design studio that builds a complete website for any small business for €99. See the finished website live before paying.",
+    "A Dublin web design studio that builds a complete website for any small business for €99. See a real preview before paying.",
   url: config.domain,
   areaServed: "IE",
   address: {
@@ -98,7 +98,7 @@ const businessJsonLd = `<script type="application/ld+json">${JSON.stringify({
     "@type": "Offer",
     price: "99",
     priceCurrency: "EUR",
-    description: "Complete website, free domain and hosting for one year, ready in 24 hours.",
+    description: "Complete website, free domain, hosting and business email for one year. Real preview within 48 hours, live within 5 working days.",
   },
 })}</script>`;
 

@@ -9,7 +9,7 @@ export const included = [
     top: true,
     icon: "i-eye",
     title: "See it before you buy",
-    line: "No credit card to look. We build it, send you the link, and you decide then.",
+    line: "No credit card to look. We build a real preview of your website, send you the link, and you decide then.",
   },
   {
     top: true,
@@ -58,8 +58,14 @@ export const included = [
   {
     top: true,
     icon: "i-clock",
-    title: "Ready in 24 hours",
-    line: 'Not two weeks. Not "we\'ll get back to you."',
+    title: "Preview in 48 hours. Live in 5 working days",
+    line: "You see a real preview within 48 hours. Once you say yes and send your details, your site is live within 5 working days.",
+  },
+  {
+    top: true,
+    icon: "i-refresh",
+    title: "Small updates free, forever",
+    line: "New opening hours, a new phone number, a price change, a typo — always free, for as long as you're with us. Not a trial. Policy.",
   },
   {
     top: true,
@@ -76,8 +82,8 @@ export const included = [
   {
     top: false,
     icon: "i-refresh",
-    title: "Three changes after you pay, by WhatsApp",
-    line: "Something not right? Message us like you'd text anyone — no dashboard, no login, nothing to learn. Three times, no charge.",
+    title: "Three bigger changes free, by WhatsApp",
+    line: "On top of the free small updates: three rounds of bigger changes — moving things, colours, rewording — free after you pay. Message us like you'd text anyone.",
   },
   {
     top: false,

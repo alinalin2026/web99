@@ -16,9 +16,12 @@ export const config = {
   stripePaymentLink: "https://buy.stripe.com/3cIaEZ9UUgj014Z5o1cs800",
 
   /* --- The dashboard app ------------------------------------------------- */
-  /* Where /start/ sends the conversation. The app lives in dashboard/ and is
-     deployed separately from this static site. Leave empty for same-origin. */
-  dashboardUrl: "https://web99dashboard.vercel.app",
+  /* Where /start/ sends the conversation. The dashboard runs on the same AWS
+     box as this static site — Nginx serves the static files directly and
+     proxies /api/chat, /demo/*, etc. straight to the Next.js app on the same
+     hostname. Same origin, so this stays empty; do not point it at a
+     separate subdomain unless the deployment topology changes back. */
+  dashboardUrl: "",
 
   /* --- WhatsApp -------------------------------------------------------- */
   /* TODO: REPLACE. Full international format, digits only, no + and no spaces.
@@ -34,7 +37,8 @@ export const config = {
   counterLabel: "Irish businesses brought online.",
 
   /* --- Year two renewal (FAQ + pricing) -------------------------------- */
-  renewalPrice: "€39 a year",
+  renewalPrice: "€45 a year",
+  emailRenewalPrice: "€15 a year",
 
   /* --- Testimonials ----------------------------------------------------- */
   /* Leave empty until there are REAL customers who have agreed to be named.
@@ -51,9 +55,9 @@ export const config = {
     { item: "Domain name, first year", value: 15 },
     { item: "Hosting, first year", value: 120 },
     { item: "Business email and auto-replies", value: 90 },
-    { item: "AI assistant setup", value: 200 },
     { item: "Written content for your pages", value: 150 },
-    { item: "Booking and enquiry system", value: 100 },
+    { item: "Enquiry form with instant email alerts", value: 100 },
+    { item: "WhatsApp contact button", value: 40 },
     { item: "3 months of written content", value: 250 },
     { item: "Facebook page, set up and scheduled", value: 120 },
   ],

@@ -6,25 +6,27 @@ export const faqs = [
     home: true,
     q: "Do I really not pay anything to see it?",
     a: [
-      "No. Nothing. We build your website and email you the link. You look at it, show it to whoever you like, sleep on it.",
-      "If you decide you want it, you pay €99. If you don't, you close the email and that's the end of it. We never ask for card details up front.",
+      "No. Nothing. We build a real preview of your website and email you the link within 48 hours. You look at it, show it to whoever you like, sleep on it.",
+      "If you want it, you pay €99 and we finish and launch the real thing. If you don't, you do nothing and you owe nothing.",
+    
     ],
   },
   {
     home: true,
     q: "What happens after the first year?",
     a: [
-      "The €99 covers your first year completely — the design, the domain name and the hosting.",
-      "After twelve months, keeping the domain and hosting running costs {{renewalPrice}}. That is the whole bill. There is nothing else, and we tell you the figure before you pay us a cent.",
-      "If you'd rather move the website somewhere else at that point, you can. It's yours, and we'll help you move it.",
+      "The €99 covers your first year completely — the design, the domain name, the hosting and your business email.",
+      "After that, keeping the domain and hosting going is {{renewalPrice}}, and keeping the business email is {{emailRenewalPrice}}. That's the whole bill — nothing renews without you being told first, and if you'd rather leave, the site and domain are yours to take.",
+    
     ],
   },
   {
     home: true,
     q: "What if I don't like it?",
     a: [
-      "You pay nothing. Tell us what's wrong and we'll usually fix it — most things are a quick change.",
-      "But you are never obliged to. No invoice arrives. Nobody rings you.",
+      "You pay nothing. Tell us what's wrong and we'll usually fix it — most things are a quick change to the preview.",
+      "If it's still not for you, walk away. You were never charged and there's nothing to cancel.",
+    
     ],
   },
   {
@@ -39,9 +41,9 @@ export const faqs = [
     home: true,
     q: "What if I need to change something later?",
     a: [
-      "Message us and we'll change it. Three changes are included after you pay — a new phone number, different opening hours, a few new photos, whatever isn't right.",
-      "After those three, small edits are still quick and we'll always tell you what it costs before we touch anything. Nothing gets charged without you agreeing to it first.",
-      "If you want to be posting new photos, offers or articles regularly, that's a different thing to a one-off edit and we do it as a separate package. Ask us and we'll tell you what it costs.",
+      "Small updates — new opening hours, a new phone number, a price change, a spelling fix — are free forever. Not for the first year. Forever. Just message us.",
+      "Bigger changes — moving things around, new colours, rewording a section — you get three rounds of those free after you pay. Beyond that, or for new pages and new content, we quote a fair fixed price before anything starts. Nothing is ever built and then billed.",
+    
     ],
   },
   {
@@ -56,16 +58,18 @@ export const faqs = [
     home: true,
     q: "How long does it actually take?",
     a: [
-      "Two minutes of your time to tell us about your business. Then 24 hours for us to build it.",
-      "You'll have the link the next day.",
+      "Two minutes of your time to tell us about your business. Within 48 hours you're looking at a real preview — before paying anything.",
+      "Once you say yes, we send one short checklist to collect everything we need, and your finished site is live within 5 working days of your details arriving.",
+    
     ],
   },
   {
     home: true,
     q: "Can you sell things on my website?",
     a: [
-      "Yes. We can set up a shop that takes card payments, or a simple order form if that suits your business better.",
-      "It's included in the €99. Tell us what you sell and we'll build it in.",
+      "No — we don't build online shops, honestly and plainly. If taking card payments on your site is the main thing you need, we're not the right fit.",
+      "What every site does have: a WhatsApp button and an enquiry form that reaches your email instantly, so customers can order or ask the way most Irish small businesses actually take orders — by message.",
+    
     ],
   },
   {
@@ -96,8 +100,9 @@ export const faqs = [
     home: false,
     q: "How do I pay the €99?",
     a: [
-      "By card, after you've seen your website and said yes. We send you a payment link.",
-      "One payment. No subscription, no direct debit, nothing that renews without you knowing.",
+      "By card, after you've seen your preview and decided to go ahead. We send you a payment link — handled by Stripe, we never see your card details.",
+      "One payment. No subscription, no direct debit, nothing that renews behind your back.",
+    
     ],
   },
 ];

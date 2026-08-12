@@ -2,6 +2,9 @@ import { claimNextJob, completeJob, recoverInterruptedJobs, retryOrFailJob } fro
 import { fixAndRedeploy, runNextStep, startMasterBuild } from "./lib/master-pipeline";
 import { getOrder, listAssets, logEvent, sql } from "./lib/db";
 import { generateAllProjectAssets, prepareStudio } from "./lib/studio";
+import { ADDONS, type AddonKey } from "./lib/payment-links";
+
+const ADDON_ACTION_PREFIX = "addon_";
 
 const POLL_MS = Number(process.env.WORKER_POLL_MS ?? 1200);
 const PUBLIC_BASE = (process.env.APP_URL ?? "https://web99.ie").replace(/\/+$/, "");
@@ -92,8 +95,22 @@ async function processOne(): Promise<boolean> {
         console.log(`[worker] job ${job.id} completed requested fix`);
         return true;
       }
-      default:
+      default: {
+        if (job.action.startsWith(ADDON_ACTION_PREFIX)) {
+          const key = job.action.slice(ADDON_ACTION_PREFIX.length) as AddonKey;
+          const addon = ADDONS.find((a) => a.key === key);
+          const label = addon?.label ?? key;
+          await logEvent(job.order_id, "addon_purchased", {
+            message: `${label} purchased — needs fulfilment`,
+            key,
+            amountCents: job.payload?.amountCents ?? null,
+          });
+          await completeJob(job, { step: "addon_logged", key });
+          console.log(`[worker] job ${job.id} logged addon purchase (${key})`);
+          return true;
+        }
         throw new Error(`Unknown background job action: ${job.action}`);
+      }
     }
   } catch (error) {
     const err = error instanceof Error ? error : new Error(String(error));

@@ -1,25 +1,49 @@
-import { Compass } from "lucide-react";
-import { Link } from "wouter";
 import { Button } from "@/components/ui/button";
-import { content } from "@/data/content";
+import { Card, CardContent } from "@/components/ui/card";
+import { AlertCircle, Home } from "lucide-react";
+import { useLocation } from "wouter";
 
 export default function NotFound() {
-  const t = content.notFound;
+  const [, setLocation] = useLocation();
+
+  const handleGoHome = () => {
+    setLocation("/");
+  };
 
   return (
-    <div className="min-h-screen w-full flex items-center justify-center bg-[#08090A] px-4">
-      <div className="w-full max-w-md text-center">
-        <div className="flex items-center justify-center w-16 h-16 rounded-full bg-[#8AFF3C]/10 text-[#8AFF3C] mx-auto mb-6">
-          <Compass size={26} />
-        </div>
-        <h1 className="text-[#F4F6F3] text-3xl mb-3">{t.title}</h1>
-        <p className="text-[#9BA39C] leading-relaxed mb-8">{t.body}</p>
-        <Link href="/">
-          <Button className="btn-neon" size="lg">
-            {t.cta}
-          </Button>
-        </Link>
-      </div>
+    <div className="min-h-screen w-full flex items-center justify-center bg-[#0A0A0A]">
+      <Card className="w-full max-w-lg mx-4 shadow-2xl border border-[#2A2A2A] bg-[#1A1A1A]/90 backdrop-blur-sm">
+        <CardContent className="pt-8 pb-8 text-center">
+          <div className="flex justify-center mb-6">
+            <div className="relative">
+              <div className="absolute inset-0 bg-[#CCFF00]/10 rounded-full animate-pulse" />
+              <AlertCircle className="relative h-16 w-16 text-[#CCFF00]" />
+            </div>
+          </div>
+
+          <h1 className="text-4xl font-bold text-white mb-2">404</h1>
+
+          <h2 className="text-xl font-semibold text-gray-300 mb-4">
+            Page Not Found
+          </h2>
+
+          <p className="text-gray-400 mb-8 leading-relaxed">
+            Sorry, the page you are looking for doesn't exist.
+            <br />
+            It may have been moved or deleted.
+          </p>
+
+          <div className="flex flex-col sm:flex-row gap-3 justify-center">
+            <Button
+              onClick={handleGoHome}
+              className="bg-[#CCFF00] hover:bg-white text-black px-6 py-2.5 rounded-lg transition-all duration-200 shadow-md hover:shadow-xl font-semibold"
+            >
+              <Home className="w-4 h-4 mr-2" />
+              Go Home
+            </Button>
+          </div>
+        </CardContent>
+      </Card>
     </div>
   );
 }

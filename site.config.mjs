@@ -16,11 +16,8 @@ export const config = {
   stripePaymentLink: "https://buy.stripe.com/3cIaEZ9UUgj014Z5o1cs800",
 
   /* --- The dashboard app ------------------------------------------------- */
-  /* Where /start/ sends the conversation. The dashboard runs on the same AWS
-     box as this static site — Nginx serves the static files directly and
-     proxies /api/chat, /demo/*, etc. straight to the Next.js app on the same
-     hostname. Same origin, so this stays empty; do not point it at a
-     separate subdomain unless the deployment topology changes back. */
+  /* Where /start/ sends the conversation. The app lives in dashboard/ and is
+     deployed separately from this static site. Leave empty for same-origin. */
   dashboardUrl: "",
 
   /* --- WhatsApp -------------------------------------------------------- */

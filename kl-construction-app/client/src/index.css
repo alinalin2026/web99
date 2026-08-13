@@ -1,0 +1,121 @@
+@import "tailwindcss";
+@import "tw-animate-css";
+
+@custom-variant dark (&:is(.dark *));
+
+/* K&L CONSTRUCTION DESIGN REMINDER
+   Contemporary trade editorialism: hand-built dark/light contrast, red as an operational signal,
+   dense Barlow Condensed display type paired with the calm readability of DM Sans. */
+
+@theme inline {
+  --font-display: "Barlow Condensed", sans-serif;
+  --font-body: "DM Sans", sans-serif;
+  --color-background: var(--background);
+  --color-foreground: var(--foreground);
+  --color-card: var(--card);
+  --color-card-foreground: var(--card-foreground);
+  --color-popover: var(--popover);
+  --color-popover-foreground: var(--popover-foreground);
+  --color-primary: var(--primary);
+  --color-primary-foreground: var(--primary-foreground);
+  --color-secondary: var(--secondary);
+  --color-secondary-foreground: var(--secondary-foreground);
+  --color-muted: var(--muted);
+  --color-muted-foreground: var(--muted-foreground);
+  --color-accent: var(--accent);
+  --color-accent-foreground: var(--accent-foreground);
+  --color-destructive: var(--destructive);
+  --color-destructive-foreground: var(--destructive-foreground);
+  --color-border: var(--border);
+  --color-input: var(--input);
+  --color-ring: var(--ring);
+  --color-signal: #e22d2d;
+  --color-carbon: #17181d;
+  --color-paper: #f5f3ef;
+}
+
+:root {
+  --background: #f5f3ef;
+  --foreground: #17181d;
+  --card: #ffffff;
+  --card-foreground: #17181d;
+  --popover: #ffffff;
+  --popover-foreground: #17181d;
+  --primary: #e22d2d;
+  --primary-foreground: #ffffff;
+  --secondary: #e9e6df;
+  --secondary-foreground: #17181d;
+  --muted: #e9e6df;
+  --muted-foreground: #6c6d72;
+  --accent: #e22d2d;
+  --accent-foreground: #ffffff;
+  --destructive: #e22d2d;
+  --destructive-foreground: #ffffff;
+  --border: #d8d5ce;
+  --input: #d8d5ce;
+  --ring: #e22d2d;
+  --radius: 0.25rem;
+  --ease-out: cubic-bezier(0.23, 1, 0.32, 1);
+  --ease-in-out: cubic-bezier(0.77, 0, 0.175, 1);
+}
+
+* { border-color: var(--border); }
+
+html { scroll-behavior: smooth; }
+
+body {
+  margin: 0;
+  background: var(--background);
+  color: var(--foreground);
+  font-family: var(--font-body);
+  -webkit-font-smoothing: antialiased;
+  text-rendering: optimizeLegibility;
+}
+
+::selection { background: #e22d2d; color: white; }
+
+.display { font-family: var(--font-display); }
+.red-line { width: 2.75rem; height: 0.25rem; background: #e22d2d; display: block; }
+.eyebrow { font-size: 0.69rem; letter-spacing: 0.16em; font-weight: 700; text-transform: uppercase; }
+.paper-grid {
+  background-image: linear-gradient(rgba(23,24,29,.035) 1px, transparent 1px), linear-gradient(90deg, rgba(23,24,29,.035) 1px, transparent 1px);
+  background-size: 32px 32px;
+}
+.image-shade { background: linear-gradient(90deg, rgba(23,24,29,.82) 0%, rgba(23,24,29,.46) 40%, rgba(23,24,29,.08) 72%); }
+.hero-shade { background: linear-gradient(90deg, rgba(15,16,20,.94) 0%, rgba(15,16,20,.76) 38%, rgba(15,16,20,.26) 66%, rgba(15,16,20,.18) 100%); }
+.grain { position: relative; }
+.grain::after { content: ""; inset: 0; pointer-events: none; position: absolute; opacity: .11; background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 150 150' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='.75' numOctaves='3' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)' opacity='.2'/%3E%3C/svg%3E"); mix-blend-mode: soft-light; }
+.quote-panel { position: relative; overflow: hidden; box-shadow: 0 1.25rem 3.75rem rgba(23,24,29,.13); }
+form.quote-panel::before, form.quote-panel::after { content: ""; position: absolute; width: 2rem; height: 2rem; pointer-events: none; z-index: 2; }
+form.quote-panel::before { left: .85rem; top: .85rem; border-left: 2px solid #e22d2d; border-top: 2px solid #e22d2d; }
+form.quote-panel::after { right: .85rem; bottom: .85rem; border-right: 2px solid #e22d2d; border-bottom: 2px solid #e22d2d; }
+.kl-frame { position: relative; }
+.kl-frame::before, .kl-frame::after { content: ""; position: absolute; z-index: 2; width: 2rem; height: 2rem; pointer-events: none; }
+.kl-frame::before { left: .85rem; top: .85rem; border-left: 2px solid #e22d2d; border-top: 2px solid #e22d2d; }
+.kl-frame::after { right: .85rem; bottom: .85rem; border-right: 2px solid #e22d2d; border-bottom: 2px solid #e22d2d; }
+.kl-mark-plate { position: relative; overflow: hidden; }
+.kl-mark-plate::before { content: ""; position: absolute; width: 2.1rem; height: 2.1rem; left: -.55rem; top: -.4rem; border: 2px solid #e22d2d; transform: rotate(45deg); }
+.kl-mark-plate::after { content: "K/L"; position: absolute; right: -.1rem; bottom: .08rem; color: white; font-family: "Barlow Condensed", sans-serif; font-weight: 800; font-size: .45rem; letter-spacing: -.04em; }
+.structural-rail { position: relative; }
+.structural-rail::after { content: ""; position: absolute; top: 50%; height: 1px; width: 4rem; background: #e22d2d; transform: translateY(-50%); }
+.structural-rail.left::after { right: calc(100% + .9rem); }
+.structural-rail.right::after { left: calc(100% + .9rem); }
+
+@media (prefers-reduced-motion: no-preference) {
+  .reveal { animation: rise .7s var(--ease-out) both; }
+  .reveal-delay-1 { animation-delay: .1s; }
+  .reveal-delay-2 { animation-delay: .2s; }
+  .reveal-delay-3 { animation-delay: .3s; }
+  .hover-lift { transition: transform .24s var(--ease-out), box-shadow .24s var(--ease-out); }
+  .hover-lift:hover { transform: translateY(-5px); box-shadow: 0 1rem 2.5rem rgba(23,24,29,.13); }
+  .image-zoom { transition: transform .65s var(--ease-out); }
+  .group:hover .image-zoom { transform: scale(1.045); }
+}
+
+@keyframes rise { from { opacity: 0; transform: translateY(12px); } to { opacity: 1; transform: translateY(0); } }
+
+@layer base {
+  button:not(:disabled), a[href], input, textarea { -webkit-tap-highlight-color: transparent; }
+  a, button { outline-offset: 4px; }
+  button:not(:disabled):active, a[href]:active { transform: scale(.97); }
+}

@@ -221,6 +221,42 @@ https://web99.ie/api/stripe
 Select the `checkout.session.completed` event. Stripe then shows you a
 signing secret starting `whsec_` — that's `STRIPE_WEBHOOK_SECRET`.
 
+## Add-on Payment Links
+
+Everything a customer buys after the initial €99 site (an extra page, a
+renewal, a one-off Facebook post…) is a plain Stripe **Payment Link**, not
+the dynamic Checkout Session `buy/[id]/route.ts` uses for the site itself —
+fixed price, no per-order line items needed.
+
+- `lib/payment-links.ts` — the catalogue (`ADDONS`), source-priced from
+  `lib/prompts/pricing-and-services.md`, plus `paymentLinkUrl(key, orderId)`
+  which appends `?client_reference_id=<orderId>` so the webhook knows which
+  order paid. Always use that helper when showing a link to a specific
+  customer (email, the site, wherever) — a bare Payment Link URL can't be
+  traced back to an order.
+- `scripts/setup-addon-links.ts` (`npm run setup:addon-links`) creates the
+  actual Product/Price/Payment Link in Stripe for anything in `ADDONS` that
+  doesn't have one yet (or whose price changed), and writes the result into
+  `lib/payment-links.generated.ts`. Safe to rerun — it only touches what's
+  missing or stale. Needs `STRIPE_SECRET_KEY`.
+- The webhook (`app/api/stripe/route.ts`) checks `session.payment_link`
+  against that generated file first, before falling through to the original
+  €99-purchase handling. A match enqueues `addon_<key>` on the paying
+  order (`enqueueJob`) and logs an `addon_paid` event — it does **not**
+  change the order's `state`.
+- `worker.ts` picks up `addon_<key>` jobs, but there's no automated
+  fulfilment behind them yet — it just logs an `addon_purchased` event on
+  the order (visible on `/orders/[id]`) and completes the job. Writing the
+  actual Facebook post, extra page, etc. is still a person's job for now;
+  this only guarantees a paid add-on is never silently missed.
+- **`email-upgrade` (~€1/month) is a judgement call, not a confirmed
+  decision.** It's set up as a one-time €1 Payment Link the customer would
+  repeat manually, matching every other item here and the site's
+  "no subscriptions" stance — but if the intent was a real auto-billed
+  monthly subscription, that needs a different setup (a Stripe subscription
+  Price, a Customer object, `invoice.paid` webhook handling) that doesn't
+  exist yet. Confirm which one before relying on it.
+
 ## Meta Ads integration — built, off by default
 
 `lib/meta.ts`, `lib/meta-conversions.ts` and `lib/meta-sales.ts` are a

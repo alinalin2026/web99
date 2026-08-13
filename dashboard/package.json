@@ -10,7 +10,8 @@
     "worker": "node --env-file=.env.local --import tsx worker.ts",
     "typecheck": "tsc --noEmit",
     "test": "tsx --test test/*.test.mjs",
-    "db:init": "psql \"$DATABASE_URL\" -f db/schema.sql"
+    "db:init": "psql \"$DATABASE_URL\" -f db/schema.sql",
+    "setup:addon-links": "node --env-file=.env.local --import tsx scripts/setup-addon-links.ts"
   },
   "dependencies": {
     "next": "^15.1.0",

@@ -3,6 +3,8 @@ import Stripe from "stripe";
 import { sql, getOrder, setState, logEvent } from "@/lib/db";
 import { paid, send } from "@/lib/email";
 import { sendMetaConversion } from "@/lib/meta-conversions";
+import { addonForPaymentLinkId } from "@/lib/payment-links";
+import { enqueueJob } from "@/lib/jobs";
 
 export const runtime = "nodejs";
 
@@ -32,6 +34,35 @@ export async function POST(req: NextRequest) {
 
   if (event.type === "checkout.session.completed") {
     const session = event.data.object as Stripe.Checkout.Session;
+
+    const paymentLinkId = typeof session.payment_link === "string"
+      ? session.payment_link
+      : session.payment_link?.id;
+    const addon = paymentLinkId ? addonForPaymentLinkId(paymentLinkId) : null;
+
+    if (addon) {
+      const orderId = session.client_reference_id;
+      if (!orderId) {
+        console.error(`Addon "${addon.key}" paid (session ${session.id}) with no client_reference_id — can't tell which order this belongs to.`);
+        return NextResponse.json({ received: true });
+      }
+      const order = await getOrder(orderId);
+      if (!order) {
+        console.error(`Addon "${addon.key}" paid (session ${session.id}) for unknown order ${orderId}.`);
+        return NextResponse.json({ received: true });
+      }
+      await enqueueJob(orderId, `addon_${addon.key}`, {
+        label: addon.label,
+        amountCents: session.amount_total,
+      });
+      await logEvent(orderId, "state_change", {
+        step: "addon_paid",
+        key: addon.key,
+        amount: session.amount_total,
+      });
+      return NextResponse.json({ received: true });
+    }
+
     const orderId = session.metadata?.orderId ?? session.client_reference_id;
 
     if (orderId) {

@@ -35,7 +35,6 @@ export const config = {
 
   /* --- Year two renewal (FAQ + pricing) -------------------------------- */
   renewalPrice: "€45 a year",
-  emailRenewalPrice: "€15 a year",
 
   /* --- Testimonials ----------------------------------------------------- */
   /* Leave empty until there are REAL customers who have agreed to be named.
@@ -51,7 +50,6 @@ export const config = {
     { item: "Professionally designed website", value: 500 },
     { item: "Domain name, first year", value: 15 },
     { item: "Hosting, first year", value: 120 },
-    { item: "Business email and auto-replies", value: 90 },
     { item: "Written content for your pages", value: 150 },
     { item: "Enquiry form with instant email alerts", value: 100 },
     { item: "WhatsApp contact button", value: 40 },

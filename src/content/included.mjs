@@ -25,12 +25,6 @@ export const included = [
   },
   {
     top: true,
-    icon: "i-mail",
-    title: "Business email, set up for you",
-    line: "you@yourbusiness.ie, with an instant reply going out to every enquiry.",
-  },
-  {
-    top: true,
     icon: "i-share",
     title: "Facebook page, 3 months of content",
     line: "We set up the page and write and schedule your posts for three months.",

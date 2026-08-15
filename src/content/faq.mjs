@@ -15,9 +15,9 @@ export const faqs = [
     home: true,
     q: "What happens after the first year?",
     a: [
-      "The €99 covers your first year completely — the design, the domain name, the hosting and your business email.",
-      "After that, keeping the domain and hosting going is {{renewalPrice}}, and keeping the business email is {{emailRenewalPrice}}. That's the whole bill — nothing renews without you being told first, and if you'd rather leave, the site and domain are yours to take.",
-    
+      "The €99 covers your first year completely — the design, the domain name and the hosting.",
+      "After that, keeping the domain and hosting going is {{renewalPrice}}. That's the whole bill — nothing renews without you being told first, and if you'd rather leave, the site and domain are yours to take.",
+
     ],
   },
   {

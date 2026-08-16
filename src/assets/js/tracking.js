@@ -131,7 +131,17 @@
     }
   }
 
+  function sendCustomEvent(metaName, params, eventId) {
+    if (!window.web99TrackingConsent()) return;
+    enableTracking();
+    if (window.fbq) {
+      if (eventId) window.fbq("trackCustom", metaName, params || {}, { eventID: eventId });
+      else window.fbq("trackCustom", metaName, params || {});
+    }
+  }
+
   window.web99Track = sendEvent;
+  window.web99TrackCustom = sendCustomEvent;
 
   window.addEventListener("web99:lead", function (event) {
     var detail = event.detail || {};
@@ -153,6 +163,9 @@
         content_name: "Web99 website brief",
         currency: "EUR",
         value: 99
+      });
+      sendCustomEvent("SarahChatStarted", {
+        content_name: "Web99 website brief"
       });
     }
   }, true);

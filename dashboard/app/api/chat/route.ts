@@ -7,6 +7,8 @@ import {
 import { corsPreflight, withCors } from "@/lib/cors";
 import { resolveMetaPixelId } from "@/lib/meta-sales";
 import { sendMetaConversion } from "@/lib/meta-conversions";
+import { saveUploadedFile, AttachmentError, MAX_FILES_PER_MESSAGE } from "@/lib/attachments";
+import { sendCustomEmail } from "@/lib/custom-email";
 
 export const runtime = "nodejs";
 export const maxDuration = 60;
@@ -20,11 +22,14 @@ interface Brief {
 }
 interface ChatBody { orderId?: string; message?: string; history?: Turn[]; attribution?: unknown; trackingConsent?: boolean }
 type QuickReply = { label: string; value: string };
+type UploadedFile = { id: string; filename: string; mimeType: string; size: number };
 
 const REQUIRED: (keyof Brief)[] = ["trade", "websiteGoal", "email"];
 const ATTR_KEYS = ["fbclid","utm_source","utm_medium","utm_campaign","utm_content","utm_term","landing_url","landing_path","landed_at","user_agent"] as const;
 const GREETING_RE = /^(hi|hello|hey|hiya|howdy|yo|good\s+(morning|afternoon|evening))[!.?\s]*$/i;
-const EMAIL_RE = /\b[A-Z0-9._%+-]+@[A-Z0-9.-]+\.[A-Z]{2,}\b/i;
+// Matches Sarah's closing preview-promise line (the numeral survives translation
+// even when the surrounding sentence doesn't — see languageRules in sarah.ts).
+const CLOSING_SIGNAL_RE = /48/;
 
 function safeAttribution(value: unknown): Record<string, string | number> | null {
   if (!value || typeof value !== "object" || Array.isArray(value)) return null;
@@ -60,6 +65,16 @@ async function safeLog(orderId: string | null, kind: string, detail: Record<stri
   if (!orderId) return; try { await logEvent(orderId, kind, detail); } catch (err) { console.error("chat logEvent failed", err); }
 }
 
+// Fires once, the moment Sarah captures a lead's email — distinct from the
+// 30m "did you get interrupted" followup, which only covers stalled chats.
+// This one fires on successful capture regardless of what happens next.
+function emailCapturedCopy() {
+  return {
+    subject: "We've got your message",
+    body: `Hi,\n\nWe've got your message — your preview will be ready today.\n\nOnce it's up, it'll be live for 48 hours so you have time to have a proper look and decide. No card needed to see it.\n\nTalk soon,\nAlan\nWeb99.ie`,
+  };
+}
+
 export async function OPTIONS(req: NextRequest) { return corsPreflight(req); }
 export async function GET(req: NextRequest) {
   let metaPixelId: string | null = null;
@@ -68,10 +83,32 @@ export async function GET(req: NextRequest) {
 }
 
 export async function POST(req: NextRequest) {
-  let body: ChatBody;
-  try { body = await req.json(); } catch { return withCors(req, NextResponse.json({ error: "Bad JSON" }, { status: 400 })); }
+  let body: ChatBody; let incomingFiles: File[] = [];
+  const contentType = req.headers.get("content-type") ?? "";
+  if (contentType.includes("multipart/form-data")) {
+    let form: FormData;
+    try { form = await req.formData(); } catch { return withCors(req, NextResponse.json({ error: "Bad upload" }, { status: 400 })); }
+    let attribution: unknown = null;
+    const rawAttribution = form.get("attribution");
+    if (typeof rawAttribution === "string" && rawAttribution) {
+      try { attribution = JSON.parse(rawAttribution); } catch { /* ignore malformed attribution */ }
+    }
+    body = {
+      orderId: typeof form.get("orderId") === "string" ? (form.get("orderId") as string) : undefined,
+      message: typeof form.get("message") === "string" ? (form.get("message") as string) : "",
+      attribution,
+      trackingConsent: form.get("trackingConsent") === "true",
+    };
+    incomingFiles = form.getAll("files").filter((v): v is File => v instanceof File && v.size > 0);
+    if (incomingFiles.length > MAX_FILES_PER_MESSAGE) {
+      return withCors(req, NextResponse.json({ error: `Please attach ${MAX_FILES_PER_MESSAGE} files or fewer at a time.` }, { status: 400 }));
+    }
+  } else {
+    try { body = await req.json(); } catch { return withCors(req, NextResponse.json({ error: "Bad JSON" }, { status: 400 })); }
+  }
+
   const message = (body.message ?? "").trim();
-  if (!message) return withCors(req, NextResponse.json({ error: "Empty message" }, { status: 400 }));
+  if (!message && incomingFiles.length === 0) return withCors(req, NextResponse.json({ error: "Empty message" }, { status: 400 }));
   if (message.length > 4000) return withCors(req, NextResponse.json({ error: "Message too long" }, { status: 400 }));
 
   const browserHistory = safeHistory(body.history); const attribution = safeAttribution(body.attribution);
@@ -89,9 +126,29 @@ export async function POST(req: NextRequest) {
     return withCors(req, NextResponse.json({ orderId: order.id, reply: "Thanks — we've got enough to get started. We'll send the first draft to your email when it's ready.", quickReplies: [], missing: [], readyToBuild: true }));
   }
 
+  let uploaded: UploadedFile[] = [];
+  if (incomingFiles.length > 0) {
+    if (!order || !persistenceAvailable) {
+      return withCors(req, NextResponse.json({ error: "Uploads aren't available right now — please try again in a moment." }, { status: 503 }));
+    }
+    try {
+      for (const file of incomingFiles) {
+        const saved = await saveUploadedFile(order.id, file);
+        uploaded.push({ id: saved.id, filename: saved.filename, mimeType: saved.mime_type, size: saved.size_bytes });
+      }
+    } catch (err) {
+      const msg = err instanceof AttachmentError ? err.message : "That file couldn't be uploaded.";
+      if (!(err instanceof AttachmentError)) console.error("chat attachment save failed", err);
+      return withCors(req, NextResponse.json({ error: msg }, { status: 400 }));
+    }
+  }
+
   const now = new Date().toISOString();
   const baseConversation = order?.conversation ?? browserHistory.map((t) => ({ ...t, at: now }));
-  const userConversation = [...baseConversation, { role: "user" as const, content: message, at: now }];
+  const userConversation = [...baseConversation, {
+    role: "user" as const, content: message, at: now,
+    ...(uploaded.length ? { attachments: uploaded } : {}),
+  }];
 
   // Persist the owner message before any model work so Control never loses it.
   if (order && persistenceAvailable) {
@@ -116,7 +173,14 @@ export async function POST(req: NextRequest) {
 
   // Customer-visible latency is now ONLY Sarah's reply. Everything that powers
   // CRM/qualification runs after the HTTP response has been sent.
-  const turns: Turn[] = userConversation.map((t) => ({ role: t.role, content: t.content }));
+  // Sarah has no vision — attachments are named for her so she can
+  // acknowledge them, not analysed as images.
+  const turns: Turn[] = userConversation.map((t, i) => ({
+    role: t.role,
+    content: i === userConversation.length - 1 && uploaded.length
+      ? `${t.content}\n\n[Customer attached ${uploaded.length} file(s): ${uploaded.map((f) => f.filename).join(", ")}]`.trim()
+      : t.content,
+  }));
   let modelReply: string;
   try { modelReply = await chat(sarahSystemPrompt(), turns, MODELS.sarah); }
   catch (err) {
@@ -135,10 +199,14 @@ export async function POST(req: NextRequest) {
 
   const previousBrief = order?.brief ? order.brief as Brief : null;
   const previousMissing = missingFromBrief(previousBrief);
-  // In Sarah's flow, the email is requested last. If she accepts an email and
-  // stops asking questions, the customer can immediately see the completion UI
-  // while the extractor confirms/persists the final structured brief after send.
-  const readyFast = !!order && persistenceAvailable && EMAIL_RE.test(message) && !/[?？]\s*$/.test(parsed.reply);
+  // Sarah now asks for email early (right after the business name), so "the
+  // user's message contains an email" no longer means the conversation is
+  // over — it used to, back when email was the last question. The real
+  // signal is Sarah's own closing line (the 48-hour preview promise), which
+  // only appears once she has actually stopped asking questions. Detect that
+  // instead, so the customer sees the completion UI only when the
+  // conversation is genuinely finished, not right after giving their email.
+  const readyFast = !!order && persistenceAvailable && CLOSING_SIGNAL_RE.test(parsed.reply) && !/[?？]\s*$/.test(parsed.reply);
   const capturedIp = clientIp(req);
   const orderId = order?.id ?? null;
   const previousOrder = order;
@@ -165,13 +233,34 @@ export async function POST(req: NextRequest) {
         const fresh = await getOrder(orderId);
         if (!fresh) return;
 
+        if (!previousOrder.email && fresh.email) {
+          try {
+            const confirmation = emailCapturedCopy();
+            const messageId = await sendCustomEmail(fresh.email, confirmation.subject, confirmation.body);
+            await safeLog(orderId, "email", { message: `Confirmation email sent to ${fresh.email}`, template: "email_captured", messageId });
+          } catch (err) {
+            await safeLog(orderId, "error", { step: "email_captured_confirmation", message: (err as Error).message });
+          }
+        }
+
         const qualification = await syncQualification(fresh);
         if (qualification === "needs_customer") await sql`UPDATE orders SET workflow_stage='needs_customer' WHERE id=${orderId}`;
         await scheduleLeadFollowups(orderId);
 
         const finalBrief = (fresh.brief ?? brief) as Brief | null;
         const missing = missingFromBrief(finalBrief);
-        const ready = missing.length === 0 && finalBrief?.readyToBuild === true;
+        // readyFast (see above) is the deterministic signal that Sarah has
+        // actually delivered her closing 48h-promise line — not just that the
+        // brief LOOKS complete. Requiring both matters now that step 3 of
+        // sarah.ts's flow (sarah.ts) asks about phone/WhatsApp AFTER
+        // "anything else" is closed but BEFORE that closing line: without this,
+        // the brief already reads as ready once the owner says "that's all",
+        // and the order would flip out of "collecting" a turn too early —
+        // right as Sarah asks for their phone number — which would make the
+        // next customer message (their phone number) hit the canned
+        // "we've got enough" deflection below (line ~114) instead of reaching
+        // Sarah at all.
+        const ready = missing.length === 0 && finalBrief?.readyToBuild === true && readyFast;
         if (!ready) return;
 
         await setState(orderId, "ready", { source: "customer_brief_complete" });

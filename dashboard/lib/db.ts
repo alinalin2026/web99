@@ -55,7 +55,10 @@ export interface Order {
   location: string | null;
   email: string | null;
   phone: string | null;
-  conversation: { role: "user" | "assistant"; content: string; at: string }[];
+  conversation: {
+    role: "user" | "assistant"; content: string; at: string;
+    attachments?: { id: string; filename: string; mimeType: string; size: number }[];
+  }[];
   brief: Record<string, unknown> | null;
   analysis: Record<string, unknown> | null;
   generated: Record<string, string> | null;
@@ -233,6 +236,28 @@ export async function getAsset(id: string, orderId?: string): Promise<ProjectAss
   return rows[0] ?? null;
 }
 
+export interface ChatAttachment {
+  id: string; order_id: string; filename: string; mime_type: string;
+  size_bytes: number; storage_path: string; created_at: string;
+}
+
+export async function insertAttachment(input: {
+  orderId: string; filename: string; mimeType: string; sizeBytes: number; storagePath: string;
+}): Promise<ChatAttachment> {
+  await ensureMasterSchema();
+  const [row] = await sql<ChatAttachment[]>`
+    INSERT INTO chat_attachments (order_id, filename, mime_type, size_bytes, storage_path)
+    VALUES (${input.orderId}, ${input.filename}, ${input.mimeType}, ${input.sizeBytes}, ${input.storagePath})
+    RETURNING *`;
+  return row;
+}
+
+export async function getAttachment(id: string): Promise<ChatAttachment | null> {
+  await ensureMasterSchema();
+  const rows = await sql<ChatAttachment[]>`SELECT * FROM chat_attachments WHERE id = ${id}`;
+  return rows[0] ?? null;
+}
+
 export async function listVersions(orderId: string) {
   await ensureMasterSchema();
   return sql<{
@@ -284,6 +309,31 @@ export async function scheduleLeadFollowups(orderId: string): Promise<void> {
   }
 }
 
+/** Same table/mechanism as scheduleLeadFollowups, but for the other side of
+    the funnel: a lead who has actually been sent their preview and gone
+    quiet, rather than one who never finished the chat. Call once, right
+    when the preview is sent. due_at is fixed relative to that moment
+    (24h/36h/48h) rather than chained off each other, so a late or failed
+    send of one nudge never drifts the next one's timing. */
+export async function schedulePreviewFollowups(orderId: string): Promise<void> {
+  await ensureMasterSchema();
+  const order = await getOrder(orderId);
+  if (!order?.email || !order.followup_enabled) return;
+  const rows = [
+    [24 * 60, "preview_24h"],
+    [36 * 60, "preview_36h"],
+    [48 * 60, "preview_48h"],
+  ] as const;
+  for (const [minutes, kind] of rows) {
+    await sql`
+      INSERT INTO followups (order_id, due_at, kind)
+      SELECT ${orderId}, now() + (${minutes} * interval '1 minute'), ${kind}
+      WHERE NOT EXISTS (
+        SELECT 1 FROM followups WHERE order_id = ${orderId} AND kind = ${kind}
+      )`;
+  }
+}
+
 /** "Sharp Cuts Barbers" in Drumcondra -> "sharp-cuts-barbers-drumcondra" */
 export function slugify(businessName: string, location: string): string {
   const clean = (s: string) =>
@@ -306,4 +356,131 @@ export async function uniqueSlug(base: string): Promise<string> {
     candidate = `${base}-${n}`;
   }
   return `${base}-${Date.now().toString(36)}`;
+}
+
+/* ===========================================================================
+   CUSTOMER INBOX
+   ---------------------------------------------------------------------------
+   Threading follows the standard Message-ID / In-Reply-To / References
+   headers (RFC 5322). thread_id is derived, never sent by email clients:
+   if an inbound or outbound email's In-Reply-To matches a message we've
+   already stored, it joins that message's thread; otherwise (or if the
+   References chain matches something we've stored but In-Reply-To didn't)
+   it starts a new one.
+   =========================================================================== */
+
+export interface EmailRow {
+  id: number;
+  order_id: string | null;
+  direction: "inbound" | "outbound";
+  from_email: string;
+  to_email: string;
+  subject: string;
+  html: string | null;
+  text_body: string | null;
+  message_id: string;
+  in_reply_to: string | null;
+  refs: string | null;
+  thread_id: string;
+  resend_id: string | null;
+  read_at: string | null;
+  created_at: string;
+}
+
+/** Best-effort match of a raw address (possibly "Name <addr>") to an order. */
+export async function findOrderIdByEmail(rawAddress: string): Promise<string | null> {
+  await ensureMasterSchema();
+  const match = rawAddress.match(/<([^>]+)>/);
+  const address = (match ? match[1] : rawAddress).trim().toLowerCase();
+  if (!address) return null;
+  const [row] = await sql<{ id: string }[]>`
+    SELECT id FROM orders WHERE lower(email) = ${address} ORDER BY updated_at DESC LIMIT 1`;
+  return row?.id ?? null;
+}
+
+/** Reuses an existing thread when In-Reply-To or any References entry is
+    already known to us; otherwise starts a new thread. */
+export async function resolveThreadId(inReplyTo: string | null, refs: string | null): Promise<string> {
+  await ensureMasterSchema();
+  const candidates = [inReplyTo, ...(refs ? refs.split(/\s+/) : [])].filter(Boolean) as string[];
+  for (const messageId of candidates) {
+    const [row] = await sql<{ thread_id: string }[]>`
+      SELECT thread_id FROM emails WHERE message_id = ${messageId} LIMIT 1`;
+    if (row) return row.thread_id;
+  }
+  return crypto.randomUUID();
+}
+
+/** Idempotent on message_id — safe for Resend's at-least-once webhook delivery. */
+export async function insertEmail(row: {
+  order_id: string | null;
+  direction: "inbound" | "outbound";
+  from_email: string;
+  to_email: string;
+  subject: string;
+  html: string | null;
+  text_body: string | null;
+  message_id: string;
+  in_reply_to: string | null;
+  refs: string | null;
+  thread_id: string;
+  resend_id: string | null;
+}): Promise<EmailRow | null> {
+  await ensureMasterSchema();
+  const [inserted] = await sql<EmailRow[]>`
+    INSERT INTO emails (order_id, direction, from_email, to_email, subject, html, text_body,
+                         message_id, in_reply_to, refs, thread_id, resend_id, read_at)
+    VALUES (${row.order_id}, ${row.direction}, ${row.from_email}, ${row.to_email}, ${row.subject},
+            ${row.html}, ${row.text_body}, ${row.message_id}, ${row.in_reply_to}, ${row.refs},
+            ${row.thread_id}, ${row.resend_id}, ${row.direction === "outbound" ? sql`now()` : null})
+    ON CONFLICT (message_id) DO NOTHING
+    RETURNING *`;
+  return inserted ?? null;
+}
+
+export interface ThreadSummary {
+  thread_id: string;
+  subject: string;
+  from_email: string;
+  to_email: string;
+  preview: string;
+  last_at: string;
+  unread: number;
+}
+
+export async function listThreadsForOrder(orderId: string): Promise<ThreadSummary[]> {
+  await ensureMasterSchema();
+  return sql<ThreadSummary[]>`
+    SELECT * FROM (
+      SELECT DISTINCT ON (thread_id)
+        thread_id, subject, from_email, to_email,
+        left(coalesce(text_body, regexp_replace(coalesce(html, ''), '<[^>]+>', ' ', 'g')), 180) AS preview,
+        created_at AS last_at,
+        (SELECT count(*)::int FROM emails e2
+           WHERE e2.thread_id = emails.thread_id AND e2.direction = 'inbound' AND e2.read_at IS NULL) AS unread
+      FROM emails
+      WHERE order_id = ${orderId}
+      ORDER BY thread_id, created_at DESC
+    ) t
+    ORDER BY last_at DESC`;
+}
+
+export async function listEmailsInThread(orderId: string, threadId: string): Promise<EmailRow[]> {
+  await ensureMasterSchema();
+  return sql<EmailRow[]>`
+    SELECT * FROM emails WHERE order_id = ${orderId} AND thread_id = ${threadId}
+    ORDER BY created_at ASC`;
+}
+
+export async function markThreadRead(orderId: string, threadId: string): Promise<void> {
+  await ensureMasterSchema();
+  await sql`
+    UPDATE emails SET read_at = now()
+    WHERE order_id = ${orderId} AND thread_id = ${threadId} AND direction = 'inbound' AND read_at IS NULL`;
+}
+
+export async function getEmail(id: number): Promise<EmailRow | null> {
+  await ensureMasterSchema();
+  const [row] = await sql<EmailRow[]>`SELECT * FROM emails WHERE id = ${id}`;
+  return row ?? null;
 }

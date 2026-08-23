@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import {
-  getOrder, getAsset, logEvent, scheduleLeadFollowups, setState, setWorkflow, sql,
+  getOrder, getAsset, logEvent, scheduleLeadFollowups, schedulePreviewFollowups, setState, setWorkflow, sql,
 } from "@/lib/db";
 import {
   approvePlanAndContinue, finaliseMasterBuild, fixAndRedeploy, makeMasterPlan,
@@ -174,6 +174,7 @@ export async function POST(
         await send(fresh.email, siteReady("", fresh.business_name ?? "your business", fresh.preview_url));
         await sql`UPDATE orders SET sent_at = now(), customer_status = 'waiting_customer', state = 'sent' WHERE id = ${id}`;
         await logEvent(id, "preview_sent", { message: `${fresh.business_name ?? "Website"} sent to customer`, to: fresh.email, previewUrl: fresh.preview_url });
+        await schedulePreviewFollowups(id);
         return NextResponse.json({ ok: true, state: "sent" });
       }
 

@@ -4,9 +4,6 @@
   "cleanUrls": true,
   "trailingSlash": false,
   "rewrites": [
-    { "source": "/westprint3d", "destination": "/assets/westprint3d/index" },
-    { "source": "/westprint3d/", "destination": "/assets/westprint3d/index" },
-    { "source": "/westprint3d/:path*", "destination": "/assets/westprint3d/:path*" },
     { "source": "/inspire-goalkeeping/coaching", "destination": "/inspire-goalkeeping/index.html" },
     { "source": "/inspire-goalkeeping/about", "destination": "/inspire-goalkeeping/index.html" },
     { "source": "/inspire-goalkeeping/contact", "destination": "/inspire-goalkeeping/index.html" },

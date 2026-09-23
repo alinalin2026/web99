@@ -374,6 +374,29 @@ async function build() {
     await cp(join(src, "site.webmanifest"), join(dist, "site.webmanifest"));
   }
 
+  /* Client preview sites. Each is built separately (its own <name>-app/
+     project) and committed here as plain static output — but vercel.json
+     only ships dist/, so without this step Vercel never actually serves
+     them and they 404 in production even though they sit right here in
+     the repo. Staging them into dist/ is what makes /<name>/ resolve on
+     the live domain, the same way the pages built above do. */
+  const clientPreviewSites = [
+    "attridge-academy",
+    "hot-tub-store",
+    "inspire-goalkeeping",
+    "inspire-goalkeeping-v2",
+    "kl-construction",
+    "sunflake",
+    "westprint3d",
+    "westprint3dv2",
+  ];
+  for (const site of clientPreviewSites) {
+    const from = join(root, site);
+    if (existsSync(from)) {
+      await cp(from, join(dist, site), { recursive: true });
+    }
+  }
+
   /* sitemap + robots, generated from the routes we actually built */
   const today = new Date().toISOString().slice(0, 10);
   const sitemap =

@@ -162,10 +162,12 @@
     if (!target) return;
     var href = target.getAttribute("href") || "";
     if (href.indexOf("/start") === 0 || href.indexOf("https://www.web99.ie/start") === 0 || href.indexOf("https://web99.ie/start") === 0) {
-      sendEvent("select_content", null, {
+      sendEvent("select_content", "InitiateChat", {
         content_type: "cta",
         item_id: "build-my-website",
-        item_name: (target.textContent || "Build My Website").trim().slice(0, 100)
+        item_name: (target.textContent || "Build My Website").trim().slice(0, 100),
+        currency: "EUR",
+        value: 99
       });
     }
   }, true);

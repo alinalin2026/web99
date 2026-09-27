@@ -135,6 +135,27 @@ Web99.ie · (01) 234 3300`,
   };
 }
 
+/* --- 2b. the instant-quiz preview, sent on request ------------------------- */
+
+export function previewReady(businessName: string, previewUrl: string): Email {
+  return {
+    subject: `${businessName} — here's the preview you just built`,
+    html: shell(
+      p(`Here's the website you just put together for ${businessName}:`) +
+        button(previewUrl, "See your website") +
+        p(`Have a proper look, show it around, sleep on it. If you want it, there's a button on the page to take it — <strong>€99 once</strong>, covering the domain and hosting for the first year.`) +
+        small(`<a href="${previewUrl}" style="color:${VIOLET};">${previewUrl}</a>`)
+    ),
+    text: `Here's the website you just put together for ${businessName}:
+
+${previewUrl}
+
+Have a proper look, show it around, sleep on it. If you want it, there's a button on the page to take it — €99 once, covering the domain and hosting for the first year.
+
+Web99.ie · (01) 234 3300`,
+  };
+}
+
 /* --- 3. one nudge, then we leave them alone -------------------------------- */
 
 export function nudge(name: string, businessName: string, previewUrl: string): Email {

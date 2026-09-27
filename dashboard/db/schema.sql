@@ -146,6 +146,30 @@ CREATE INDEX IF NOT EXISTS jobs_order_idx ON jobs (order_id, created_at DESC);
 CREATE UNIQUE INDEX IF NOT EXISTS jobs_active_order_action_idx
   ON jobs (order_id, action) WHERE status IN ('queued','running');
 
+-- Instant-preview quiz (web99.ie/build). A preview is anonymous and
+-- pre-lead: saved the moment the reveal renders, before any contact info
+-- exists. Buying promotes it into a real orders row (see lib/previews.ts)
+-- so the existing Stripe/checklist/email pipeline needs no changes.
+CREATE TABLE IF NOT EXISTS previews (
+  id          uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+  category    text NOT NULL,
+  site        jsonb NOT NULL,
+  order_id    uuid REFERENCES orders(id) ON DELETE SET NULL,
+  created_at  timestamptz NOT NULL DEFAULT now()
+);
+CREATE INDEX IF NOT EXISTS previews_order_idx ON previews (order_id);
+
+-- One row per quiz step reached / reveal / buy-click / paid, per preview.
+CREATE TABLE IF NOT EXISTS preview_events (
+  id          bigserial PRIMARY KEY,
+  preview_id  uuid REFERENCES previews(id) ON DELETE CASCADE,
+  kind        text NOT NULL,
+  detail      jsonb NOT NULL DEFAULT '{}'::jsonb,
+  created_at  timestamptz NOT NULL DEFAULT now()
+);
+CREATE INDEX IF NOT EXISTS preview_events_preview_idx ON preview_events (preview_id, created_at);
+CREATE INDEX IF NOT EXISTS preview_events_kind_idx ON preview_events (kind, created_at DESC);
+
 CREATE OR REPLACE FUNCTION touch_updated_at() RETURNS trigger AS $$
 BEGIN
   NEW.updated_at = now();

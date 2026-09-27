@@ -25,7 +25,7 @@ export async function POST(req: NextRequest) {
   const previewUrl = `${process.env.APP_URL ?? "https://web99.ie"}/p/${previewId}`;
 
   try {
-    await send(email, previewReady(preview.site.name, previewUrl), orderId);
+    await send(email, previewReady(preview.site.name, previewUrl));
   } catch (err) {
     return NextResponse.json({ error: (err as Error).message }, { status: 502 });
   }

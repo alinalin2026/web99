@@ -484,3 +484,38 @@ export async function getEmail(id: number): Promise<EmailRow | null> {
   const [row] = await sql<EmailRow[]>`SELECT * FROM emails WHERE id = ${id}`;
   return row ?? null;
 }
+
+export interface EmailAttachmentRow {
+  id: string; email_id: number; filename: string; mime_type: string;
+  size_bytes: number; storage_path: string; created_at: string;
+}
+
+export async function insertEmailAttachment(input: {
+  emailId: number; filename: string; mimeType: string; sizeBytes: number; storagePath: string;
+}): Promise<EmailAttachmentRow> {
+  await ensureMasterSchema();
+  const [row] = await sql<EmailAttachmentRow[]>`
+    INSERT INTO email_attachments (email_id, filename, mime_type, size_bytes, storage_path)
+    VALUES (${input.emailId}, ${input.filename}, ${input.mimeType}, ${input.sizeBytes}, ${input.storagePath})
+    RETURNING *`;
+  return row;
+}
+
+export async function listEmailAttachments(emailId: number): Promise<EmailAttachmentRow[]> {
+  await ensureMasterSchema();
+  return sql<EmailAttachmentRow[]>`
+    SELECT * FROM email_attachments WHERE email_id = ${emailId} ORDER BY created_at ASC`;
+}
+
+export async function listEmailAttachmentsForThread(emailIds: number[]): Promise<EmailAttachmentRow[]> {
+  await ensureMasterSchema();
+  if (emailIds.length === 0) return [];
+  return sql<EmailAttachmentRow[]>`
+    SELECT * FROM email_attachments WHERE email_id IN ${sql(emailIds)} ORDER BY created_at ASC`;
+}
+
+export async function getEmailAttachment(id: string): Promise<EmailAttachmentRow | null> {
+  await ensureMasterSchema();
+  const [row] = await sql<EmailAttachmentRow[]>`SELECT * FROM email_attachments WHERE id = ${id}`;
+  return row ?? null;
+}

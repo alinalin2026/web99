@@ -14,15 +14,15 @@ export interface TradeTile {
     route into the real quiz; everything else is a known category with no
     template yet, so it routes to the existing Sarah hand-build flow. */
 export const TRADE_TILES: TradeTile[] = [
-  { label: "Plumber", trade: "plumber", category: "emergency" },
-  { label: "Electrician", trade: "electrician", category: "emergency" },
-  { label: "Locksmith", trade: "locksmith", category: "emergency" },
-  { label: "Handyman", trade: "handyman", category: "appointment" },
-  { label: "Cleaner", trade: "cleaner", category: "appointment" },
-  { label: "Coach / trainer", trade: "coach", category: "appointment" },
-  { label: "Shop or café", trade: "shop", category: "walkin" },
+  { label: "Plumber", trade: "plumber", category: "emergency", donorTemplate: "d15-handyman" },
+  { label: "Electrician", trade: "electrician", category: "emergency", donorTemplate: "kl-construction" },
+  { label: "Locksmith", trade: "locksmith", category: "emergency", donorTemplate: "d15-handyman" },
+  { label: "Handyman", trade: "handyman", category: "appointment", donorTemplate: "d15-handyman" },
+  { label: "Cleaner", trade: "cleaner", category: "appointment", donorTemplate: "house-cleaning-dublin" },
+  { label: "Coach / trainer", trade: "coach", category: "appointment", donorTemplate: "attridge-academy" },
+  { label: "Shop or café", trade: "shop", category: "walkin", donorTemplate: "hot-tub-store" },
   { label: "Builder / renovation", trade: "builder", category: "considered", donorTemplate: "kl-construction" },
-  { label: "Online shop", trade: "product", category: "product" },
+  { label: "Online shop", trade: "product", category: "product", donorTemplate: "westprint3d" },
   { label: "Something else", trade: "other", category: "considered" },
 ];
 

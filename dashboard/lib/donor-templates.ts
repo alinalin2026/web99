@@ -42,6 +42,19 @@ const BASE_TOKEN = "__W99_BASE_PATH__";
 const PHONE_TOKEN_PREFIX = "__W99_PHONE_";
 const LOGO_TOKEN = "__W99_LOGO__";
 
+/** Every one of these demo builds carries the same standalone "buy this
+    site" Stripe banner (identical markup, identical Stripe link, across
+    otherwise-unrelated sites -- clearly injected by whatever process
+    exported them) -- wrong for every customer but the donor itself. */
+const BUY_BANNER_PATTERN =
+  /<div style="text-align:center;padding:40px 20px;background:#17181d;[\s\S]*?<\/div>/;
+/** Unresolved Vite env-var placeholder left in a build that skipped setting
+    VITE_ANALYTICS_ENDPOINT -- would otherwise request a literal, garbage
+    URL for analytics that were never ours to begin with. */
+const ANALYTICS_STUB_PATTERN =
+  /<script defer src="%VITE_ANALYTICS_ENDPOINT%\/umami"[^>]*><\/script>/;
+const COMMON_STRIPS = [BUY_BANNER_PATTERN, ANALYTICS_STUB_PATTERN];
+
 const REGISTRY: Record<string, DonorTemplate> = {
   "kl-construction": {
     key: "kl-construction",
@@ -49,9 +62,44 @@ const REGISTRY: Record<string, DonorTemplate> = {
     businessNameLiteral: "K&L Construction",
     phoneLiterals: ["083 851 4297", "089 249 6440"],
     logoFile: "kl-angular-mark.png",
-    stripPatterns: [
-      /<div style="text-align:center;padding:40px 20px;background:#17181d;[\s\S]*?<\/div>/,
-    ],
+    stripPatterns: COMMON_STRIPS,
+  },
+  "d15-handyman": {
+    key: "d15-handyman",
+    dir: path.join(process.cwd(), "..", "d15-handyman"),
+    businessNameLiteral: "D15 Handyman",
+    phoneLiterals: [], // no real phone in this build -- contact form only
+    stripPatterns: COMMON_STRIPS,
+  },
+  "house-cleaning-dublin": {
+    key: "house-cleaning-dublin",
+    dir: path.join(process.cwd(), "..", "house-cleaning"),
+    businessNameLiteral: "House Cleaning Dublin",
+    phoneLiterals: ["tel:+353000000000"], // donor's own number was itself a placeholder
+    logoFile: "hcd-utility-door-mark_c0db7eb6.png",
+    stripPatterns: COMMON_STRIPS,
+  },
+  "attridge-academy": {
+    key: "attridge-academy",
+    dir: path.join(process.cwd(), "..", "attridge-academy"),
+    businessNameLiteral: "Attridge Academy",
+    phoneLiterals: ["086 355 7288"],
+    stripPatterns: COMMON_STRIPS,
+  },
+  "westprint3d": {
+    key: "westprint3d",
+    dir: path.join(process.cwd(), "..", "westprint3d"),
+    businessNameLiteral: "WestPrint3D",
+    phoneLiterals: [],
+    stripPatterns: COMMON_STRIPS,
+  },
+  "hot-tub-store": {
+    key: "hot-tub-store",
+    dir: path.join(process.cwd(), "..", "hot-tub-store"),
+    businessNameLiteral: "Hot Tub Chemical Super Store",
+    phoneLiterals: [],
+    logoFile: "logo.png",
+    stripPatterns: COMMON_STRIPS,
   },
 };
 
@@ -110,31 +158,45 @@ interface LoadedDonor {
   ownLogoDataUri: string | null; // fallback when the customer didn't upload one
 }
 
+/** Recursively lists files under `dir`, as paths relative to `dir` with
+    forward slashes -- donor dist trees vary in shape (K&L keeps images at
+    its root; Vite-processed builds like sunflake/westprint3d hash and move
+    them inside assets/), so this doesn't assume a layout. */
+async function listFiles(dir: string, base = dir): Promise<string[]> {
+  const entries = await readdir(dir, { withFileTypes: true });
+  const out: string[] = [];
+  for (const entry of entries) {
+    const full = path.join(dir, entry.name);
+    if (entry.isDirectory()) {
+      out.push(...(await listFiles(full, base)));
+    } else if (entry.isFile()) {
+      out.push(path.relative(base, full).split(path.sep).join("/"));
+    }
+  }
+  return out;
+}
+
 /* Base (uncustomized) file map: images inlined, own-domain absolute prefix
    stripped, business name/base-path/logo left as tokens. Loaded from disk
    once per donor per process. */
 const baseCache = new Map<string, Promise<LoadedDonor>>();
 
 async function loadBase(t: DonorTemplate): Promise<LoadedDonor> {
-  const entries = await readdir(t.dir, { withFileTypes: true });
-  const topFiles = entries.filter((e) => e.isFile()).map((e) => e.name);
-  const htmlFiles = topFiles.filter((f) => f.endsWith(".html"));
-  const imageFiles = topFiles.filter((f) => /\.(png|jpe?g|webp|svg)$/i.test(f));
+  const allFiles = await listFiles(t.dir);
+  const textFiles = allFiles.filter((f) => /\.(html|js|mjs|css)$/i.test(f));
+  const imageFiles = allFiles.filter((f) => /\.(png|jpe?g|webp|svg)$/i.test(f));
 
-  const assetDirEntries = await readdir(path.join(t.dir, "assets"), { withFileTypes: true }).catch(() => []);
-  const assetFiles = assetDirEntries.filter((e) => e.isFile()).map((e) => `assets/${e.name}`);
-
-  const textFiles = [...htmlFiles, ...assetFiles.filter((f) => /\.(js|mjs|css)$/i.test(f))];
-
-  const images = new Map<string, string>(); // filename -> data URI
+  const images = new Map<string, string>(); // relative path -> data URI
   let ownLogoDataUri: string | null = null;
+  let logoRelPath: string | null = null;
   for (const img of imageFiles) {
-    const isLogo = img === t.logoFile;
+    const isLogo = path.basename(img) === t.logoFile;
     const raw = await readFile(path.join(t.dir, img));
     const optimized = await optimizeImage(raw, path.extname(img).toLowerCase(), isLogo);
     const dataUri = `data:${mimeFor(img)};base64,${optimized.toString("base64")}`;
     if (isLogo) {
       ownLogoDataUri = dataUri;
+      logoRelPath = img; // full relative path -- basename alone would leave a stray "images/" prefix behind
     } else {
       images.set(img, dataUri);
     }
@@ -147,10 +209,14 @@ async function loadBase(t: DonorTemplate): Promise<LoadedDonor> {
     // Own absolute deploy prefix (e.g. "/kl-construction/x") -> bare root-relative.
     content = content.replaceAll(`/${t.key}/`, "/");
 
+    // Match the bare relative path, not "/" + path -- donor references vary
+    // between root-absolute ("/kl-hero.jpg") and plain-relative ("images/hero.jpg"),
+    // and a bare basename is a substring of both forms, so this covers each
+    // without needing to know which convention a given donor uses.
     for (const [img, dataUri] of images) {
-      content = content.split(`/${img}`).join(dataUri);
+      content = content.split(img).join(dataUri);
     }
-    if (t.logoFile) content = content.split(`/${t.logoFile}`).join(LOGO_TOKEN);
+    if (logoRelPath) content = content.split(logoRelPath).join(LOGO_TOKEN);
 
     for (const pattern of t.stripPatterns) content = content.replace(pattern, "");
 

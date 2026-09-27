@@ -210,6 +210,12 @@ CREATE TABLE IF NOT EXISTS previews (
 );
 CREATE INDEX IF NOT EXISTS previews_order_idx ON previews (order_id);
 
+-- Set instead of (not alongside) a light site-schema render when the trade
+-- has a real donor-template design (see lib/donor-templates.ts). File map,
+-- authored as if it lives at a domain root — served + prefix-rewritten by
+-- app/p/[id]/[...path]/route.ts, same approach as orders.generated below.
+ALTER TABLE previews ADD COLUMN IF NOT EXISTS generated jsonb;
+
 -- One row per quiz step reached / reveal / buy-click / paid, per preview.
 CREATE TABLE IF NOT EXISTS preview_events (
   id          bigserial PRIMARY KEY,

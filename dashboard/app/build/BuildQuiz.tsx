@@ -14,13 +14,27 @@ import {
   type FontId,
 } from "@/lib/site-schema";
 import { copyPackFor, fillCopy } from "@/lib/copy-packs";
-import { TRADE_TILES, type TradeTile } from "@/lib/trade-tiles";
+import { TRADE_TILES, isTileLive, type TradeTile } from "@/lib/trade-tiles";
 import SiteTemplate from "@/templates";
 import PreviewActionBar from "@/templates/shared/PreviewActionBar";
 
 const STORAGE_KEY = "web99_build_answers_v1";
-const TOTAL_STEPS = 7;
 const SARAH_START_URL = "https://web99.ie/start";
+
+/* Services are pre-filled with placeholder copy (copyPackFor's
+   defaultServices) the moment a trade is picked and never shown for
+   editing -- this is "here's roughly how it'll look", not a content
+   generator. "Pick a look" only applies to the light site-schema render;
+   a donor-template trade (a real pre-built design) has its own fixed
+   styling, so that step is skipped for those. */
+type StepId = "name" | "trade" | "town" | "look" | "logo" | "phone";
+
+function stepsFor(tile: TradeTile | null): StepId[] {
+  const steps: StepId[] = ["name", "trade", "town"];
+  if (!tile?.donorTemplate) steps.push("look");
+  steps.push("logo", "phone");
+  return steps;
+}
 
 interface Answers {
   name: string;
@@ -96,12 +110,24 @@ export default function BuildQuiz() {
   const [revealed, setRevealed] = useState(false);
   const [blockedTile, setBlockedTile] = useState<TradeTile | null>(null);
   const [hydrated, setHydrated] = useState(false);
+  const [submitting, setSubmitting] = useState(false);
+  const [submitError, setSubmitError] = useState<string | null>(null);
   const previewPromise = useRef<Promise<string> | null>(null);
+
+  const steps = useMemo(() => stepsFor(answers.tradeTile), [answers.tradeTile]);
+  const TOTAL_STEPS = steps.length;
+  const currentStepId = steps[step];
 
   useEffect(() => {
     setAnswers(loadAnswers());
     setHydrated(true);
   }, []);
+
+  // Trade selection can change the step count (donor-template trades skip
+  // "look"); clamp so Back never lands on an index that no longer exists.
+  useEffect(() => {
+    setStep((s) => Math.min(s, TOTAL_STEPS - 1));
+  }, [TOTAL_STEPS]);
 
   useEffect(() => {
     if (!hydrated) return;
@@ -174,6 +200,29 @@ export default function BuildQuiz() {
     return previewPromise.current;
   }
 
+  /* Donor-template trades (a real pre-built design) can't render inline in
+     this SPA -- its own bundle needs a real <script> tag executing. Create
+     the preview server-side, then navigate to it as a real document. */
+  async function submitDonorPreview() {
+    if (!site || !answers.tradeTile?.donorTemplate) return;
+    setSubmitting(true);
+    setSubmitError(null);
+    try {
+      const res = await fetch("/api/previews", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ ...site, donorTemplate: answers.tradeTile.donorTemplate }),
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data?.error ?? `HTTP ${res.status}`);
+      track(data.id, "reveal", {});
+      window.location.href = `/p/${data.id}`;
+    } catch (err) {
+      setSubmitError((err as Error).message || "Something went wrong. Try again.");
+      setSubmitting(false);
+    }
+  }
+
   if (!hydrated) return null;
 
   if (revealed && site) {
@@ -185,19 +234,26 @@ export default function BuildQuiz() {
     );
   }
 
-  const canNext = [
-    answers.name.trim().length > 1,
-    Boolean(answers.tradeTile),
-    answers.town.trim().length > 1,
-    answers.services.length > 0,
-    true, // look
-    true, // logo optional
-    true, // phone optional
-  ][step];
+  const canNext = (() => {
+    switch (currentStepId) {
+      case "name":
+        return answers.name.trim().length > 1;
+      case "trade":
+        return Boolean(answers.tradeTile);
+      case "town":
+        return answers.town.trim().length > 1;
+      default:
+        return true; // look / logo / phone are all optional or fixed-choice
+    }
+  })();
 
   function next() {
     if (step === TOTAL_STEPS - 1) {
-      setRevealed(true);
+      if (answers.tradeTile?.donorTemplate) {
+        submitDonorPreview();
+      } else {
+        setRevealed(true);
+      }
       return;
     }
     setStep((s) => Math.min(TOTAL_STEPS - 1, s + 1));
@@ -214,7 +270,7 @@ export default function BuildQuiz() {
         ))}
       </div>
 
-      {step === 0 && (
+      {currentStepId === "name" && (
         <Screen title="What's your business called?">
           <input
             autoFocus
@@ -226,7 +282,7 @@ export default function BuildQuiz() {
         </Screen>
       )}
 
-      {step === 1 && (
+      {currentStepId === "trade" && (
         <Screen title="What do you do?">
           <div style={tileGrid}>
             {TRADE_TILES.map((t) => (
@@ -237,7 +293,7 @@ export default function BuildQuiz() {
                   ...(answers.tradeTile?.label === t.label ? tileActive : {}),
                 }}
                 onClick={() => {
-                  if (LIVE_TEMPLATE_CATEGORIES.includes(t.category)) {
+                  if (isTileLive(t, LIVE_TEMPLATE_CATEGORIES)) {
                     setBlockedTile(null);
                     setAnswers((a) => ({ ...a, tradeTile: t, services: [] }));
                   } else {
@@ -263,7 +319,7 @@ export default function BuildQuiz() {
         </Screen>
       )}
 
-      {step === 2 && (
+      {currentStepId === "town" && (
         <Screen title="Where are you based?">
           <input
             autoFocus
@@ -275,57 +331,7 @@ export default function BuildQuiz() {
         </Screen>
       )}
 
-      {step === 3 && (
-        <Screen title="What do you offer?">
-          <div style={{ display: "grid", gap: 10 }}>
-            {answers.services.map((s, i) => (
-              <div key={i} style={{ display: "flex", gap: 8 }}>
-                <input
-                  style={{ ...input, flex: 2 }}
-                  value={s.name}
-                  onChange={(e) =>
-                    setAnswers((a) => {
-                      const services = [...a.services];
-                      services[i] = { ...services[i], name: e.target.value };
-                      return { ...a, services };
-                    })
-                  }
-                />
-                <input
-                  style={{ ...input, flex: 1 }}
-                  placeholder="price (optional)"
-                  value={s.price ?? ""}
-                  onChange={(e) =>
-                    setAnswers((a) => {
-                      const services = [...a.services];
-                      services[i] = { ...services[i], price: e.target.value };
-                      return { ...a, services };
-                    })
-                  }
-                />
-                <button
-                  style={removeBtn}
-                  onClick={() =>
-                    setAnswers((a) => ({ ...a, services: a.services.filter((_, j) => j !== i) }))
-                  }
-                >
-                  ×
-                </button>
-              </div>
-            ))}
-            <button
-              style={secondaryBtn}
-              onClick={() =>
-                setAnswers((a) => ({ ...a, services: [...a.services, { name: "", price: "" }] }))
-              }
-            >
-              + Add a service
-            </button>
-          </div>
-        </Screen>
-      )}
-
-      {step === 4 && (
+      {currentStepId === "look" && (
         <Screen title="Pick a look">
           <p style={label}>Colours</p>
           <div style={tileGrid}>
@@ -364,7 +370,7 @@ export default function BuildQuiz() {
         </Screen>
       )}
 
-      {step === 5 && (
+      {currentStepId === "logo" && (
         <Screen title="Got a logo?">
           <input
             type="file"
@@ -390,7 +396,7 @@ export default function BuildQuiz() {
         </Screen>
       )}
 
-      {step === 6 && (
+      {currentStepId === "phone" && (
         <Screen title="Phone number for customers?">
           <input
             autoFocus
@@ -403,12 +409,18 @@ export default function BuildQuiz() {
         </Screen>
       )}
 
+      {submitError && <div style={{ ...notice, color: "#c33b32" }}>{submitError}</div>}
+
       <div style={navRow}>
-        <button onClick={back} disabled={step === 0} style={{ ...secondaryBtn, opacity: step === 0 ? 0.4 : 1 }}>
+        <button onClick={back} disabled={step === 0 || submitting} style={{ ...secondaryBtn, opacity: step === 0 ? 0.4 : 1 }}>
           Back
         </button>
-        <button onClick={next} disabled={!canNext} style={{ ...primaryBtn, opacity: canNext ? 1 : 0.4 }}>
-          {step === TOTAL_STEPS - 1 ? "See my website" : "Next"}
+        <button
+          onClick={next}
+          disabled={!canNext || submitting}
+          style={{ ...primaryBtn, opacity: canNext && !submitting ? 1 : 0.4 }}
+        >
+          {submitting ? "Building…" : step === TOTAL_STEPS - 1 ? "See my website" : "Next"}
         </button>
       </div>
     </main>

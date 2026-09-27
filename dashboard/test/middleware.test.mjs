@@ -12,7 +12,7 @@
 
 import assert from "node:assert/strict";
 import { test } from "node:test";
-import { isPublicPath } from "../middleware.ts";
+import { isPublicPath, config } from "../middleware.ts";
 
 /* [path, mustBePublicToMiddleware, why] */
 const routes = [
@@ -37,6 +37,10 @@ const routes = [
   // Stripe's webhook — Stripe, not a browser, calls this; it can't log in.
   ["/api/stripe", true, "Stripe's webhook, authenticated by signature not cookie"],
 
+  // Resend's inbound-email webhook — same shape as Stripe's, authenticated
+  // by svix signature (see app/api/webhooks/resend/route.ts) not cookie.
+  ["/api/webhooks/resend", true, "Resend's inbound email webhook, authenticated by signature not cookie"],
+
   // Scheduler endpoints authenticate themselves with CRON_SECRET.
   ["/api/cron/expire-previews", true, "scheduler endpoint, authenticated by CRON_SECRET not cookie"],
 
@@ -45,6 +49,7 @@ const routes = [
   ["/", false, "the order queue"],
   ["/orders/abc-123", false, "a single order's review screen"],
   ["/api/orders/abc-123", false, "approve/reject/rebuild — real actions on real orders"],
+  ["/api/orders/abc-123/emails", false, "reads a customer's email correspondence and sends replies as Web99"],
   ["/api/setup", false, "runs SQL against the database"],
   ["/api/send-email", false, "sends an email as Web99 to whatever address is typed in"],
 ];
@@ -62,4 +67,16 @@ test("a public page prefix does not leak into an unrelated /api path", () => {
     false,
     "must not accidentally match on a shared string prefix"
   );
+});
+
+/* Real bug: the matcher used to be a negative-lookahead regex written against
+   the un-prefixed path. Next silently prepends basePath ("/control") to
+   matcher patterns, and that merge required a "/" after "control" before the
+   lookahead group could match — so the bare basePath root, "/control" with
+   no trailing segment, never invoked middleware() at all. isPublicPath("/")
+   correctly says gated, but that check never ran for that exact URL, so the
+   live dashboard served with no login. A catch-all matcher has no such gap
+   because it has no basePath-dependent literal characters to misalign. */
+test("matcher is a plain catch-all, not a basePath-dependent negative lookahead", () => {
+  assert.deepEqual(config.matcher, ["/:path*"]);
 });

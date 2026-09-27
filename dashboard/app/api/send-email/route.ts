@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { requireOperator } from "@/lib/auth";
 import { getOrder, logEvent } from "@/lib/db";
-import { onTheWay, siteReady, nudge, paid, send } from "@/lib/email";
+import { onTheWay, siteReady, nudge, paid, alanCheckIn, send } from "@/lib/email";
 import { sendCustomEmail } from "@/lib/custom-email";
 
 export const runtime = "nodejs";
@@ -38,7 +38,7 @@ export async function POST(req: NextRequest) {
     switch (template) {
       case "onTheWay": {
         const email = onTheWay(name, businessName);
-        messageId = await send(to, email);
+        messageId = await send(to, email, orderId);
         subject = email.subject;
         break;
       }
@@ -46,7 +46,7 @@ export async function POST(req: NextRequest) {
         const previewUrl = String(body.previewUrl ?? "").trim();
         if (!previewUrl) throw new Error("This template needs a preview URL.");
         const email = siteReady(name, businessName, previewUrl);
-        messageId = await send(to, email);
+        messageId = await send(to, email, orderId);
         subject = email.subject;
         break;
       }
@@ -54,7 +54,7 @@ export async function POST(req: NextRequest) {
         const previewUrl = String(body.previewUrl ?? "").trim();
         if (!previewUrl) throw new Error("This template needs a preview URL.");
         const email = nudge(name, businessName, previewUrl);
-        messageId = await send(to, email);
+        messageId = await send(to, email, orderId);
         subject = email.subject;
         break;
       }
@@ -63,7 +63,13 @@ export async function POST(req: NextRequest) {
         const chooseUrl = String(body.chooseUrl ?? "").trim();
         if (!liveUrl || !chooseUrl) throw new Error("This template needs both the live site URL and the choose-us link.");
         const email = paid(name, businessName, liveUrl, chooseUrl);
-        messageId = await send(to, email);
+        messageId = await send(to, email, orderId);
+        subject = email.subject;
+        break;
+      }
+      case "alanCheckIn": {
+        const email = alanCheckIn();
+        messageId = await send(to, email, orderId);
         subject = email.subject;
         break;
       }
@@ -71,7 +77,7 @@ export async function POST(req: NextRequest) {
         subject = String(body.subject ?? "").trim();
         const message = String(body.message ?? "").trim();
         if (!subject || !message) throw new Error("Subject and message are required.");
-        messageId = await sendCustomEmail(to, subject, message);
+        messageId = await sendCustomEmail(to, subject, message, orderId);
         break;
       }
       default:

@@ -1,4 +1,5 @@
 import { Resend } from "resend";
+import { insertEmail } from "./db";
 
 /* ===========================================================================
    EMAIL
@@ -223,9 +224,32 @@ Web99.ie · (01) 234 3300`,
   };
 }
 
+/* --- 5. quick personal check-in, no branding, signed as a person ---------- */
+
+export function alanCheckIn(): Email {
+  const body = `Hey, it's Alan from Web99.ie — just wanted to check in and see if you've had a chance to look at the designs we sent over. No rush at all, just let us know if anything jumps out at you or if you'd like anything changed.`;
+  return {
+    subject: "Quick one from Alan",
+    html: `<!doctype html><html><body style="margin:0;padding:24px 12px;background:#f6f4fe;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,Helvetica,Arial,sans-serif;">
+<table role="presentation" width="100%" cellpadding="0" cellspacing="0"><tr><td align="center">
+<table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="max-width:520px;background:#ffffff;border-radius:14px;padding:28px 24px;">
+<tr><td>
+<p style="margin:0;font-size:16px;line-height:1.65;color:${INK};">${body}</p>
+<p style="margin:20px 0 0;font-size:16px;line-height:1.5;color:${INK};">— Alan</p>
+</td></tr></table>
+</td></tr></table></body></html>`,
+    text: `${body}\n\n— Alan`,
+  };
+}
+
 /* --- sending -------------------------------------------------------------- */
 
-export async function send(to: string, email: Email): Promise<string> {
+/** Sends one of the branded template emails and permanently records it —
+    Resend's own dashboard only retains sent mail for 30 days, so this table
+    is the real record, not a cache of it. orderId is stored when known
+    (most calls have one); pass null for ad-hoc sends with no order. */
+export async function send(to: string, email: Email, orderId: string | null = null): Promise<string> {
+  const messageId = `<${crypto.randomUUID()}@web99.ie>`;
   const { data, error } = await resend().emails.send({
     from: FROM,
     replyTo: REPLY_TO,
@@ -233,7 +257,123 @@ export async function send(to: string, email: Email): Promise<string> {
     subject: email.subject,
     html: email.html,
     text: email.text,
+    headers: { "Message-ID": messageId },
   });
   if (error) throw new Error(`Resend: ${error.message}`);
+  try {
+    await insertEmail({
+      order_id: orderId,
+      direction: "outbound",
+      from_email: FROM,
+      to_email: to,
+      subject: email.subject,
+      html: email.html,
+      text_body: email.text,
+      message_id: messageId,
+      in_reply_to: null,
+      refs: null,
+      thread_id: crypto.randomUUID(),
+      resend_id: data?.id ?? null,
+    });
+  } catch (err) {
+    // The send already succeeded — don't make the caller think it failed
+    // (and risk a duplicate resend) over a persistence error. Loud log only.
+    console.error("send(): email delivered but insertEmail failed", err);
+  }
   return data?.id ?? "";
+}
+
+/* ===========================================================================
+   INBOX
+   ---------------------------------------------------------------------------
+   Resend's email.received webhook carries metadata only (from/to/subject/
+   message_id) — not the body or the In-Reply-To / References headers needed
+   for threading. Those come from a second call to the receiving API.
+   Confirmed against Resend's current docs 2026-08-15: GET
+   https://api.resend.com/emails/receiving/{id}, Bearer-authed, response has
+   a flat "headers" object keyed by lowercase header name.
+   =========================================================================== */
+
+export interface ReceivedEmail {
+  id: string;
+  from: string;
+  to: string[];
+  subject: string;
+  html: string | null;
+  text: string | null;
+  message_id: string;
+  headers: Record<string, string>;
+}
+
+export async function getReceivedEmail(emailId: string): Promise<ReceivedEmail> {
+  const key = process.env.RESEND_API_KEY;
+  if (!key) throw new Error("RESEND_API_KEY is not set.");
+  const res = await fetch(`https://api.resend.com/emails/receiving/${emailId}`, {
+    headers: { Authorization: `Bearer ${key}` },
+  });
+  if (!res.ok) throw new Error(`Resend receiving API: ${res.status} ${await res.text()}`);
+  return res.json();
+}
+
+/* Webhooks carry metadata only — attachment content never comes through
+   them. This lists each attachment's metadata plus a CDN download_url
+   (pre-generated, no follow-up call needed per attachment, valid ~1h) —
+   confirmed against Resend's current docs 2026-09-22:
+   GET /emails/receiving/{id}/attachments. */
+export interface ReceivedAttachment {
+  id: string;
+  filename: string;
+  size: number;
+  content_type: string;
+  download_url: string;
+}
+
+export async function listReceivedEmailAttachments(emailId: string): Promise<ReceivedAttachment[]> {
+  const key = process.env.RESEND_API_KEY;
+  if (!key) throw new Error("RESEND_API_KEY is not set.");
+  const res = await fetch(`https://api.resend.com/emails/receiving/${emailId}/attachments`, {
+    headers: { Authorization: `Bearer ${key}` },
+  });
+  if (!res.ok) throw new Error(`Resend receiving attachments API: ${res.status} ${await res.text()}`);
+  const json = await res.json();
+  return json.data ?? [];
+}
+
+function escapeHtmlInbox(value: string) {
+  return value.replace(/[&<>"']/g, (c) => ({
+    "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#039;",
+  }[c] as string));
+}
+
+/** Sends a reply threaded under an existing email via In-Reply-To/References,
+    with our own Message-ID so a later reply-to-this-reply can thread too
+    (Resend's send response only returns its own internal id, not an RFC
+    Message-ID). Returns both ids for storage. */
+export async function sendThreaded(args: {
+  to: string;
+  subject: string;
+  bodyText: string;
+  inReplyTo: string;
+  references: string | null;
+}): Promise<{ resendId: string; messageId: string }> {
+  const messageId = `<${crypto.randomUUID()}@web99.ie>`;
+  const references = [args.references, args.inReplyTo].filter(Boolean).join(" ");
+  const safeBody = escapeHtmlInbox(args.bodyText.trim()).replace(/\n/g, "<br>");
+  const html = `<!doctype html><html><body style="margin:0;background:#f6f4fe;padding:24px 12px;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;color:#141033"><div style="max-width:540px;margin:auto;background:white;border-radius:16px;padding:28px"><div style="font-size:22px;font-weight:800;margin-bottom:20px">Web<span style="color:#5b3fe8">99</span><span style="color:#6b6790">.ie</span></div><div style="font-size:16px;line-height:1.65">${safeBody}</div></div></body></html>`;
+
+  const { data, error } = await resend().emails.send({
+    from: FROM,
+    replyTo: REPLY_TO,
+    to: args.to,
+    subject: args.subject,
+    html,
+    text: args.bodyText.trim(),
+    headers: {
+      "Message-ID": messageId,
+      "In-Reply-To": args.inReplyTo,
+      References: references,
+    },
+  });
+  if (error) throw new Error(`Resend: ${error.message}`);
+  return { resendId: data?.id ?? "", messageId };
 }

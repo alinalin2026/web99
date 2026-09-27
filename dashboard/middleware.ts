@@ -23,6 +23,7 @@ const PUBLIC = [
   "/api/login",
   "/api/health",
   "/api/ops-agent",
+  "/api/webhooks",
   "/login",
   "/buy",
   "/choose",
@@ -42,6 +43,18 @@ export function isPublicPath(pathname: string): boolean {
 
 export async function middleware(req: NextRequest) {
   const { pathname } = req.nextUrl;
+
+  /* Excluded here in the function body, not via the matcher regex below: a
+     matcher pattern gets the basePath silently prepended by Next, and a
+     negative-lookahead written against the un-prefixed path (as this used to
+     be) stops matching the bare basePath root ("/control" with no trailing
+     segment) — which let that exact URL skip the auth check entirely and
+     serve the live dashboard with no login. A catch-all matcher plus an
+     explicit exclusion here has no such gap. */
+  if (pathname.includes("/_next/static") || pathname.includes("/_next/image") || pathname.endsWith("/favicon.ico")) {
+    return NextResponse.next();
+  }
+
   const normalized = appPath(pathname);
 
   if (isPublicPath(pathname)) {
@@ -56,5 +69,5 @@ export async function middleware(req: NextRequest) {
 }
 
 export const config = {
-  matcher: ["/((?!_next/static|_next/image|favicon.ico).*)"],
+  matcher: ["/:path*"],
 };

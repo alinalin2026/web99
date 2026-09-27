@@ -2,12 +2,23 @@ import Link from "next/link";
 import {
   ensureMasterSchema, listOrders, listWorkEvents, qualificationFor, type Order,
 } from "@/lib/db";
+import { countArchived, listQuizCustomers, QUIZ_FILE_BASE_URL, type QuizCustomer, type QuizSection, type QuizSubmission } from "@/lib/quizCustomers";
+import { QuizSubmissionActions } from "./QuizSubmissionActions";
 import { LeadControls } from "./MasterActions";
 import { EmailComposer, type EmailOrderOption } from "./EmailComposer";
 
 export const dynamic = "force-dynamic";
 
-type Tab = "work" | "leads" | "plan" | "email";
+type Tab = "work" | "leads" | "plan" | "email" | "customers";
+
+async function safeListQuizCustomers(includeArchived: boolean): Promise<{ customers: QuizCustomer[]; archivedCount: number; error: string | null }> {
+  try {
+    const [customers, archivedCount] = await Promise.all([listQuizCustomers(includeArchived), countArchived()]);
+    return { customers, archivedCount, error: null };
+  } catch (err) {
+    return { customers: [], archivedCount: 0, error: (err as Error).message };
+  }
+}
 
 function ago(iso: string): string {
   const mins = Math.max(0, Math.floor((Date.now() - new Date(iso).getTime()) / 60000));
@@ -49,6 +60,7 @@ function tabs(active: Tab) {
     { key: "leads", label: "Leads" },
     { key: "plan", label: "Plan" },
     { key: "email", label: "Email" },
+    { key: "customers", label: "Customers" },
   ];
   return (
     <nav className="top-pills" aria-label="Dashboard sections">
@@ -64,23 +76,24 @@ function tabs(active: Tab) {
 export default async function MasterDashboard({
   searchParams,
 }: {
-  searchParams: Promise<{ tab?: string; group?: string }>;
+  searchParams: Promise<{ tab?: string; group?: string; archived?: string }>;
 }) {
   const query = await searchParams;
   // Old queue/studio bookmarks land on the new combined Plan screen.
   const requested = query.tab === "queue" || query.tab === "studio" ? "plan" : query.tab;
-  const active = (["work", "leads", "plan", "email"].includes(requested ?? "") ? requested : "work") as Tab;
+  const active = (["work", "leads", "plan", "email", "customers"].includes(requested ?? "") ? requested : "work") as Tab;
+  const showArchived = query.archived === "1";
 
   try {
     await ensureMasterSchema();
-    const [orders, events] = await Promise.all([listOrders(), listWorkEvents(60)]);
+    const [orders, events, quiz] = await Promise.all([listOrders(), listWorkEvents(60), safeListQuizCustomers(showArchived)]);
 
     return (
       <main className="master-shell">
         <header className="master-header">
           <div>
             <div className="brandline">Web<span>99</span> <b>Control</b></div>
-            <p>{active === "work" ? "What needs you right now" : active === "leads" ? "New Sarah conversations" : active === "email" ? "Send someone an email by hand" : "Approve direction once, then let Web99 build"}</p>
+            <p>{active === "work" ? "What needs you right now" : active === "leads" ? "New Sarah conversations" : active === "email" ? "Send someone an email by hand" : active === "customers" ? "What onboarding customers have sent in" : "Approve direction once, then let Web99 build"}</p>
           </div>
           <div className="header-dot" title="Dashboard online" />
         </header>
@@ -90,6 +103,7 @@ export default async function MasterDashboard({
         {active === "leads" && <LeadsTab orders={orders} group={query.group ?? "all"} />}
         {active === "plan" && <PlanTab orders={orders} />}
         {active === "email" && <EmailTab orders={orders} />}
+        {active === "customers" && <CustomersTab customers={quiz.customers} error={quiz.error} archivedCount={quiz.archivedCount} showArchived={showArchived} />}
       </main>
     );
   } catch (err) {
@@ -202,7 +216,11 @@ function LeadsTab({ orders, group }: { orders: Order[]; group: string }) {
       </div>
       {filtered.length === 0 ? <Empty text="No chats in this group." /> : filtered.map((o) => {
         const q = qualificationFor(o);
-        const lastCustomer = [...o.conversation].reverse().find((t) => t.role === "user")?.content ?? "";
+        const lastCustomerTurn = [...o.conversation].reverse().find((t) => t.role === "user");
+        const lastCustomer = lastCustomerTurn?.content
+          || (lastCustomerTurn?.attachments?.length
+            ? `📎 ${lastCustomerTurn.attachments.map((a) => a.filename).join(", ")}`
+            : "");
         return (
           <article className="lead-card panel" key={o.id}>
             <div className="card-top">
@@ -215,7 +233,20 @@ function LeadsTab({ orders, group }: { orders: Order[]; group: string }) {
               <div className="detail-grid">
                 <span><b>Email</b>{o.email || "—"}</span><span><b>Phone</b>{o.phone || "—"}</span>
               </div>
-              <div className="chat-log">{o.conversation.slice(-8).map((t, i) => <p key={i}><b>{t.role === "user" ? "Customer" : "Sarah"}</b>{t.content}</p>)}</div>
+              <div className="chat-log">{o.conversation.slice(-8).map((t, i) => (
+                <p key={i}>
+                  <b>{t.role === "user" ? "Customer" : "Sarah"}</b>{t.content}
+                  {t.attachments?.length ? (
+                    <span className="attachment-list">
+                      {t.attachments.map((a) => (
+                        <a key={a.id} href={`/control/api/attachments/${a.id}`} target="_blank" rel="noopener">
+                          {" "}📎 {a.filename}
+                        </a>
+                      ))}
+                    </span>
+                  ) : null}
+                </p>
+              ))}</div>
             </details>
             <LeadControls id={o.id} email={o.email} businessName={name(o)} />
           </article>
@@ -273,6 +304,93 @@ function EmailTab({ orders }: { orders: Order[] }) {
       <div className="section-title"><h1>Email</h1><span>{options.length} people</span></div>
       <p className="section-copy">Pick someone from Leads or Done, or type an address in by hand. Choose a template and fill in whatever it needs — everything's editable before you send.</p>
       <EmailComposer orders={options} />
+    </section>
+  );
+}
+
+function formatFileSize(bytes: number): string {
+  if (bytes < 1024 * 1024) return `${Math.max(1, Math.round(bytes / 1024))} KB`;
+  return `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
+}
+
+function formatAnswerValue(value: unknown): string {
+  if (Array.isArray(value)) return value.join(", ");
+  if (typeof value === "string") return value;
+  return value ? String(value) : "—";
+}
+
+function SubmissionCard({ submission }: { submission: QuizSubmission }) {
+  const answers = Object.entries(submission.answers);
+  return (
+    <article className="lead-card panel">
+      <div className="card-top">
+        <div className="grow">
+          <div className={`qual ${submission.status === "new" ? "q-lead" : submission.status === "archived" ? "q-all_others" : submission.status === "in_progress" ? "q-needs_customer" : "q-can_build"}`}>{submission.status.replace("_", " ")}</div>
+        </div>
+        <span className="age">{new Date(submission.submittedAt).toLocaleDateString(undefined, { day: "numeric", month: "short" })}</span>
+      </div>
+      <details className="mini-details">
+        <summary>Answers & files</summary>
+        <div className="detail-grid">
+          {answers.map(([key, value]) => (
+            <span key={key}><b>{key.replace(/([A-Z])/g, " $1").replace(/^./, l => l.toUpperCase())}</b>{formatAnswerValue(value)}</span>
+          ))}
+        </div>
+        {submission.files.length > 0 && (
+          <div className="detail-grid" style={{ marginTop: 10 }}>
+            {submission.files.map(file => (
+              <span key={file.key}><b>Attachment</b><a href={`${QUIZ_FILE_BASE_URL}${file.url}`} target="_blank" rel="noreferrer">{file.name}</a> ({formatFileSize(file.size)})</span>
+            ))}
+          </div>
+        )}
+      </details>
+      <QuizSubmissionActions id={submission.id} status={submission.status} />
+    </article>
+  );
+}
+
+function QuizSectionBlock({ section }: { section: QuizSection }) {
+  return (
+    <div style={{ marginBottom: 14 }}>
+      <div className="eyebrow" style={{ margin: "0 2px 6px" }}>{section.label}</div>
+      {section.submissions.map(submission => <SubmissionCard key={submission.id} submission={submission} />)}
+    </div>
+  );
+}
+
+function CustomersTab({ customers, error, archivedCount, showArchived }: { customers: QuizCustomer[]; error: string | null; archivedCount: number; showArchived: boolean }) {
+  const totalNew = customers.reduce((sum, c) => sum + c.newCount, 0);
+  return (
+    <section>
+      <div className="section-title"><h1>Customers</h1><span>{customers.length} · {totalNew} new</span></div>
+      <p className="section-copy">Onboarding quiz submissions from customers you've sent a link to, grouped by quiz section. Each section can be updated any time — updates land here automatically.</p>
+      {archivedCount > 0 && (
+        <p className="section-copy">
+          <Link href={showArchived ? "/?tab=customers" : "/?tab=customers&archived=1"}>
+            {showArchived ? "Hide archived" : `Show ${archivedCount} archived`}
+          </Link>
+        </p>
+      )}
+      {error ? (
+        <div className="panel error-panel">
+          <strong>Quiz database is not reachable.</strong>
+          <p>{error}</p>
+        </div>
+      ) : customers.length === 0 ? (
+        <Empty text="No customer has submitted a quiz yet." />
+      ) : (
+        customers.map(customer => {
+          const total = customer.sections.reduce((sum, s) => sum + s.submissions.length, 0);
+          return (
+            <div key={customer.businessName} style={{ marginBottom: 24 }}>
+              <div className="card-top" style={{ marginBottom: 10 }}>
+                <div className="grow"><h2>{customer.businessName}</h2><p>{customer.sections.length} of 8 sections · {total} submission{total === 1 ? "" : "s"}{customer.newCount > 0 ? ` · ${customer.newCount} new` : ""}</p></div>
+              </div>
+              {customer.sections.map(section => <QuizSectionBlock key={section.quizKey} section={section} />)}
+            </div>
+          );
+        })
+      )}
     </section>
   );
 }

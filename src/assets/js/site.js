@@ -197,6 +197,70 @@
     var sending = false;
     var quickWrap = null;
 
+    /* --- attachments (photos/documents, up to 100MB each) ---------------- */
+    var attachBtn = document.getElementById("attachBtn");
+    var filesInput = document.getElementById("storyFiles");
+    var filesWrap = document.getElementById("composerFiles");
+    var filesError = document.getElementById("composerFilesError");
+    var selectedFiles = [];
+    var MAX_FILE_BYTES = 100 * 1024 * 1024;
+    var MAX_FILES = 5;
+
+    var showFilesError = function (msg) {
+      if (!filesError) return;
+      filesError.textContent = msg || "";
+      filesError.hidden = !msg;
+    };
+
+    var formatFileSize = function (bytes) {
+      if (bytes >= 1024 * 1024) return (bytes / (1024 * 1024)).toFixed(1) + " MB";
+      return Math.max(1, Math.round(bytes / 1024)) + " KB";
+    };
+
+    var renderFiles = function () {
+      if (!filesWrap) return;
+      filesWrap.innerHTML = "";
+      filesWrap.hidden = selectedFiles.length === 0;
+      selectedFiles.forEach(function (file, index) {
+        var chip = el("span", "composer__file");
+        var label = el("span", null, file.name + " (" + formatFileSize(file.size) + ")");
+        var remove = el("button", null, "×");
+        remove.type = "button";
+        remove.setAttribute("aria-label", "Remove " + file.name);
+        remove.addEventListener("click", function () {
+          selectedFiles.splice(index, 1);
+          renderFiles();
+        });
+        chip.appendChild(label);
+        chip.appendChild(remove);
+        filesWrap.appendChild(chip);
+      });
+    };
+
+    if (attachBtn && filesInput) {
+      attachBtn.addEventListener("click", function () {
+        filesInput.click();
+      });
+
+      filesInput.addEventListener("change", function () {
+        showFilesError("");
+        var incoming = Array.prototype.slice.call(filesInput.files || []);
+        incoming.forEach(function (file) {
+          if (selectedFiles.length >= MAX_FILES) {
+            showFilesError("You can attach up to " + MAX_FILES + " files at a time.");
+            return;
+          }
+          if (file.size > MAX_FILE_BYTES) {
+            showFilesError('"' + file.name + '" is over the 100MB limit.');
+            return;
+          }
+          selectedFiles.push(file);
+        });
+        filesInput.value = "";
+        renderFiles();
+      });
+    }
+
     try {
       orderId = window.sessionStorage.getItem(KEY);
     } catch (err) {
@@ -216,7 +280,7 @@
       return n;
     };
 
-    var addTurn = function (who, text) {
+    var addTurn = function (who, text, files) {
       var turn = el("div", "turn turn--" + who);
       var av = el("span", "avatar avatar--sm");
 
@@ -241,7 +305,14 @@
         body.appendChild(dots);
         turn.setAttribute("data-pending", "true");
       } else {
-        body.textContent = text;
+        if (text) body.textContent = text;
+        if (Array.isArray(files) && files.length) {
+          var list = el("ul", "turn__files");
+          files.forEach(function (file) {
+            list.appendChild(el("li", null, "📎 " + file.name));
+          });
+          body.appendChild(list);
+        }
       }
 
       turn.appendChild(av);
@@ -330,7 +401,8 @@
       if (sending) return;
 
       var story = field.value.trim();
-      if (!story) {
+      var files = selectedFiles.slice();
+      if (!story && !files.length) {
         field.focus();
         return;
       }
@@ -342,6 +414,7 @@
         document.activeElement.blur();
       }
       clearQuickReplies();
+      showFilesError("");
 
       /* Sarah's opening bubble becomes part of the thread once it's underway. */
       if (intro && intro.parentNode) {
@@ -350,9 +423,11 @@
         intro = null;
       }
 
-      addTurn("them", story);
+      addTurn("them", story, files);
       field.value = "";
       field.style.height = "auto";
+      selectedFiles = [];
+      renderFiles();
 
       sending = true;
       if (sendBtn) sendBtn.disabled = true;
@@ -360,19 +435,40 @@
       var attribution = typeof window.web99Attribution === "function" ? window.web99Attribution() : null;
       var trackingConsent = typeof window.web99TrackingConsent === "function" ? window.web99TrackingConsent() : false;
 
-      fetch(api + "/api/chat", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          orderId: orderId,
-          message: story,
-          attribution: attribution,
-          trackingConsent: trackingConsent
-        }),
-      })
+      var requestInit;
+      if (files.length) {
+        var formData = new FormData();
+        formData.append("orderId", orderId || "");
+        formData.append("message", story);
+        formData.append("attribution", JSON.stringify(attribution || {}));
+        formData.append("trackingConsent", trackingConsent ? "true" : "false");
+        files.forEach(function (file) {
+          formData.append("files", file, file.name);
+        });
+        requestInit = { method: "POST", body: formData };
+      } else {
+        requestInit = {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            orderId: orderId,
+            message: story,
+            attribution: attribution,
+            trackingConsent: trackingConsent
+          }),
+        };
+      }
+
+      fetch(api + "/api/chat", requestInit)
         .then(function (r) {
-          if (!r.ok) throw new Error("HTTP " + r.status);
-          return r.json();
+          return r.json().catch(function () { return {}; }).then(function (data) {
+            if (!r.ok) {
+              var err = new Error((data && data.error) || ("HTTP " + r.status));
+              if (data && data.error) err.userMessage = data.error;
+              throw err;
+            }
+            return data;
+          });
         })
         .then(function (data) {
           pending.remove();
@@ -409,11 +505,15 @@
           /* Deliberately no field.focus() here. On mobile, Sarah's reply should
              stay readable instead of making the keyboard jump back up. */
         })
-        .catch(function () {
+        .catch(function (err) {
           pending.remove();
           sending = false;
           if (sendBtn) sendBtn.disabled = false;
-          breakDown();
+          if (err && err.userMessage) {
+            addTurn("sarah", err.userMessage);
+          } else {
+            breakDown();
+          }
         });
     });
   }

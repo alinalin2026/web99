@@ -163,7 +163,7 @@ export async function POST(
         if (!order.email) throw new Error("This lead has no email address.");
         const subject = String(body.subject ?? "");
         const message = String(body.message ?? "");
-        const messageId = await sendCustomEmail(order.email, subject, message);
+        const messageId = await sendCustomEmail(order.email, subject, message, id);
         await logEvent(id, "email", { message: `Email sent to ${order.email}`, template: "custom", subject, messageId });
         return NextResponse.json({ ok: true });
       }
@@ -171,7 +171,7 @@ export async function POST(
       case "sendPreview": {
         const fresh = await getOrder(id);
         if (!fresh?.email || !fresh.preview_url) throw new Error("This project needs an email and deployed preview first.");
-        await send(fresh.email, siteReady("", fresh.business_name ?? "your business", fresh.preview_url));
+        await send(fresh.email, siteReady("", fresh.business_name ?? "your business", fresh.preview_url), id);
         await sql`UPDATE orders SET sent_at = now(), customer_status = 'waiting_customer', state = 'sent' WHERE id = ${id}`;
         await logEvent(id, "preview_sent", { message: `${fresh.business_name ?? "Website"} sent to customer`, to: fresh.email, previewUrl: fresh.preview_url });
         await schedulePreviewFollowups(id);

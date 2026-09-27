@@ -70,7 +70,7 @@
       <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Manrope:wght@400;500;600;700;800&display=swap" />
     </noscript>
 
-    <link rel="stylesheet" href="/assets/css/site.css?v=1f6323a2" />
+    <link rel="stylesheet" href="/assets/css/site.css?v=8a1c4f10" />
     <!-- Set before first paint so scroll-reveal only hides content when JS can show it again. -->
     <script>document.documentElement.className += " js";</script>
     
@@ -254,9 +254,19 @@
           placeholder="Type your answer here…"
           autocomplete="off"></textarea>
 
+        <div class="composer__files" id="composerFiles" hidden></div>
+        <p class="composer__filesError" id="composerFilesError" hidden></p>
+
         <div class="composer__foot">
           <p class="composer__hint">No credit card. Nothing to pay today.</p>
-          <button class="btn" type="submit">Send <svg class="btn__arrow" width="19" height="19" aria-hidden="true"><use href="#i-arrow"/></svg></button>
+          <div class="composer__actions">
+            <button class="composer__attach" type="button" id="attachBtn" title="Attach photos or documents, up to 100MB each">
+              📎 <span>Attach</span>
+            </button>
+            <input type="file" id="storyFiles" multiple hidden
+                   accept="image/jpeg,image/png,image/webp,image/gif,image/heic,image/heif,application/pdf,application/msword,application/vnd.openxmlformats-officedocument.wordprocessingml.document,application/vnd.ms-excel,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet,text/plain" />
+            <button class="btn" type="submit">Send <svg class="btn__arrow" width="19" height="19" aria-hidden="true"><use href="#i-arrow"/></svg></button>
+          </div>
         </div>
       </form>
 
@@ -316,7 +326,7 @@
 </footer>
 
 
-    <script src="/assets/js/site.js?v=b9832270" defer></script>
+    <script src="/assets/js/site.js?v=e2f70c31" defer></script>
     <script src="/assets/js/tracking.js?v=20260817a" defer></script>
   </body>
 </html>

@@ -76,7 +76,8 @@ export async function POST(req: NextRequest) {
                 order.business_name ?? "your business",
                 order.preview_url ?? "",
                 `${process.env.APP_URL}/choose/${orderId}`
-              )
+              ),
+              orderId
             );
             await logEvent(orderId, "email", { template: "paid", to: order.email });
           } catch (err) {

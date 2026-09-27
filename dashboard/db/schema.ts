@@ -82,6 +82,17 @@ CREATE TABLE IF NOT EXISTS project_assets (
 );
 CREATE INDEX IF NOT EXISTS project_assets_order_idx ON project_assets (order_id, sort_order, created_at);
 
+CREATE TABLE IF NOT EXISTS chat_attachments (
+  id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+  order_id uuid NOT NULL REFERENCES orders(id) ON DELETE CASCADE,
+  filename text NOT NULL,
+  mime_type text NOT NULL,
+  size_bytes bigint NOT NULL,
+  storage_path text NOT NULL,
+  created_at timestamptz NOT NULL DEFAULT now()
+);
+CREATE INDEX IF NOT EXISTS chat_attachments_order_idx ON chat_attachments (order_id, created_at);
+
 CREATE TABLE IF NOT EXISTS project_versions (
   id bigserial PRIMARY KEY,
   order_id uuid NOT NULL REFERENCES orders(id) ON DELETE CASCADE,
@@ -125,6 +136,32 @@ CREATE INDEX IF NOT EXISTS jobs_status_idx ON jobs (status, created_at);
 CREATE INDEX IF NOT EXISTS jobs_order_idx ON jobs (order_id, created_at DESC);
 CREATE UNIQUE INDEX IF NOT EXISTS jobs_active_order_action_idx
   ON jobs (order_id, action) WHERE status IN ('queued','running');
+
+CREATE TABLE IF NOT EXISTS emails (
+  id bigserial PRIMARY KEY,
+  order_id uuid REFERENCES orders(id) ON DELETE SET NULL,
+  direction text NOT NULL CHECK (direction IN ('inbound','outbound')),
+  from_email text NOT NULL, to_email text NOT NULL, subject text NOT NULL DEFAULT '',
+  html text, text_body text,
+  message_id text NOT NULL, in_reply_to text, refs text, thread_id uuid NOT NULL,
+  resend_id text, read_at timestamptz,
+  created_at timestamptz NOT NULL DEFAULT now()
+);
+CREATE UNIQUE INDEX IF NOT EXISTS emails_message_id_idx ON emails (message_id);
+CREATE INDEX IF NOT EXISTS emails_order_idx ON emails (order_id, created_at DESC);
+CREATE INDEX IF NOT EXISTS emails_thread_idx ON emails (thread_id, created_at ASC);
+CREATE INDEX IF NOT EXISTS emails_in_reply_to_idx ON emails (in_reply_to);
+
+-- Attachments on stored emails (inbound or outbound). Same disk-plus-pointer
+-- storage approach as chat_attachments above, under UPLOAD_DIR/emails/.
+CREATE TABLE IF NOT EXISTS email_attachments (
+  id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+  email_id bigint NOT NULL REFERENCES emails(id) ON DELETE CASCADE,
+  filename text NOT NULL, mime_type text NOT NULL, size_bytes bigint NOT NULL,
+  storage_path text NOT NULL,
+  created_at timestamptz NOT NULL DEFAULT now()
+);
+CREATE INDEX IF NOT EXISTS email_attachments_email_idx ON email_attachments (email_id);
 
 -- Instant-preview quiz (web99.ie/build). A preview is anonymous and
 -- pre-lead: saved the moment the reveal renders, before any contact info

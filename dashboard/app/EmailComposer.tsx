@@ -11,7 +11,7 @@ export interface EmailOrderOption {
   done: boolean;
 }
 
-type Template = "custom" | "onTheWay" | "siteReady" | "nudge" | "paid";
+type Template = "custom" | "onTheWay" | "siteReady" | "nudge" | "paid" | "alanCheckIn";
 
 const TEMPLATES: { key: Template; label: string; needs: string[] }[] = [
   { key: "custom", label: "Custom message", needs: ["subject", "message"] },
@@ -19,6 +19,7 @@ const TEMPLATES: { key: Template; label: string; needs: string[] }[] = [
   { key: "siteReady", label: "Your website is ready to look at", needs: ["previewUrl"] },
   { key: "nudge", label: "Follow-up — did you see it?", needs: ["previewUrl"] },
   { key: "paid", label: "Payment received — what happens now", needs: ["liveUrl", "chooseUrl"] },
+  { key: "alanCheckIn", label: "Quick check-in from Alan", needs: [] },
 ];
 
 export function EmailComposer({ orders }: { orders: EmailOrderOption[] }) {
@@ -129,7 +130,7 @@ export function EmailComposer({ orders }: { orders: EmailOrderOption[] }) {
 
       <div className="detail-grid" style={{ marginTop: 12 }}>
         <label>Their name (optional)<input value={name} onChange={(e) => setName(e.target.value)} placeholder="Owner's first name" /></label>
-        {template !== "custom" && (
+        {template !== "custom" && template !== "alanCheckIn" && (
           <label>Business name<input value={businessName} onChange={(e) => setBusinessName(e.target.value)} placeholder="Their business" /></label>
         )}
       </div>

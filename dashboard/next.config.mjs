@@ -10,6 +10,13 @@ const nextConfig = {
   // /api/chat and /demo/* without needing a second dashboard hostname.
   basePath: "/control",
 
+  // Middleware buffers the request body before it reaches the route handler,
+  // capped at 10MB by default — too small for Sarah-chat file uploads
+  // (photos/documents up to 100MB). Raised to match.
+  experimental: {
+    middlewareClientMaxBodySize: "105mb",
+  },
+
   async headers() {
     return [
       {

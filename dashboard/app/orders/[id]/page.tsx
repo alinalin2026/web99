@@ -2,6 +2,7 @@ import Link from "next/link";
 import { notFound } from "next/navigation";
 import { getOrder, listAssets, listEvents, listVersions, qualificationFor } from "@/lib/db";
 import StudioEditor from "./StudioEditor";
+import Inbox from "./Inbox";
 
 export const dynamic = "force-dynamic";
 
@@ -9,6 +10,11 @@ function ago(iso: string) {
   const mins = Math.max(0, Math.floor((Date.now() - new Date(iso).getTime()) / 60000));
   if (mins < 60) return mins < 1 ? "now" : `${mins}m ago`;
   const h = Math.floor(mins / 60); return h < 24 ? `${h}h ago` : `${Math.floor(h / 24)}d ago`;
+}
+
+function formatBytes(bytes: number) {
+  if (bytes >= 1024 * 1024) return `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
+  return `${Math.max(1, Math.round(bytes / 1024))} KB`;
 }
 
 function humanStage(stage: string, state: string, hasPreview: boolean) {
@@ -75,6 +81,8 @@ export default async function ProjectPage({ params }: { params: Promise<{ id: st
         versions={versions}
       />
 
+      <Inbox id={order.id} />
+
       <details className="project-info panel">
         <summary><b>Project memory</b><span>Business facts Web99 remembers</span></summary>
         <div className="info-grid">
@@ -97,7 +105,24 @@ export default async function ProjectPage({ params }: { params: Promise<{ id: st
 
       <details className="project-info panel">
         <summary><b>Sarah chat</b><span>{order.conversation.length} messages</span></summary>
-        <div className="full-chat">{order.conversation.map((t, i) => <div key={i} className={`bubble ${t.role === "user" ? "customer" : "sarah"}`}><b>{t.role === "user" ? "Customer" : "Sarah"}</b><p>{t.content}</p></div>)}</div>
+        <div className="full-chat">{order.conversation.map((t, i) => (
+          <div key={i} className={`bubble ${t.role === "user" ? "customer" : "sarah"}`}>
+            <b>{t.role === "user" ? "Customer" : "Sarah"}</b>
+            <p>{t.content}</p>
+            {t.attachments?.length ? (
+              <ul className="attachment-list">
+                {t.attachments.map((a) => (
+                  <li key={a.id}>
+                    <a href={`/control/api/attachments/${a.id}`} target="_blank" rel="noopener">
+                      📎 {a.filename}
+                    </a>
+                    <span> ({formatBytes(a.size)})</span>
+                  </li>
+                ))}
+              </ul>
+            ) : null}
+          </div>
+        ))}</div>
       </details>
 
       {order.qa_report && (

@@ -31,7 +31,7 @@ type StepId = "name" | "trade" | "town" | "look" | "logo" | "phone";
 
 function stepsFor(tile: TradeTile | null): StepId[] {
   const steps: StepId[] = ["name", "trade", "town"];
-  if (!tile?.donorTemplate) steps.push("look");
+  if (!tile?.contentDonor) steps.push("look");
   steps.push("logo", "phone");
   return steps;
 }
@@ -204,14 +204,15 @@ export default function BuildQuiz() {
      this SPA -- its own bundle needs a real <script> tag executing. Create
      the preview server-side, then navigate to it as a real document. */
   async function submitDonorPreview() {
-    if (!site || !answers.tradeTile?.donorTemplate) return;
+    const tile = answers.tradeTile;
+    if (!site || !tile?.contentDonor || !tile.chromeDonor) return;
     setSubmitting(true);
     setSubmitError(null);
     try {
       const res = await fetch("/api/previews", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ ...site, donorTemplate: answers.tradeTile.donorTemplate }),
+        body: JSON.stringify({ ...site, contentDonor: tile.contentDonor, chromeDonor: tile.chromeDonor }),
       });
       const data = await res.json();
       if (!res.ok) throw new Error(data?.error ?? `HTTP ${res.status}`);
@@ -249,7 +250,7 @@ export default function BuildQuiz() {
 
   function next() {
     if (step === TOTAL_STEPS - 1) {
-      if (answers.tradeTile?.donorTemplate) {
+      if (answers.tradeTile?.contentDonor && answers.tradeTile.chromeDonor) {
         submitDonorPreview();
       } else {
         setRevealed(true);

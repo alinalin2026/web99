@@ -30,14 +30,19 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: "Invalid JSON" }, { status: 400 });
   }
 
-  const rawDonorTemplate = (body as Record<string, unknown> | null)?.donorTemplate;
-  const donorTemplate = typeof rawDonorTemplate === "string" ? rawDonorTemplate : undefined;
+  const raw = body as Record<string, unknown> | null;
+  const rawContent = raw?.contentDonor;
+  const rawChrome = raw?.chromeDonor;
+  const composition =
+    typeof rawContent === "string" && typeof rawChrome === "string"
+      ? { content: rawContent, chrome: rawChrome }
+      : undefined;
 
   if (!isValidSite(body)) {
     return NextResponse.json({ error: "Site object missing required fields" }, { status: 400 });
   }
 
-  const preview = await createPreview(body, donorTemplate);
+  const preview = await createPreview(body, composition);
   const base = process.env.APP_URL ?? "https://web99.ie";
   return NextResponse.json({ id: preview.id, url: `${base}/p/${preview.id}` });
 }

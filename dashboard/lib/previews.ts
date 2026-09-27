@@ -10,25 +10,27 @@ export interface Preview {
   created_at: string;
 }
 
-/** `donorTemplate`, when set, means a real pre-built design (see
-    lib/donor-templates.ts) renders this preview instead of the light
-    site-schema template -- `generated` is filled in after insert, once the
-    preview's own id is known (the donor's SPA router needs it baked in as
-    its base path). */
-export async function createPreview(site: Site, donorTemplate?: string): Promise<Preview> {
+/** `composition`, when set, means a preview assembled from real pre-built
+    sections (see lib/composed-templates.ts) renders this preview instead
+    of the light site-schema template -- one donor's header/hero/footer
+    (visual identity), a different, topically-matched donor's
+    services/features section (trade-specific content). */
+export async function createPreview(
+  site: Site,
+  composition?: { content: string; chrome: string }
+): Promise<Preview> {
   await ensureMasterSchema();
   const [row] = await sql<Preview[]>`
     INSERT INTO previews (category, site)
     VALUES (${site.category}, ${jsonb(site)})
     RETURNING *`;
 
-  if (donorTemplate) {
-    const { renderDonorTemplate } = await import("./donor-templates");
-    const generated = await renderDonorTemplate(donorTemplate, {
+  if (composition) {
+    const { renderComposedTemplate } = await import("./composed-templates");
+    const generated = await renderComposedTemplate(composition, {
       businessName: site.name,
       phone: site.phone,
       logoDataUrl: site.logo.type === "upload" ? site.logo.url : undefined,
-      basePath: `/p/${row.id}`,
     });
     const [updated] = await sql<Preview[]>`
       UPDATE previews SET generated = ${jsonb(generated)} WHERE id = ${row.id} RETURNING *`;

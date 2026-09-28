@@ -34,7 +34,6 @@
     background: var(--white);
   }
   .instant-preview__section {
-    padding: 18px 22px;
     border-bottom: 1px solid var(--lav-line);
   }
   .instant-preview__section:last-child { border-bottom: none; }
@@ -43,6 +42,85 @@
     align-items: center;
     justify-content: center;
     min-height: 60px;
+    padding: 18px 22px;
+  }
+
+  /* Instant, zero-AI visual treatment for the sections streamed back from
+     /api/instant-preview — the model only ever returns semantic markup
+     (h1/h2/p/ul/li/button) inside these w99-* wrapper classes, so this is
+     the entire "design" of the free preview. */
+  .instant-preview__frame .w99-hero {
+    background: linear-gradient(135deg, var(--violet) 0%, var(--violet-deep) 100%);
+    color: var(--white);
+    padding: 44px 28px;
+    text-align: center;
+  }
+  .instant-preview__frame .w99-hero h1 { margin: 0 0 10px; font-size: 1.7rem; color: var(--white); }
+  .instant-preview__frame .w99-sub { margin: 0 0 20px; font-size: 1.02rem; opacity: 0.92; }
+  .instant-preview__frame .w99-cta button {
+    border: none;
+    border-radius: 999px;
+    padding: 12px 26px;
+    font-weight: 700;
+    font-size: 0.92rem;
+    cursor: pointer;
+    background: var(--white);
+    color: var(--violet-deep);
+  }
+  .instant-preview__frame .w99-services,
+  .instant-preview__frame .w99-trust,
+  .instant-preview__frame .w99-contact {
+    padding: 28px;
+  }
+  .instant-preview__frame .w99-services h2,
+  .instant-preview__frame .w99-trust h2,
+  .instant-preview__frame .w99-contact h2 {
+    margin: 0 0 16px;
+    font-size: 1.2rem;
+    color: var(--ink);
+  }
+  .instant-preview__frame .w99-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+    gap: 14px;
+  }
+  .instant-preview__frame .w99-card {
+    background: var(--lav);
+    border-radius: 12px;
+    padding: 16px;
+  }
+  .instant-preview__frame .w99-card h3 { margin: 0 0 6px; font-size: 0.98rem; color: var(--violet-deep); }
+  .instant-preview__frame .w99-card p { margin: 0; font-size: 0.9rem; color: var(--muted); }
+  .instant-preview__frame .w99-trust p { margin: 0; color: var(--muted); line-height: 1.6; }
+  .instant-preview__frame .w99-points {
+    list-style: none;
+    margin: 16px 0 0;
+    padding: 0;
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+  }
+  .instant-preview__frame .w99-points li {
+    position: relative;
+    padding-left: 22px;
+    color: var(--ink);
+    font-size: 0.94rem;
+  }
+  .instant-preview__frame .w99-points li::before {
+    content: "✓";
+    position: absolute;
+    left: 0;
+    color: var(--violet);
+    font-weight: 700;
+  }
+  .instant-preview__frame .w99-contact {
+    background: var(--lav);
+    text-align: center;
+  }
+  .instant-preview__frame .w99-contact p { color: var(--ink); margin: 0 0 18px; }
+  .instant-preview__frame .w99-contact .w99-cta button {
+    background: var(--violet);
+    color: var(--white);
   }
 </style>
 

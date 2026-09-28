@@ -1,0 +1,8 @@
+{
+  "plumber": { "label": "Plumber", "alts": { "hero": "Modern bathroom with chrome taps and copper pipework", "work": "Plumber's gloved hands tightening a copper pipe joint", "detail": "Neat boiler and copper pipework in a clean utility room" } },
+  "builder": { "label": "Builder / construction", "alts": { "hero": "Well-built two-storey brick house extension at golden hour", "work": "Builder's hands laying a brick with a trowel", "detail": "Fresh timber roof frame against a blue sky" } },
+  "hair-salon": { "label": "Hair salon", "alts": { "hero": "Stylish modern hair salon interior with mirrors and styling chairs", "work": "Hands styling hair with scissors and comb", "detail": "Professional hair products and brushes on a marble shelf" } },
+  "cafe": { "label": "Café / coffee shop", "alts": { "hero": "Cosy independent café interior with wooden tables and morning light", "work": "Barista pouring latte art", "detail": "Pastries and coffee on a rustic wooden table" } },
+  "signage": { "label": "Signage, printing & vehicle wraps", "alts": { "hero": "Wrapped commercial van outside an illuminated shopfront at dusk", "work": "Large-format printer producing colourful graphics", "detail": "Installer applying vinyl graphics to a shop window" } },
+  "cleaner": { "label": "Cleaning service", "alts": { "hero": "Bright spotless modern living room in sunlight", "work": "Gloved hand wiping a glossy kitchen counter", "detail": "Cleaning supplies and folded microfibre cloths in a basket" } }
+}

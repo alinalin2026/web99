@@ -122,6 +122,20 @@
     background: var(--violet);
     color: var(--white);
   }
+
+  .instant-site__progress { margin-top: 14px; }
+  .instant-site__progress > span { display: block; margin-bottom: 8px; font-size: 0.9rem; font-weight: 600; color: var(--ink); }
+  .instant-site__bar { height: 8px; border-radius: 999px; background: var(--lav); overflow: hidden; }
+  .instant-site__bar i { display: block; height: 100%; width: 0; border-radius: 999px; background: linear-gradient(90deg, var(--violet), var(--violet-deep)); transition: width 0.6s ease; }
+  .instant-site__stage { border: 1px solid var(--lav-line); border-radius: 14px; overflow: hidden; background: var(--white); box-shadow: 0 10px 30px rgba(45, 27, 143, 0.10); }
+  .instant-site__chrome { display: flex; align-items: center; justify-content: space-between; padding: 10px 14px; background: var(--lav); border-bottom: 1px solid var(--lav-line); }
+  .instant-site__dots { display: inline-flex; gap: 6px; }
+  .instant-site__dots i { width: 10px; height: 10px; border-radius: 50%; background: var(--lav-line); }
+  .instant-site__toggle { display: inline-flex; gap: 4px; padding: 3px; border-radius: 999px; background: var(--white); }
+  .instant-site__toggle button { border: 0; border-radius: 999px; padding: 6px 14px; font: inherit; font-size: 0.82rem; font-weight: 700; color: var(--muted); background: transparent; cursor: pointer; }
+  .instant-site__toggle button[aria-pressed="true"] { background: var(--violet); color: var(--white); }
+  .instant-site__viewport { position: relative; height: 620px; overflow: hidden; background: #f4f4f6; }
+  .instant-site__viewport iframe { display: block; border: 0; background: #fff; transform-origin: 0 0; }
 </style>
 
 <section class="start">
@@ -168,6 +182,25 @@
           <div class="instant-preview__section is-loading" data-ip-section="services"><span class="turn__dots"><i></i><i></i><i></i></span></div>
           <div class="instant-preview__section is-loading" data-ip-section="trust"><span class="turn__dots"><i></i><i></i><i></i></span></div>
           <div class="instant-preview__section is-loading" data-ip-section="contact"><span class="turn__dots"><i></i><i></i><i></i></span></div>
+        </div>
+
+        <div class="instant-site" id="instantSite" hidden>
+          <div class="instant-site__progress" id="instantSiteProgress">
+            <span id="instantSiteLabel">Building your full website…</span>
+            <div class="instant-site__bar"><i id="instantSiteBar"></i></div>
+          </div>
+          <div class="instant-site__stage" id="instantSiteStage" hidden>
+            <div class="instant-site__chrome">
+              <span class="instant-site__dots" aria-hidden="true"><i></i><i></i><i></i></span>
+              <span class="instant-site__toggle">
+                <button type="button" data-mode="desktop" aria-pressed="true">Desktop</button>
+                <button type="button" data-mode="mobile" aria-pressed="false">Mobile</button>
+              </span>
+            </div>
+            <div class="instant-site__viewport" id="instantSiteViewport">
+              <iframe id="instantSiteFrame" title="Your website preview" sandbox="" referrerpolicy="no-referrer"></iframe>
+            </div>
+          </div>
         </div>
       </div>
 

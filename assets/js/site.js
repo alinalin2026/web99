@@ -270,6 +270,111 @@
         });
     };
 
+    /* --- full-page preview -------------------------------------------------
+       The server builds a complete art-directed front page from the owner's own
+       chat messages (by orderId — nothing the browser sends becomes a prompt)
+       and streams real progress. It is untrusted model output, so it is shown
+       in a script-less sandboxed iframe (sandbox="" = no scripts, no same-origin).
+       If it fails the four-section teaser above simply stays. */
+    var siteBox = document.getElementById("instantSite");
+    var siteLabel = document.getElementById("instantSiteLabel");
+    var siteBar = document.getElementById("instantSiteBar");
+    var siteProgress = document.getElementById("instantSiteProgress");
+    var siteStage = document.getElementById("instantSiteStage");
+    var siteViewport = document.getElementById("instantSiteViewport");
+    var siteFrame = document.getElementById("instantSiteFrame");
+    var siteMode = "desktop";
+
+    var fitSiteFrame = function () {
+      if (!siteFrame || !siteViewport) return;
+      var w = siteMode === "mobile" ? 390 : 1280;
+      var avail = siteViewport.clientWidth;
+      var s = Math.min(1, avail / w);
+      siteFrame.style.width = w + "px";
+      siteFrame.style.height = siteViewport.clientHeight / s + "px";
+      siteFrame.style.transform = "scale(" + s + ")";
+      siteFrame.style.marginLeft = Math.max(0, (avail - w * s) / 2) + "px";
+    };
+
+    var siteStatusText = function (pct) {
+      if (pct < 12) return "Choosing your style…";
+      if (pct < 45) return "Writing your pages…";
+      if (pct < 80) return "Laying out your sections…";
+      return "Adding the finishing touches…";
+    };
+
+    var handleSiteEvent = function (block) {
+      var eventName = "message";
+      var dataLines = [];
+      block.split("\n").forEach(function (line) {
+        if (line.indexOf("event:") === 0) eventName = line.slice(6).trim();
+        else if (line.indexOf("data:") === 0) dataLines.push(line.slice(5).trim());
+      });
+      if (!dataLines.length) return;
+      var data;
+      try { data = JSON.parse(dataLines.join("\n")); } catch (err) { return; }
+
+      if (eventName === "progress" && typeof data.pct === "number") {
+        siteBar.style.width = data.pct + "%";
+        siteLabel.textContent = siteStatusText(data.pct);
+      } else if (eventName === "page" && data && typeof data.html === "string") {
+        siteFrame.srcdoc = data.html;
+        siteProgress.hidden = true;
+        siteStage.hidden = false;
+        var frame = instantPreview.querySelector(".instant-preview__frame");
+        if (frame) frame.hidden = true;
+        var label = instantPreview.querySelector(".instant-preview__label");
+        if (label) label.textContent = "Your website preview — built from what you told us";
+        fitSiteFrame();
+      } else if (eventName === "error") {
+        siteBox.hidden = true;
+      }
+    };
+
+    var startInstantSite = function () {
+      if (!siteBox || !siteFrame || !orderId) return;
+      siteBox.hidden = false;
+      siteBar.style.width = "2%";
+      siteLabel.textContent = siteStatusText(0);
+
+      Array.prototype.forEach.call(siteBox.querySelectorAll("[data-mode]"), function (btn) {
+        btn.addEventListener("click", function () {
+          siteMode = btn.getAttribute("data-mode");
+          Array.prototype.forEach.call(siteBox.querySelectorAll("[data-mode]"), function (b) {
+            b.setAttribute("aria-pressed", b === btn ? "true" : "false");
+          });
+          fitSiteFrame();
+        });
+      });
+      window.addEventListener("resize", fitSiteFrame);
+
+      fetch(api + "/api/instant-site", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ orderId: orderId })
+      })
+        .then(function (r) {
+          if (!r.ok || !r.body) throw new Error("HTTP " + r.status);
+          var reader = r.body.getReader();
+          var decoder = new TextDecoder();
+          var buffer = "";
+          var readChunk = function () {
+            return reader.read().then(function (result) {
+              if (result.done) return;
+              buffer += decoder.decode(result.value, { stream: true });
+              var events = buffer.split("\n\n");
+              buffer = events.pop();
+              events.forEach(handleSiteEvent);
+              return readChunk();
+            });
+          };
+          return readChunk();
+        })
+        .catch(function () {
+          if (siteStage.hidden) siteBox.hidden = true;
+        });
+    };
+
     /* --- attachments (photos/documents, up to 100MB each) ---------------- */
     var attachBtn = document.getElementById("attachBtn");
     var filesInput = document.getElementById("storyFiles");
@@ -560,6 +665,7 @@
           if (!instantPreviewStarted && userTurns.length >= 3) {
             instantPreviewStarted = true;
             startInstantPreview();
+            startInstantSite();
           }
           if (data.readyToBuild) {
             try {

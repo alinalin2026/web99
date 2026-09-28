@@ -197,6 +197,79 @@
     var sending = false;
     var quickWrap = null;
 
+    /* --- instant preview ---------------------------------------------------
+       Fires once, the moment we have a business name (turn 1), an email
+       (turn 2, per Sarah's fixed question order — see sarah.ts), and a
+       description of the business (turn 3 onward). Free, best-effort, never
+       blocks the real chat: if it fails or the connection drops, the panel
+       just disappears and the conversation carries on as normal. */
+    var instantPreview = document.getElementById("instantPreview");
+    var userTurns = [];
+    var instantPreviewStarted = false;
+
+    var handleInstantPreviewEvent = function (block) {
+      var eventName = "message";
+      var dataLines = [];
+      block.split("\n").forEach(function (line) {
+        if (line.indexOf("event:") === 0) eventName = line.slice(6).trim();
+        else if (line.indexOf("data:") === 0) dataLines.push(line.slice(5).trim());
+      });
+      if (!dataLines.length) return;
+      var data;
+      try { data = JSON.parse(dataLines.join("\n")); } catch (err) { return; }
+
+      if (eventName === "section" && data && data.id) {
+        var slot = instantPreview.querySelector('[data-ip-section="' + data.id + '"]');
+        if (slot) {
+          slot.innerHTML = data.html || "";
+          slot.classList.remove("is-loading");
+        }
+      } else if (eventName === "error") {
+        instantPreview.hidden = true;
+      }
+    };
+
+    var startInstantPreview = function () {
+      if (!instantPreview) return;
+      var description = userTurns.slice(2).join("\n\n");
+      if (!description) return;
+      var trade = (description.split(/[\n.!?]/)[0] || description).trim().slice(0, 100);
+
+      instantPreview.hidden = false;
+      instantPreview.scrollIntoView({ block: "nearest", behavior: reduced ? "auto" : "smooth" });
+
+      fetch(api + "/api/instant-preview", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          businessName: userTurns[0],
+          trade: trade,
+          description: description
+        })
+      })
+        .then(function (r) {
+          if (!r.ok || !r.body) throw new Error("HTTP " + r.status);
+          var reader = r.body.getReader();
+          var decoder = new TextDecoder();
+          var buffer = "";
+
+          var readChunk = function () {
+            return reader.read().then(function (result) {
+              if (result.done) return;
+              buffer += decoder.decode(result.value, { stream: true });
+              var events = buffer.split("\n\n");
+              buffer = events.pop();
+              events.forEach(handleInstantPreviewEvent);
+              return readChunk();
+            });
+          };
+          return readChunk();
+        })
+        .catch(function () {
+          instantPreview.hidden = true;
+        });
+    };
+
     /* --- attachments (photos/documents, up to 100MB each) ---------------- */
     var attachBtn = document.getElementById("attachBtn");
     var filesInput = document.getElementById("storyFiles");
@@ -415,6 +488,7 @@
       }
       clearQuickReplies();
       showFilesError("");
+      if (story) userTurns.push(story);
 
       /* Sarah's opening bubble becomes part of the thread once it's underway. */
       if (intro && intro.parentNode) {
@@ -483,6 +557,10 @@
           }
 
           addTurn("sarah", data.reply);
+          if (!instantPreviewStarted && userTurns.length >= 3) {
+            instantPreviewStarted = true;
+            startInstantPreview();
+          }
           if (data.readyToBuild) {
             try {
               window.dispatchEvent(new CustomEvent("web99:lead", {

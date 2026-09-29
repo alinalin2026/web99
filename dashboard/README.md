@@ -272,7 +272,7 @@ the same `lib/capabilities.ts` as everything else.
       file that matters" above. Check them against each other after any
       pricing or SLA change.
 - [x] **Sarah/dashboard business-model consistency.** Two-phase prompt,
-      48h/5-day SLAs, no ecommerce, free-forever small edits, €45/€15
+      instant in-chat preview + 5-day delivery SLA, no ecommerce, free-forever small edits, €45/€15
       renewals — matched between `capabilities.ts`, `sarah.ts` and the
       repo-root marketing site as of this commit.
 
@@ -284,3 +284,31 @@ reasoning-tier calls, and a failed QA pass adds one repair call. The build
 call dominates — it emits a whole website's source in one response. Sarah
 and extraction stay on the fast/cheap tier deliberately, since those run on
 every single lead regardless of whether they ever convert.
+
+## The live preview on /start (free, pre-payment)
+
+Sarah is a short-reply website helper. When she knows the business name and
+trade she appends a `[[PREVIEW: {...}]]` marker to her reply; `/api/chat`
+strips it (`lib/chat-markers.ts`) and returns it as `preview`. The /start page
+(`src/assets/js/preview.js`) then calls `POST /api/instant-preview`, which
+streams:
+
+1. **`theme`** — instant, no AI. `lib/image-library.ts` picks the trade
+   (`classifyTrade`), a palette, one of five looks (`modern`, `classic`,
+   `bold`, `soft`, `dark`) and the imagery, and returns a full stylesheet.
+   Changing only the look sends `themeOnly` and costs nothing.
+2. **`section`** ×4 — hero, services, trust, contact: one small OpenAI call
+   each, in parallel, shown as each finishes (`lib/instant-preview.ts`).
+
+**Imagery.** `LIBRARY` in `lib/image-library.ts` maps each trade category to
+photos served as static files from the marketing site. A category with no
+photos uses generated art (gradient + a line glyph), so nothing is ever blank.
+To add photos: put optimised images in `src/assets/img/library/<category>/`,
+list their `/assets/img/library/...` paths in `LIBRARY` (first = hero), rebuild.
+Only `barber` has a photo so far. Nothing here is used by the paid build,
+which uses the customer's own photos or `images.ts`.
+
+`/api/instant-preview` is unauthenticated and spends OpenAI tokens, so it is
+rate-limited per IP in memory (12 runs / 15 min) and is on the middleware
+public list. The preview renders in a sandboxed, script-less iframe and every
+fragment is cleaned server-side and again in the browser.

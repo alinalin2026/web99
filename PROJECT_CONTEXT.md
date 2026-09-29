@@ -87,12 +87,18 @@ only credential needed to start.
 
 ## The funnel
 
-Ad → lead lands with Sarah (no quiz, plain conversation) → scoped
-preview built (skeleton, no backend) → instant confirmation email the
-moment Sarah captures their email → preview live for 48h → customer
-pays → full details collected in one pass → real build within 5
-business days of details received (not from payment) → 3 free edits
-after delivery, then everything is a priced request.
+Ad → lead lands with Sarah (no quiz, plain conversation) → instant
+preview builds live in the chat (`lib/instant-preview.ts` — look and
+feel only, no images, no human review) → customer pays → full details
++ photos/logo collected in one pass → real build (with imagery) within
+5 business days of details received (not from payment) → 3 free edits
+after delivery, then everything is a priced request. The marketing
+site, Sarah's prompt and `capabilities.ts` no longer promise a 48h
+preview. Sarah is now a short-reply helper: buttons, suggestions, and a
+`[[PREVIEW: {...}]]` marker that makes /start build the preview live (see
+the "live preview" section in `dashboard/README.md`). Trade imagery comes
+from `LIBRARY` in `lib/image-library.ts` — only `barber` has a real photo
+so far; every other trade shows generated art until photos are added.
 
 ## The 5 trade categories
 

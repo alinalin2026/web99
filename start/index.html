@@ -5,7 +5,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1" />
 
     <title>Tell us about your business — Web99.ie</title>
-    <meta name="description" content="Two minutes. Describe your business in your own words and we'll build your website. No credit card, nothing to pay until you've seen it." />
+    <meta name="description" content="Two minutes. Describe your business in your own words and watch your website's design build live. No credit card, nothing to pay until you've seen it." />
     <link rel="canonical" href="https://web99.ie/start/" />
     <meta name="theme-color" content="#5B3FE8" />
 
@@ -14,7 +14,7 @@
     <meta property="og:locale" content="en_IE" />
     <meta property="og:url" content="https://web99.ie/start/" />
     <meta property="og:title" content="Tell us about your business" />
-    <meta property="og:description" content="Two minutes of talking. A real preview within 48 hours. Pay nothing until you've seen it." />
+    <meta property="og:description" content="Two minutes of talking. Watch your design build live in the chat. Pay nothing until you've seen it." />
     <meta property="og:image" content="https://web99.ie/assets/img/og.png" />
     <meta property="og:image:width" content="1200" />
     <meta property="og:image:height" content="630" />
@@ -22,7 +22,7 @@
 
     <meta name="twitter:card" content="summary_large_image" />
     <meta name="twitter:title" content="Tell us about your business" />
-    <meta name="twitter:description" content="Two minutes of talking. A real preview within 48 hours. Pay nothing until you've seen it." />
+    <meta name="twitter:description" content="Two minutes of talking. Watch your design build live in the chat. Pay nothing until you've seen it." />
     <meta name="twitter:image" content="https://web99.ie/assets/img/og.png" />
 
     <!-- favicon.svg (the old "99" mark) is retired in favour of the new
@@ -70,7 +70,7 @@
       <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Manrope:wght@400;500;600;700;800&display=swap" />
     </noscript>
 
-    <link rel="stylesheet" href="/assets/css/site.css?v=1f6323a2" />
+    <link rel="stylesheet" href="/assets/css/site.css?v=2f4db41e" />
     <!-- Set before first paint so scroll-reveal only hides content when JS can show it again. -->
     <script>document.documentElement.className += " js";</script>
     
@@ -228,19 +228,21 @@
   <div class="wrap">
     <div class="chat">
       <div class="chat__head">
-        <p class="eyebrow">Step one of one</p>
-        <h1 class="h2">Tell us about your business.</h1>
+        <p class="eyebrow">Live preview</p>
+        <h1 class="h2">Let's build your website. Right here.</h1>
       </div>
 
-      <div class="chat__thread" id="chatThread" aria-live="polite"></div>
+      <aside class="chat__preview" id="pvSlot" aria-label="Live preview of your website"></aside>
+
+      <div class="chat__thread" id="chatThread" aria-live="polite" data-api=""></div>
 
       <div class="chat__intro" id="sarahIntro">
         <span class="avatar" style="width:68px;height:68px" role="img" aria-label="Sarah, Web99's AI assistant">
           <img src="/assets/img/sarah-photo.svg?v=20260808d" alt="Sarah, Web99's AI assistant" width="68" height="68" />
         </span>
         <div>
-          <p class="bubble" id="sarahPrompt">Hi, I'm Sarah — the Web99 assistant. First, what's the name of your business? If you don't have a name yet, just tell me that.</p>
-          <span class="chat__who"><strong>Sarah</strong> · Web99's AI assistant. A person reads every website before it reaches you.</span>
+          <p class="bubble" id="sarahPrompt">Hi, I'm Sarah — I'll help you build your website right here, in about two minutes. What's your business called? If it doesn't have a name yet, just say so.</p>
+          <span class="chat__who"><strong>Sarah</strong> · Web99's AI assistant. A person checks your finished website before it goes live.</span>
         </div>
       </div>
 
@@ -250,8 +252,8 @@
         <textarea
           id="businessStory"
           name="story"
-          rows="5"
-          placeholder="Type your answer here…"
+          rows="3"
+          placeholder="Type here, or tap a button when you see one…"
           autocomplete="off"></textarea>
 
         <div class="composer__foot">
@@ -261,13 +263,15 @@
       </form>
 
       <p class="start__reassure">
-        <span><svg width="18" height="18" aria-hidden="true"><use href="#i-clock"/></svg> Preview in 48 hours</span>
+        <span><svg width="18" height="18" aria-hidden="true"><use href="#i-clock"/></svg> Design builds live, here</span>
         <span><svg width="18" height="18" aria-hidden="true"><use href="#i-eye"/></svg> You see it before you pay</span>
         <span><svg width="18" height="18" aria-hidden="true"><use href="#i-key"/></svg> You own everything</span>
       </p>
     </div>
   </div>
 </section>
+
+<script src="/assets/js/preview.js?v=7def8166" defer></script>
 
     </main>
 
@@ -316,7 +320,7 @@
 </footer>
 
 
-    <script src="/assets/js/site.js?v=b9832270" defer></script>
+    <script src="/assets/js/site.js?v=9eb125ac" defer></script>
     <script src="/assets/js/tracking.js?v=20260808c" defer></script>
   </body>
 </html>

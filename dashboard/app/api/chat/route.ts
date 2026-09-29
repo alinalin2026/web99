@@ -1,6 +1,7 @@
 import { after, NextRequest, NextResponse } from "next/server";
 import { chat, json, MODELS, type Turn } from "@/lib/ai";
 import { sarahSystemPrompt, extractionPrompt, sarahOpener } from "@/lib/prompts/sarah";
+import { parseSarahReply, type QuickReply } from "@/lib/chat-markers";
 import {
   ensureMasterSchema, sql, jsonb, getOrder, setState, logEvent, scheduleLeadFollowups, syncQualification, type Order,
 } from "@/lib/db";
@@ -19,7 +20,6 @@ interface Brief {
   trackingConsent?: boolean; [k: string]: unknown;
 }
 interface ChatBody { orderId?: string; message?: string; history?: Turn[]; attribution?: unknown; trackingConsent?: boolean }
-type QuickReply = { label: string; value: string };
 
 const REQUIRED: (keyof Brief)[] = ["trade", "websiteGoal", "email"];
 const ATTR_KEYS = ["fbclid","utm_source","utm_medium","utm_campaign","utm_content","utm_term","landing_url","landing_path","landed_at","user_agent"] as const;
@@ -40,13 +40,6 @@ function safeHistory(value: unknown): Turn[] {
   if (!Array.isArray(value)) return [];
   return value.filter((t): t is Turn => !!t && typeof t === "object" && ((t as Turn).role === "user" || (t as Turn).role === "assistant") && typeof (t as Turn).content === "string")
     .map((t) => ({ role: t.role, content: t.content.trim().slice(0, 4000) })).filter((t) => t.content).slice(-18);
-}
-function parseSarahReply(raw: string): { reply: string; quickReplies: QuickReply[] } {
-  const marker = /\s*\[\[OPTIONS:\s*([^\]]+)\]\]\s*$/i; const match = raw.match(marker);
-  if (!match) return { reply: raw.trim(), quickReplies: [] };
-  const labels = match[1].split("|").map((p) => p.trim().replace(/\s+/g, " ").slice(0, 48)).filter(Boolean).slice(0, 3);
-  if (labels.length < 2) return { reply: raw.replace(marker, "").trim(), quickReplies: [] };
-  return { reply: raw.replace(marker, "").trim(), quickReplies: labels.map((label) => ({ label, value: label })) };
 }
 function clientIp(req: NextRequest): string | null {
   const f = req.headers.get("x-forwarded-for"); return f ? f.split(",")[0]?.trim() || null : req.headers.get("x-real-ip");
@@ -86,7 +79,7 @@ export async function POST(req: NextRequest) {
   } catch (err) { persistenceAvailable = false; console.error("chat persistence unavailable", err); }
 
   if (order && order.state !== "collecting") {
-    return withCors(req, NextResponse.json({ orderId: order.id, reply: "Thanks — we've got enough to get started. We'll send the first draft to your email when it's ready.", quickReplies: [], missing: [], readyToBuild: true }));
+    return withCors(req, NextResponse.json({ orderId: order.id, reply: "You're all set — your preview is above. Ready to make it real?", quickReplies: [], missing: [], readyToBuild: true }));
   }
 
   const now = new Date().toISOString();
@@ -105,13 +98,14 @@ export async function POST(req: NextRequest) {
 
   // A first-turn greeting is deterministic and should feel instant.
   if (GREETING_RE.test(message) && userConversation.length <= 2) {
-    const reply = "Hi! I'm Sarah. What's the name of your business? If you don't have a name yet, just tell me that.";
+    const reply = "Hi! I'm Sarah. What's your business called?";
     const conversation = [...userConversation, { role: "assistant" as const, content: reply, at: new Date().toISOString() }];
     if (order && persistenceAvailable) {
       try { await sql`UPDATE orders SET conversation=${jsonb(conversation)} WHERE id=${order.id}`; }
       catch (err) { console.error("chat greeting save failed", err); }
     }
-    return withCors(req, NextResponse.json({ orderId: order?.id ?? null, reply, quickReplies: [], missing: REQUIRED.map(String).concat("anythingElse"), readyToBuild: false, temporary: !persistenceAvailable }));
+    const quickReplies: QuickReply[] = [{ label: "I don't have a name yet", value: "I don't have a name yet" }];
+    return withCors(req, NextResponse.json({ orderId: order?.id ?? null, reply, quickReplies, missing: REQUIRED.map(String).concat("anythingElse"), readyToBuild: false, temporary: !persistenceAvailable }));
   }
 
   // Customer-visible latency is now ONLY Sarah's reply. Everything that powers
@@ -121,10 +115,11 @@ export async function POST(req: NextRequest) {
   try { modelReply = await chat(sarahSystemPrompt(), turns, MODELS.sarah); }
   catch (err) {
     await safeLog(order?.id ?? null, "error", { step: "sarah", message: (err as Error).message });
-    return withCors(req, NextResponse.json({ orderId: order?.id ?? null, reply: "Sorry — I couldn't get a reply through just now. Please try that message once more, or ring us on (01) 234 3300.", quickReplies: [], missing: [], readyToBuild: false, retryable: true, temporary: !persistenceAvailable }));
+    return withCors(req, NextResponse.json({ orderId: order?.id ?? null, reply: "Sorry — I couldn't get a reply through just now. Please try that message once more.", quickReplies: [], missing: [], readyToBuild: false, retryable: true, temporary: !persistenceAvailable }));
   }
 
   const parsed = parseSarahReply(modelReply);
+  if (parsed.preview) await safeLog(order?.id ?? null, "preview_requested", { style: parsed.preview.style, trade: parsed.preview.trade, businessName: parsed.preview.businessName });
   const conversation = [...userConversation, { role: "assistant" as const, content: parsed.reply, at: new Date().toISOString() }];
 
   // Save Sarah's visible answer quickly; do not make the browser wait for extraction.
@@ -194,6 +189,7 @@ export async function POST(req: NextRequest) {
     orderId,
     reply: parsed.reply,
     quickReplies: readyFast ? [] : parsed.quickReplies,
+    preview: parsed.preview,
     missing: readyFast ? [] : previousMissing,
     readyToBuild: readyFast,
     temporary: !persistenceAvailable,

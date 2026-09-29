@@ -26,18 +26,20 @@
   <div class="wrap">
     <div class="chat">
       <div class="chat__head">
-        <p class="eyebrow">Step one of one</p>
-        <h1 class="h2">Tell us about your business.</h1>
+        <p class="eyebrow">Live preview</p>
+        <h1 class="h2">Let's build your website. Right here.</h1>
       </div>
 
-      <div class="chat__thread" id="chatThread" aria-live="polite"></div>
+      <aside class="chat__preview" id="pvSlot" aria-label="Live preview of your website"></aside>
+
+      <div class="chat__thread" id="chatThread" aria-live="polite" data-api="{{dashboardUrl}}"></div>
 
       <div class="chat__intro" id="sarahIntro">
         <span class="avatar" style="width:68px;height:68px" role="img" aria-label="Sarah, Web99's AI assistant">
           <img src="/assets/img/sarah-photo.svg?v=20260808d" alt="Sarah, Web99's AI assistant" width="68" height="68" />
         </span>
         <div>
-          <p class="bubble" id="sarahPrompt">Hi, I'm Sarah — the Web99 assistant. First, what's the name of your business? If you don't have a name yet, just tell me that.</p>
+          <p class="bubble" id="sarahPrompt">Hi, I'm Sarah — I'll help you build your website right here, in about two minutes. What's your business called? If it doesn't have a name yet, just say so.</p>
           <span class="chat__who"><strong>Sarah</strong> · Web99's AI assistant. A person checks your finished website before it goes live.</span>
         </div>
       </div>
@@ -48,8 +50,8 @@
         <textarea
           id="businessStory"
           name="story"
-          rows="5"
-          placeholder="Type your answer here…"
+          rows="3"
+          placeholder="Type here, or tap a button when you see one…"
           autocomplete="off"></textarea>
 
         <div class="composer__foot">
@@ -66,3 +68,5 @@
     </div>
   </div>
 </section>
+
+<script src="/assets/js/preview.js" defer></script>

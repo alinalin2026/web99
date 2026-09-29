@@ -133,16 +133,16 @@ export const capabilities: Capability[] = [
   {
     id: "speed",
     status: "included",
-    label: "Preview within 48 hours, live within 5 business days",
+    label: "See the design live in the chat, live within 5 business days",
     detail:
-      "They see a real visual preview within 48 hours of the conversation, before paying anything. After payment, the finished site is live within 5 business days — the clock starts when their full details are in hand, not at payment.",
+      "They watch a live preview of the site's look and feel build in the chat while they talk to Sarah, before paying anything. After payment they send their details, photos and logo in one checklist, we add the imagery and everything else, and the finished site is live within 5 business days — the clock starts when their full details are in hand, not at payment.",
   },
   {
     id: "see-first",
     status: "included",
     label: "They see a real visual preview before paying anything",
     detail:
-      "A live preview of the look and feel, no card details required. If they do not want it, they pay nothing and there is nothing to cancel. The full site is built after they pay.",
+      "A live, automatically generated preview of the look and feel appears in the chat, no card details required. It is illustrative: the text is generated on the spot, the imagery is placeholder art or stock, and no person has reviewed it. It is NOT the finished site. If they do not want it, they pay nothing and there is nothing to cancel. The full site — with their own photos and details, and the imagery we add — is built after they pay.",
   },
   {
     id: "google-basic",
@@ -337,7 +337,7 @@ export const neverPromise: string[] = [
   "Professional photography, or that we will send a photographer.",
   "Running or managing paid advertising.",
   "A complete rebuild from scratch later at no cost. Three changes are free; a different site months later is a separate conversation.",
-  "Any date faster than the two SLAs: preview within 48 hours, live site within 5 business days of full details being in hand. Never same-day.",
+  "Any date faster than the delivery SLA: live site within 5 business days of full details being in hand. Never same-day. (The preview itself is instant, in the chat; do not promise anything about it being emailed or reviewed by a person.)",
   "Absorbing the customer's card-processing fees if they sell online. Those are the payment provider's and stay with the customer.",
   "Any price other than €99 once, €45 a year for domain and hosting after year one, and €15 a year for email after year one. Anything else is quoted from the price list before it is agreed — never improvised.",
   "A refund, in any form. Refunds are never raised as a possibility. Work begins immediately on payment with the customer's consent and all sales are final.",
@@ -429,12 +429,12 @@ export const commercials = {
   currency: "EUR",
   renewal: "€45 a year",
   emailRenewal: "€15 a year",
-  previewSla: "within 48 hours",
+  previewSla: "live in the chat, instantly, before paying",
   deliverySla:
     "live within 5 business days — the clock starts when the full details are in hand, not at payment",
-  turnaround: "48 hours to a visual preview, then 5 business days to live once details are in",
+  turnaround: "the preview is instant in the chat, then 5 business days to live once details are in",
   freeChanges: 3,
-  paymentTiming: "after they have seen the preview and decided to go ahead",
+  paymentTiming: "after they have seen the live preview and decided to go ahead",
   refundPosition:
     "No refunds exist and they are never raised as a possibility. If asked directly: work begins immediately on payment with the customer's consent, and all sales are final.",
 };

@@ -321,6 +321,7 @@ async function build() {
     createHash("sha1").update(await readFile(join(src, p))).digest("hex").slice(0, 8);
   const cssV = await stamp("assets/css/site.css");
   const jsV = await stamp("assets/js/site.js");
+  const previewV = await stamp("assets/js/preview.js");
 
   for (const file of pages) {
     const raw = await read(join("pages", file));
@@ -349,7 +350,8 @@ async function build() {
     let html = fill(fill(layout, map), map);
     html = html
       .replace("/assets/css/site.css", `/assets/css/site.css?v=${cssV}`)
-      .replace("/assets/js/site.js", `/assets/js/site.js?v=${jsV}`);
+      .replace("/assets/js/site.js", `/assets/js/site.js?v=${jsV}`)
+      .replace("/assets/js/preview.js", `/assets/js/preview.js?v=${previewV}`);
 
     /* Directory-per-route: "/pricing/index.html". Works unchanged on GitHub
        Pages, Vercel, Netlify or a plain file server — no rewrite rules. */

@@ -206,7 +206,7 @@
     /* grow the box as they type, so nothing scrolls out of sight */
     field.addEventListener("input", function () {
       field.style.height = "auto";
-      field.style.height = Math.max(128, field.scrollHeight) + "px";
+      field.style.height = Math.max(84, field.scrollHeight) + "px";
     });
 
     var el = function (tag, cls, text) {
@@ -267,7 +267,7 @@
       quickWrap.style.gap = "10px";
       quickWrap.style.margin = "-8px 0 18px 51px";
 
-      items.slice(0, 3).forEach(function (item) {
+      items.slice(0, 4).forEach(function (item) {
         if (!item) return;
         var label = String(item.label || item.value || "").trim();
         var value = String(item.value || item.label || "").trim();
@@ -300,12 +300,19 @@
       clearQuickReplies();
       startForm.remove();
       var done = el("div", "chat__done");
-      done.appendChild(el("h2", null, "That's everything — thanks."));
+      done.appendChild(el("h2", null, "You're all set \u2014 thanks."));
       done.appendChild(
-        el("p", null, "Your design is being put together now. This is the look and feel — your own photos and details go in after you pay.")
+        el("p", null, "Your preview stays right here. It's the look and feel \u2014 your own photos and details go in after you pay.")
       );
+      if (orderId) {
+        var buy = el("a", "btn btn--lg", "Get it for \u20ac99");
+        buy.href = api + "/buy/" + encodeURIComponent(orderId);
+        buy.rel = "noopener";
+        buy.style.margin = "14px 0 8px";
+        done.appendChild(buy);
+      }
       done.appendChild(
-        el("p", null, "Nothing has been charged.")
+        el("p", null, "Nothing has been charged. Close this page and you owe nothing.")
       );
       thread.parentNode.insertBefore(done, thread.nextSibling);
       done.scrollIntoView({ block: "nearest", behavior: reduced ? "auto" : "smooth" });
@@ -385,8 +392,20 @@
               window.sessionStorage.setItem(KEY, orderId);
             } catch (err) {}
           }
+          if (orderId) {
+            try {
+              window.dispatchEvent(new CustomEvent("web99:order", { detail: { orderId: orderId } }));
+            } catch (err) {}
+          }
 
           addTurn("sarah", data.reply);
+          if (data.preview && data.preview.trade) {
+            try {
+              window.dispatchEvent(new CustomEvent("web99:preview", {
+                detail: { brief: data.preview, orderId: data.orderId || orderId }
+              }));
+            } catch (err) {}
+          }
           if (data.readyToBuild) {
             try {
               window.dispatchEvent(new CustomEvent("web99:lead", {

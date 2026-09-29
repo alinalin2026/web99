@@ -109,7 +109,7 @@ async function complete(
 
 export async function chat(system: string, turns: Turn[], model: string = MODELS.sarah): Promise<string> {
   // Sarah is a customer-facing intake assistant: keep latency and cost low.
-  return complete(system, turns, model, 300, undefined, "minimal");
+  return complete(system, turns, model, 600, undefined, "minimal");
 }
 
 export async function text(
@@ -117,9 +117,10 @@ export async function text(
   user: string,
   model: string,
   maxTokens = 12000,
-  temperature = 0.35
+  temperature = 0.35,
+  reasoningEffort?: "minimal" | "low" | "medium" | "high"
 ): Promise<string> {
-  return complete(system, [{ role: "user", content: user }], model, maxTokens, temperature);
+  return complete(system, [{ role: "user", content: user }], model, maxTokens, temperature, reasoningEffort);
 }
 
 export async function json<T = unknown>(

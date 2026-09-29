@@ -152,7 +152,9 @@ cost tiers, picked per call:
 
 | Env var | Used for |
 |---|---|
-| `OPENAI_FAST_MODEL` (`gpt-5-mini`) | Sarah's chat, extracting lead details |
+| `OPENAI_SARAH_MODEL` (`gpt-5-mini`), `OPENAI_SARAH_EFFORT` (`minimal`) | Sarah's chat. Deliberately NOT `OPENAI_FAST_MODEL`: `gpt-5-nano` there made her drift off-script and return truncated JSON |
+| `OPENAI_EXTRACT_MODEL` (`gpt-5-mini`) | extracting the lead brief from the chat |
+| `OPENAI_FAST_MODEL` (`gpt-5-mini`) | anything else cheap |
 | `OPENAI_REASONING_MODEL` (`gpt-5.1`) | the strategy plan, Studio copy, QA, `chooseNextAction`'s controller |
 | `OPENAI_BUILD_MODEL` | writing the site's actual code |
 | `OPENAI_IMAGE_MODEL` (`gpt-image-2`) | logos and photos |
@@ -285,30 +287,42 @@ call dominates — it emits a whole website's source in one response. Sarah
 and extraction stay on the fast/cheap tier deliberately, since those run on
 every single lead regardless of whether they ever convert.
 
+## Sarah's conversation (pre-payment)
+
+The flow is a state machine in code, not a script in the prompt
+(`lib/sarah-flow.ts`): name → email (asked exactly once) → describe →
+confirm ("is that all?", with buttons, repeats up to 3×) → contact (phone, or
+email if still missing) → WhatsApp (only if a phone was given) → close. The
+route works out which step this turn is (`decideStep`), and `sarah.ts` adds a
+single "THIS TURN'S JOB" directive for it — the model only writes that one step,
+in the customer's language. The step and any buttons are saved on each assistant
+turn in `orders.conversation`. `lib/sarah-reply.ts` strips every `[[...]]` marker
+the model writes (only `[[OPTIONS: a | b]]` is meaningful) and tracks facts
+(email, phone) so she never re-asks. Whether the customer is "finished" at the
+confirm step is decided by a button tap or, for free text, a tiny classifier call.
+Extraction (`json()` in `lib/ai.ts`) retries with a bigger budget when output is
+truncated; any Responses API `status: "incomplete"` is treated as a failure, not
+returned as if it were an answer.
+
 ## The live preview on /start (free, pre-payment)
 
-Sarah is a short-reply website helper. When she knows the business name and
-trade she appends a `[[PREVIEW: {...}]]` marker to her reply; `/api/chat`
-strips it (`lib/chat-markers.ts`) and returns it as `preview`. The /start page
-(`src/assets/js/preview.js`) then calls `POST /api/instant-preview`, which
-streams:
+After the customer's third message the page (`assets/js/site.js`) fires two things:
 
-1. **`theme`** — instant, no AI. `lib/image-library.ts` picks the trade
-   (`classifyTrade`), a palette, one of five looks (`modern`, `classic`,
-   `bold`, `soft`, `dark`) and the imagery, and returns a full stylesheet.
-   Changing only the look sends `themeOnly` and costs nothing.
-2. **`section`** ×4 — hero, services, trust, contact: one small OpenAI call
-   each, in parallel, shown as each finishes (`lib/instant-preview.ts`).
+1. **`POST /api/instant-preview`** — four small unstyled sections (hero,
+   services, trust, contact), one OpenAI call each in parallel
+   (`lib/instant-preview.ts`), that fill the wait.
+2. **`POST /api/instant-site`** — one strong-model call writes a full art-directed
+   front page from the owner's own chat messages (`lib/instant-site.ts`). It renders at the
+   bottom of the page in a sandboxed script-less iframe with a Desktop / Mobile
+   toggle.
 
-**Imagery.** `LIBRARY` in `lib/image-library.ts` maps each trade category to
-photos served as static files from the marketing site. A category with no
-photos uses generated art (gradient + a line glyph), so nothing is ever blank.
-To add photos: put optimised images in `src/assets/img/library/<category>/`,
-list their `/assets/img/library/...` paths in `LIBRARY` (first = hero), rebuild.
-Only `barber` has a photo so far. Nothing here is used by the paid build,
-which uses the customer's own photos or `images.ts`.
+**Imagery.** Photos come from `public/library/<trade>/{hero,work,detail}.webp`, listed in
+`public/library/manifest.json`, served by nginx at `/library/`. Open
+`https://web99.ie/library/` for a gallery of everything in it. The page model picks the
+single closest trade; `enforceLibrary()` then guarantees only that trade's real files are
+used (mismatched or invented URLs are remapped or blanked). To add a trade: add the
+folder and a manifest entry.
 
 `/api/instant-preview` is unauthenticated and spends OpenAI tokens, so it is
 rate-limited per IP in memory (12 runs / 15 min) and is on the middleware
-public list. The preview renders in a sandboxed, script-less iframe and every
-fragment is cleaned server-side and again in the browser.
+public list. Model output is cleaned server-side (`cleanFragment`, `finalizeHtml`).

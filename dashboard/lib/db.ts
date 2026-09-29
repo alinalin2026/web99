@@ -57,6 +57,7 @@ export interface Order {
   phone: string | null;
   conversation: {
     role: "user" | "assistant"; content: string; at: string;
+    step?: string; options?: string[];
     attachments?: { id: string; filename: string; mimeType: string; size: number }[];
   }[];
   brief: Record<string, unknown> | null;

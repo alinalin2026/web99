@@ -88,7 +88,29 @@ Write finished, ready-to-ship copy in plain confident Irish-English using the re
 
 const GUARD_CSS = `.wrap{box-sizing:border-box!important;width:100%!important;max-width:1200px!important;margin-left:auto!important;margin-right:auto!important;padding-left:clamp(20px,4vw,40px)!important;padding-right:clamp(20px,4vw,40px)!important}img{max-width:100%}`;
 
-export function finalizeHtml(raw: string): string {
+const BLANK_GIF = "data:image/gif;base64,R0lGODlhAQABAAAAACH5BAEKAAEALAAAAAABAAEAAAICTAEAOw==";
+const escapeRe = (v: string) => v.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+
+/** The model is told to use ONE trade folder and only files that exist, but a
+ *  mismatched or invented photo (a plumber's van on a florist's page) is the
+ *  most visible way a preview can look wrong — so this is enforced in code:
+ *  the most-used valid trade wins, every other library URL is remapped to the
+ *  same role in that trade, and URLs that point at nothing are blanked. */
+export function enforceLibrary(html: string, library: LibraryTrade[]): string {
+  const re = new RegExp(`${escapeRe(siteOrigin())}/library/([a-z0-9-]+)/([a-z]+)\\.webp`, "g");
+  const valid = new Map(library.map((t) => [t.key, new Map(t.images.map((i) => [i.role, i.url]))]));
+  const counts = new Map<string, number>();
+  for (const m of html.matchAll(re)) if (valid.has(m[1]) && valid.get(m[1])!.has(m[2])) counts.set(m[1], (counts.get(m[1]) ?? 0) + 1);
+  const dominant = [...counts.entries()].sort((a, b) => b[1] - a[1])[0]?.[0];
+  return html.replace(re, (whole, key: string, role: string) => {
+    if (!dominant) return BLANK_GIF;
+    if (key === dominant && valid.get(key)!.has(role)) return whole;
+    const own = valid.get(dominant)!;
+    return own.get(role) ?? own.get("hero") ?? BLANK_GIF;
+  });
+}
+
+export function finalizeHtml(raw: string, library: LibraryTrade[] = loadLibrary()): string {
   let html = raw.trim().replace(/^```(?:html)?\s*/i, "").replace(/```\s*$/, "").trim();
   const start = html.search(/<!doctype html|<html[\s>]/i);
   if (start < 0) throw new Error("Model output was not an HTML document.");
@@ -104,6 +126,7 @@ export function finalizeHtml(raw: string): string {
     .replace(/\s(action|formaction)\s*=\s*("[^"]*"|'[^']*'|[^\s>]+)/gi, "")
     .replace(/(href|src)\s*=\s*(["'])\s*javascript:[^"']*\2/gi, '$1=$2#$2')
     .replace(/(["'(])\/library\//g, `$1${siteOrigin()}/library/`);
+  html = enforceLibrary(html, library);
 
   if (!/<head[\s>]/i.test(html) || !/<body[\s>]/i.test(html) || html.length < 4000) {
     throw new Error("Model output was not a complete page.");

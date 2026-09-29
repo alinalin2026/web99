@@ -1,7 +1,8 @@
 import { after, NextRequest, NextResponse } from "next/server";
 import { chat, json, MODELS, type Turn } from "@/lib/ai";
 import { sarahSystemPrompt, extractionPrompt, sarahOpener } from "@/lib/prompts/sarah";
-import { parseSarahReply, type QuickReply } from "@/lib/chat-markers";
+import { parseSarahReply, conversationFacts } from "@/lib/sarah-reply";
+import { lastAssistantStep, confirmCount, decideStep, quickFinished, FINISHED_CLASSIFIER, type FlowTurn, type Step } from "@/lib/sarah-flow";
 import {
   ensureMasterSchema, sql, jsonb, getOrder, setState, logEvent, scheduleLeadFollowups, syncQualification, type Order,
 } from "@/lib/db";
@@ -27,12 +28,6 @@ type UploadedFile = { id: string; filename: string; mimeType: string; size: numb
 const REQUIRED: (keyof Brief)[] = ["trade", "websiteGoal", "email"];
 const ATTR_KEYS = ["fbclid","utm_source","utm_medium","utm_campaign","utm_content","utm_term","landing_url","landing_path","landed_at","user_agent"] as const;
 const GREETING_RE = /^(hi|hello|hey|hiya|howdy|yo|good\s+(morning|afternoon|evening))[!.?\s]*$/i;
-// Sarah's live-preview flow (sarah.ts) asks for email as the last real
-// question (step 7) before her closing "stop asking" message (step 8) — the
-// same position the original design assumed — so the customer's own message
-// containing an email address is again the reliable signal that the
-// conversation just closed.
-const EMAIL_RE = /\b[A-Z0-9._%+-]+@[A-Z0-9.-]+\.[A-Z]{2,}\b/i;
 
 function safeAttribution(value: unknown): Record<string, string | number> | null {
   if (!value || typeof value !== "object" || Array.isArray(value)) return null;
@@ -49,6 +44,16 @@ function safeHistory(value: unknown): Turn[] {
   return value.filter((t): t is Turn => !!t && typeof t === "object" && ((t as Turn).role === "user" || (t as Turn).role === "assistant") && typeof (t as Turn).content === "string")
     .map((t) => ({ role: t.role, content: t.content.trim().slice(0, 4000) })).filter((t) => t.content).slice(-18);
 }
+async function classifyFinished(message: string): Promise<boolean> {
+  try {
+    const r = await json<{ finished?: boolean }>(FINISHED_CLASSIFIER, message, MODELS.extract, 300, "minimal");
+    return r.finished === true;
+  } catch (err) {
+    console.error("chat finished-classifier failed", err);
+    return false;
+  }
+}
+const STEPS_WITH_BUTTONS: Step[] = ["confirm", "whatsapp"];
 function clientIp(req: NextRequest): string | null {
   const f = req.headers.get("x-forwarded-for"); return f ? f.split(",")[0]?.trim() || null : req.headers.get("x-real-ip");
 }
@@ -67,7 +72,7 @@ async function safeLog(orderId: string | null, kind: string, detail: Record<stri
 function emailCapturedCopy() {
   return {
     subject: "We've got your message",
-    body: `Hi,\n\nWe've got your message — your preview will be ready today.\n\nOnce it's up, it'll be live for 48 hours so you have time to have a proper look and decide. No card needed to see it.\n\nTalk soon,\nAlan\nWeb99.ie`,
+    body: `Hi,\n\nThanks for getting in touch. A first look at your website's design is being built on the page you were just chatting on, so keep that tab open to watch it come together. No card needed to see it, and nothing has been charged.\n\nIf you closed the page, head back to https://web99.ie/start and tell us about your business again.\n\nTalk soon,\nAlan\nWeb99.ie`,
   };
 }
 
@@ -119,7 +124,7 @@ export async function POST(req: NextRequest) {
   } catch (err) { persistenceAvailable = false; console.error("chat persistence unavailable", err); }
 
   if (order && order.state !== "collecting") {
-    return withCors(req, NextResponse.json({ orderId: order.id, reply: "You're all set — your preview is above. Ready to make it real?", quickReplies: [], missing: [], readyToBuild: true }));
+    return withCors(req, NextResponse.json({ orderId: order.id, reply: "You're all set — your preview is right below the chat. Ready to make it real?", quickReplies: [], missing: [], readyToBuild: true }));
   }
 
   let uploaded: UploadedFile[] = [];
@@ -158,14 +163,13 @@ export async function POST(req: NextRequest) {
 
   // A first-turn greeting is deterministic and should feel instant.
   if (GREETING_RE.test(message) && userConversation.length <= 2) {
-    const reply = "Hi! I'm Sarah. What's your business called?";
-    const conversation = [...userConversation, { role: "assistant" as const, content: reply, at: new Date().toISOString() }];
+    const reply = "Hi! I'm Sarah. What's the name of your business? If you don't have a name yet, just tell me that.";
+    const conversation = [...userConversation, { role: "assistant" as const, content: reply, at: new Date().toISOString(), step: "name" as Step }];
     if (order && persistenceAvailable) {
       try { await sql`UPDATE orders SET conversation=${jsonb(conversation)} WHERE id=${order.id}`; }
       catch (err) { console.error("chat greeting save failed", err); }
     }
-    const quickReplies: QuickReply[] = [{ label: "I don't have a name yet", value: "I don't have a name yet" }];
-    return withCors(req, NextResponse.json({ orderId: order?.id ?? null, reply, quickReplies, missing: REQUIRED.map(String).concat("anythingElse"), readyToBuild: false, temporary: !persistenceAvailable }));
+    return withCors(req, NextResponse.json({ orderId: order?.id ?? null, reply, quickReplies: [], missing: REQUIRED.map(String).concat("anythingElse"), readyToBuild: false, temporary: !persistenceAvailable }));
   }
 
   // Customer-visible latency is now ONLY Sarah's reply. Everything that powers
@@ -178,16 +182,40 @@ export async function POST(req: NextRequest) {
       ? `${t.content}\n\n[Customer attached ${uploaded.length} file(s): ${uploaded.map((f) => f.filename).join(", ")}]`.trim()
       : t.content,
   }));
+  const priorBrief = order?.brief ? order.brief as Brief : null;
+  const priorTurns = baseConversation as FlowTurn[];
+  const prevStep = lastAssistantStep(priorTurns);
+  const facts = conversationFacts(turns);
+  let finished = false;
+  if (prevStep === "confirm") {
+    const lastAsked = [...priorTurns].reverse().find((t) => t.role === "assistant");
+    finished = quickFinished(message, lastAsked?.options) ?? await classifyFinished(message);
+  }
+  const confirms = confirmCount(priorTurns);
+  const step = decideStep({ prev: prevStep, facts, finished, confirms, latest: message });
+  const systemPrompt = sarahSystemPrompt({
+    step,
+    confirms,
+    facts,
+    brief: priorBrief && { businessName: priorBrief.businessName, trade: priorBrief.trade, location: priorBrief.location, websiteGoal: priorBrief.websiteGoal, phone: priorBrief.phone },
+  });
   let modelReply: string;
-  try { modelReply = await chat(sarahSystemPrompt(), turns, MODELS.sarah); }
+  try { modelReply = await chat(systemPrompt, turns, MODELS.sarah); }
   catch (err) {
     await safeLog(order?.id ?? null, "error", { step: "sarah", message: (err as Error).message });
     return withCors(req, NextResponse.json({ orderId: order?.id ?? null, reply: "Sorry — I couldn't get a reply through just now. Please try that message once more.", quickReplies: [], missing: [], readyToBuild: false, retryable: true, temporary: !persistenceAvailable }));
   }
 
   const parsed = parseSarahReply(modelReply);
-  if (parsed.preview) await safeLog(order?.id ?? null, "preview_requested", { style: parsed.preview.style, trade: parsed.preview.trade, businessName: parsed.preview.businessName });
-  const conversation = [...userConversation, { role: "assistant" as const, content: parsed.reply, at: new Date().toISOString() }];
+  if (!STEPS_WITH_BUTTONS.includes(step)) parsed.quickReplies = [];
+  if (!parsed.reply) {
+    await safeLog(order?.id ?? null, "error", { step: "sarah", message: "Model reply was empty after marker stripping." });
+    return withCors(req, NextResponse.json({ orderId: order?.id ?? null, reply: "Sorry — I couldn't get a reply through just now. Please try that message once more.", quickReplies: [], missing: [], readyToBuild: false, retryable: true, temporary: !persistenceAvailable }));
+  }
+  const conversation = [...userConversation, {
+    role: "assistant" as const, content: parsed.reply, at: new Date().toISOString(), step,
+    ...(parsed.quickReplies.length ? { options: parsed.quickReplies.map((q) => q.label) } : {}),
+  }];
 
   // Save Sarah's visible answer quickly; do not make the browser wait for extraction.
   if (order && persistenceAvailable) {
@@ -197,10 +225,14 @@ export async function POST(req: NextRequest) {
 
   const previousBrief = order?.brief ? order.brief as Brief : null;
   const previousMissing = missingFromBrief(previousBrief);
-  // In Sarah's flow, the email is requested last. If she accepts an email and
-  // stops asking questions, the customer can immediately see the completion UI
-  // while the extractor confirms/persists the final structured brief after send.
-  const readyFast = !!order && persistenceAvailable && EMAIL_RE.test(message) && !/[?？]\s*$/.test(parsed.reply);
+  // Sarah now asks for email early (right after the business name), so "the
+  // user's message contains an email" no longer means the conversation is
+  // over — it used to, back when email was the last question. The real
+  // signal is the flow reaching its closing step (sarah-flow.ts), which
+  // only happens once she has actually stopped asking questions. Detect that
+  // instead, so the customer sees the completion UI only when the
+  // conversation is genuinely finished, not right after giving their email.
+  const readyFast = !!order && persistenceAvailable && step === "close";
   const capturedIp = clientIp(req);
   const orderId = order?.id ?? null;
   const previousOrder = order;
@@ -211,7 +243,7 @@ export async function POST(req: NextRequest) {
       let brief: Brief | null = null;
       try {
         const transcript = conversation.map((t) => `${t.role === "user" ? "OWNER" : "SARAH"}: ${t.content}`).join("\n\n");
-        brief = await json<Brief>(extractionPrompt(), transcript, MODELS.extract, 1400);
+        brief = await json<Brief>(extractionPrompt(), transcript, MODELS.extract, 2500, "minimal");
       } catch (err) {
         await safeLog(orderId, "error", { step: "extract", message: (err as Error).message });
         brief = previousBrief;
@@ -243,12 +275,17 @@ export async function POST(req: NextRequest) {
 
         const finalBrief = (fresh.brief ?? brief) as Brief | null;
         const missing = missingFromBrief(finalBrief);
-        // readyFast (see above) requires the customer's own message to be the
-        // email, not just that the extracted brief LOOKS complete — the
-        // extractor can mark readyToBuild true a turn early on a re-read of
-        // the transcript, and flipping the order out of "collecting" before
-        // Sarah has actually asked her last question would misroute the
-        // customer's next reply into the canned "we've got enough" deflection.
+        // readyFast (see above) is the deterministic signal that Sarah has
+        // actually reached her closing step — not just that the
+        // brief LOOKS complete. Requiring both matters now that step 3 of
+        // sarah.ts's flow (sarah.ts) asks about phone/WhatsApp AFTER
+        // "anything else" is closed but BEFORE that closing line: without this,
+        // the brief already reads as ready once the owner says "that's all",
+        // and the order would flip out of "collecting" a turn too early —
+        // right as Sarah asks for their phone number — which would make the
+        // next customer message (their phone number) hit the canned
+        // "we've got enough" deflection below (line ~114) instead of reaching
+        // Sarah at all.
         const ready = missing.length === 0 && finalBrief?.readyToBuild === true && readyFast;
         if (!ready) return;
 
@@ -272,7 +309,6 @@ export async function POST(req: NextRequest) {
     orderId,
     reply: parsed.reply,
     quickReplies: readyFast ? [] : parsed.quickReplies,
-    preview: parsed.preview,
     missing: readyFast ? [] : previousMissing,
     readyToBuild: readyFast,
     temporary: !persistenceAvailable,

@@ -1,8 +1,249 @@
 {
-  "plumber": { "label": "Plumber", "alts": { "hero": "Modern bathroom with chrome taps and copper pipework", "work": "Plumber's gloved hands tightening a copper pipe joint", "detail": "Neat boiler and copper pipework in a clean utility room" } },
-  "builder": { "label": "Builder / construction", "alts": { "hero": "Well-built two-storey brick house extension at golden hour", "work": "Builder's hands laying a brick with a trowel", "detail": "Fresh timber roof frame against a blue sky" } },
-  "hair-salon": { "label": "Hair salon", "alts": { "hero": "Stylish modern hair salon interior with mirrors and styling chairs", "work": "Hands styling hair with scissors and comb", "detail": "Professional hair products and brushes on a marble shelf" } },
-  "cafe": { "label": "Café / coffee shop", "alts": { "hero": "Cosy independent café interior with wooden tables and morning light", "work": "Barista pouring latte art", "detail": "Pastries and coffee on a rustic wooden table" } },
-  "signage": { "label": "Signage, printing & vehicle wraps", "alts": { "hero": "Wrapped commercial van outside an illuminated shopfront at dusk", "work": "Large-format printer producing colourful graphics", "detail": "Installer applying vinyl graphics to a shop window" } },
-  "cleaner": { "label": "Cleaning service", "alts": { "hero": "Bright spotless modern living room in sunlight", "work": "Gloved hand wiping a glossy kitchen counter", "detail": "Cleaning supplies and folded microfibre cloths in a basket" } }
+ "plumber": {
+  "label": "Plumber",
+  "alts": {
+   "hero": "Modern bathroom with chrome taps and copper pipework",
+   "work": "Plumber's gloved hands tightening a copper pipe joint",
+   "detail": "Neat boiler and copper pipework in a clean utility room"
+  }
+ },
+ "builder": {
+  "label": "Builder / construction",
+  "alts": {
+   "hero": "Well-built two-storey brick house extension at golden hour",
+   "work": "Builder's hands laying a brick with a trowel",
+   "detail": "Fresh timber roof frame against a blue sky"
+  }
+ },
+ "hair-salon": {
+  "label": "Hair salon",
+  "alts": {
+   "hero": "Stylish modern hair salon interior with mirrors and styling chairs",
+   "work": "Hands styling hair with scissors and comb",
+   "detail": "Professional hair products and brushes on a marble shelf"
+  }
+ },
+ "cafe": {
+  "label": "Café / coffee shop",
+  "alts": {
+   "hero": "Cosy independent café interior with wooden tables and morning light",
+   "work": "Barista pouring latte art",
+   "detail": "Pastries and coffee on a rustic wooden table"
+  }
+ },
+ "signage": {
+  "label": "Signage, printing & vehicle wraps",
+  "alts": {
+   "hero": "Wrapped commercial van outside an illuminated shopfront at dusk",
+   "work": "Large-format printer producing colourful graphics",
+   "detail": "Installer applying vinyl graphics to a shop window"
+  }
+ },
+ "cleaner": {
+  "label": "Cleaning service",
+  "alts": {
+   "hero": "Bright spotless modern living room in sunlight",
+   "work": "Gloved hand wiping a glossy kitchen counter",
+   "detail": "Cleaning supplies and folded microfibre cloths in a basket"
+  }
+ },
+ "electrician": {
+  "label": "Electrician",
+  "alts": {
+   "hero": "Modern kitchen with glowing pendant lights",
+   "work": "Electrician's hands wiring a fuse board",
+   "detail": "Neat modern light switches and sockets"
+  }
+ },
+ "barber": {
+  "label": "Barber shop",
+  "alts": {
+   "hero": "Classic barbershop interior with leather chairs",
+   "work": "Barber fading hair with clippers",
+   "detail": "Straight razor and shaving brush on leather"
+  }
+ },
+ "nail-beauty": {
+  "label": "Nails & beauty",
+  "alts": {
+   "hero": "Elegant nail salon with polish rack",
+   "work": "Hands receiving a pastel manicure",
+   "detail": "Pastel nail polish bottles on marble"
+  }
+ },
+ "florist": {
+  "label": "Florist",
+  "alts": {
+   "hero": "Flower shop full of fresh blooms",
+   "work": "Florist's hands arranging a bouquet",
+   "detail": "Wrapped seasonal bouquet on a wooden table"
+  }
+ },
+ "dental-clinic": {
+  "label": "Dentist / dental clinic",
+  "alts": {
+   "hero": "Bright modern dental surgery",
+   "work": "Gloved hand with dental instruments",
+   "detail": "Calm clinic reception desk"
+  }
+ },
+ "physio": {
+  "label": "Physiotherapy / wellness clinic",
+  "alts": {
+   "hero": "Calm physiotherapy treatment room",
+   "work": "Therapist's hands treating a shoulder",
+   "detail": "Foam roller and towels on a shelf"
+  }
+ },
+ "gym": {
+  "label": "Gym & personal training",
+  "alts": {
+   "hero": "Modern boutique gym with racks and dumbbells",
+   "work": "Chalked hands gripping a barbell",
+   "detail": "Row of kettlebells on a gym floor"
+  }
+ },
+ "garage": {
+  "label": "Garage / mechanic",
+  "alts": {
+   "hero": "Clean modern car workshop with car on a lift",
+   "work": "Mechanic's hands working on an engine",
+   "detail": "Wall of spanners and workshop tools"
+  }
+ },
+ "landscaper": {
+  "label": "Landscaper / gardener",
+  "alts": {
+   "hero": "Beautifully landscaped garden at golden hour",
+   "work": "Gloved hands planting a shrub",
+   "detail": "New stone paving beside lavender"
+  }
+ },
+ "painter-decorator": {
+  "label": "Painter & decorator",
+  "alts": {
+   "hero": "Freshly painted sage-green living room",
+   "work": "Paintbrush laying a fresh stroke of paint",
+   "detail": "Paint swatches and brushes"
+  }
+ },
+ "roofer": {
+  "label": "Roofer",
+  "alts": {
+   "hero": "New slate roof on an Irish house at golden hour",
+   "work": "Roofer's hands laying slate",
+   "detail": "Neat overlapping roof slates and gutter"
+  }
+ },
+ "locksmith": {
+  "label": "Locksmith",
+  "alts": {
+   "hero": "Painted front door with brass lock",
+   "work": "Hand turning a key in a brass lock",
+   "detail": "Brass keys hanging on hooks"
+  }
+ },
+ "accountant": {
+  "label": "Accountant / bookkeeper",
+  "alts": {
+   "hero": "Bright modern office desk with laptop",
+   "work": "Hands using a calculator over documents",
+   "detail": "Notebook, pen and glasses on a desk"
+  }
+ },
+ "solicitor": {
+  "label": "Solicitor / legal",
+  "alts": {
+   "hero": "Elegant law office with bookshelves and oak desk",
+   "work": "Hand signing a document with a fountain pen",
+   "detail": "Leather-bound books with a brass lamp"
+  }
+ },
+ "photographer": {
+  "label": "Photographer / creative studio",
+  "alts": {
+   "hero": "Bright photography studio with softbox lights",
+   "work": "Hands holding a professional camera",
+   "detail": "Framed prints against a white wall"
+  }
+ },
+ "restaurant": {
+  "label": "Restaurant / takeaway",
+  "alts": {
+   "hero": "Warm inviting restaurant interior",
+   "work": "Chef's hands plating a dish",
+   "detail": "Beautifully plated main course"
+  }
+ },
+ "bakery": {
+  "label": "Bakery",
+  "alts": {
+   "hero": "Artisan bakery counter with fresh loaves",
+   "work": "Baker's floury hands shaping dough",
+   "detail": "Sourdough loaves cooling on a rack"
+  }
+ },
+ "boutique": {
+  "label": "Boutique / retail shop",
+  "alts": {
+   "hero": "Bright stylish clothing boutique",
+   "work": "Hands folding a knit jumper",
+   "detail": "Display of scarves, bags and jewellery"
+  }
+ },
+ "pet-groomer": {
+  "label": "Pet groomer / dog services",
+  "alts": {
+   "hero": "Bright clean pet grooming salon",
+   "work": "Groomer's hands brushing a fluffy dog",
+   "detail": "Grooming brushes and folded towels"
+  }
+ },
+ "removals": {
+  "label": "Removals / man and van",
+  "alts": {
+   "hero": "Removals van outside a terraced house",
+   "work": "Gloved hands carrying a cardboard box",
+   "detail": "Stacked boxes and bubble wrap"
+  }
+ },
+ "flooring": {
+  "label": "Tiling & flooring",
+  "alts": {
+   "hero": "Elegant bathroom with large-format tiles",
+   "work": "Tiler setting a tile with spacers",
+   "detail": "Oak flooring and tile samples"
+  }
+ },
+ "car-valeting": {
+  "label": "Car valeting / detailing",
+  "alts": {
+   "hero": "Gleaming car in a detailing bay",
+   "work": "Hand polishing car paint with microfibre",
+   "detail": "Water beads on freshly waxed paint"
+  }
+ },
+ "carpenter": {
+  "label": "Carpenter / joiner / kitchens",
+  "alts": {
+   "hero": "Bespoke oak fitted kitchen",
+   "work": "Carpenter planing a timber board",
+   "detail": "Dovetail joints on an oak drawer"
+  }
+ },
+ "spa-wellness": {
+  "label": "Spa / massage / wellness",
+  "alts": {
+   "hero": "Serene spa treatment room",
+   "detail": "Towels, candles and eucalyptus on a tray"
+  }
+ },
+ "events-wedding": {
+  "label": "Events & weddings",
+  "alts": {
+   "hero": "Elegant wedding table setting at golden hour",
+   "work": "Hands arranging an elegant table",
+   "detail": "Gold rings on a flower petal"
+  }
+ }
 }

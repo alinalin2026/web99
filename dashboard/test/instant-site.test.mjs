@@ -43,3 +43,30 @@ test("removes markdown fences and preamble, rejects non-pages", () => {
   assert.throws(() => finalizeHtml("sorry, I cannot do that"), /not an HTML document/);
   assert.throws(() => finalizeHtml("<!doctype html><html><head></head><body>tiny</body></html>"), /not a complete page/);
 });
+
+const lib = (key, roles = ["hero", "work", "detail"]) => ({
+  key, label: key, images: roles.map((role) => ({ role, url: `https://web99.ie/library/${key}/${role}.webp`, alt: role })),
+});
+const O = "https://web99.ie/library";
+
+test("enforceLibrary keeps one trade: mismatched photos are remapped to the dominant trade", async () => {
+  const { enforceLibrary } = await import("../lib/instant-site.ts");
+  const library = [lib("florist"), lib("plumber")];
+  const html = `<img src="${O}/florist/hero.webp"><img src="${O}/florist/work.webp"><img src="${O}/plumber/work.webp">`;
+  const out = enforceLibrary(html, library);
+  assert.equal((out.match(/plumber/g) ?? []).length, 0);
+  assert.equal((out.match(new RegExp(`${O}/florist/work.webp`, "g")) ?? []).length, 2);
+});
+
+test("enforceLibrary remaps invented files and folders onto the dominant trade's real images", async () => {
+  const { enforceLibrary } = await import("../lib/instant-site.ts");
+  const library = [lib("cafe", ["hero"])];
+  const out = enforceLibrary(`<img src="${O}/cafe/hero.webp"><img src="${O}/cafe/work.webp"><img src="${O}/nonsense/hero.webp">`, library);
+  assert.equal(out, `<img src="${O}/cafe/hero.webp"><img src="${O}/cafe/hero.webp"><img src="${O}/cafe/hero.webp">`);
+});
+
+test("enforceLibrary blanks every library URL when none is valid, and leaves photo-free pages alone", async () => {
+  const { enforceLibrary } = await import("../lib/instant-site.ts");
+  assert.match(enforceLibrary(`<img src="${O}/ghost/hero.webp">`, [lib("cafe")]), /data:image\/gif/);
+  assert.equal(enforceLibrary("<h1>no photos</h1>", [lib("cafe")]), "<h1>no photos</h1>");
+});

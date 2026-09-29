@@ -197,6 +197,249 @@
     var sending = false;
     var quickWrap = null;
 
+    /* --- instant preview ---------------------------------------------------
+       Fires once, the moment we have a business name (turn 1), an email
+       (turn 2, per Sarah's fixed question order — see sarah.ts), and a
+       description of the business (turn 3 onward). Free, best-effort, never
+       blocks the real chat: if it fails or the connection drops, the panel
+       just disappears and the conversation carries on as normal. */
+    var instantPreview = document.getElementById("instantPreview");
+    var userTurns = [];
+    var instantPreviewStarted = false;
+
+    var handleInstantPreviewEvent = function (block) {
+      var eventName = "message";
+      var dataLines = [];
+      block.split("\n").forEach(function (line) {
+        if (line.indexOf("event:") === 0) eventName = line.slice(6).trim();
+        else if (line.indexOf("data:") === 0) dataLines.push(line.slice(5).trim());
+      });
+      if (!dataLines.length) return;
+      var data;
+      try { data = JSON.parse(dataLines.join("\n")); } catch (err) { return; }
+
+      if (eventName === "section" && data && data.id) {
+        var slot = instantPreview.querySelector('[data-ip-section="' + data.id + '"]');
+        if (slot) {
+          slot.innerHTML = data.html || "";
+          slot.classList.remove("is-loading");
+        }
+      } else if (eventName === "error") {
+        instantPreview.hidden = true;
+      }
+    };
+
+    var startInstantPreview = function () {
+      if (!instantPreview) return;
+      var description = userTurns.slice(2).join("\n\n");
+      if (!description) return;
+      var trade = (description.split(/[\n.!?]/)[0] || description).trim().slice(0, 100);
+
+      instantPreview.hidden = false;
+      instantPreview.scrollIntoView({ block: "nearest", behavior: reduced ? "auto" : "smooth" });
+
+      fetch(api + "/api/instant-preview", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          businessName: userTurns[0],
+          trade: trade,
+          description: description
+        })
+      })
+        .then(function (r) {
+          if (!r.ok || !r.body) throw new Error("HTTP " + r.status);
+          var reader = r.body.getReader();
+          var decoder = new TextDecoder();
+          var buffer = "";
+
+          var readChunk = function () {
+            return reader.read().then(function (result) {
+              if (result.done) return;
+              buffer += decoder.decode(result.value, { stream: true });
+              var events = buffer.split("\n\n");
+              buffer = events.pop();
+              events.forEach(handleInstantPreviewEvent);
+              return readChunk();
+            });
+          };
+          return readChunk();
+        })
+        .catch(function () {
+          instantPreview.hidden = true;
+        });
+    };
+
+    /* --- full-page preview -------------------------------------------------
+       The server builds a complete art-directed front page from the owner's own
+       chat messages (by orderId — nothing the browser sends becomes a prompt)
+       and streams real progress. It is untrusted model output, so it is shown
+       in a script-less sandboxed iframe (sandbox="" = no scripts, no same-origin).
+       If it fails the four-section teaser above simply stays. */
+    var siteBox = document.getElementById("instantSite");
+    var siteLabel = document.getElementById("instantSiteLabel");
+    var siteBar = document.getElementById("instantSiteBar");
+    var siteProgress = document.getElementById("instantSiteProgress");
+    var siteStage = document.getElementById("instantSiteStage");
+    var siteViewport = document.getElementById("instantSiteViewport");
+    var siteFrame = document.getElementById("instantSiteFrame");
+    var siteMode = "desktop";
+
+    var fitSiteFrame = function () {
+      if (!siteFrame || !siteViewport) return;
+      var w = siteMode === "mobile" ? 390 : 1280;
+      var avail = siteViewport.clientWidth;
+      var s = Math.min(1, avail / w);
+      siteFrame.style.width = w + "px";
+      siteFrame.style.height = siteViewport.clientHeight / s + "px";
+      siteFrame.style.transform = "scale(" + s + ")";
+      siteFrame.style.marginLeft = Math.max(0, (avail - w * s) / 2) + "px";
+    };
+
+    var siteStatusText = function (pct) {
+      if (pct < 12) return "Choosing your style…";
+      if (pct < 45) return "Writing your pages…";
+      if (pct < 80) return "Laying out your sections…";
+      return "Adding the finishing touches…";
+    };
+
+    var handleSiteEvent = function (block) {
+      var eventName = "message";
+      var dataLines = [];
+      block.split("\n").forEach(function (line) {
+        if (line.indexOf("event:") === 0) eventName = line.slice(6).trim();
+        else if (line.indexOf("data:") === 0) dataLines.push(line.slice(5).trim());
+      });
+      if (!dataLines.length) return;
+      var data;
+      try { data = JSON.parse(dataLines.join("\n")); } catch (err) { return; }
+
+      if (eventName === "progress" && typeof data.pct === "number") {
+        siteBar.style.width = data.pct + "%";
+        siteLabel.textContent = siteStatusText(data.pct);
+      } else if (eventName === "page" && data && typeof data.html === "string") {
+        siteFrame.onload = function () { fitSiteFrame(); siteFrame.style.visibility = "hidden"; void siteFrame.offsetHeight; siteFrame.style.visibility = ""; };
+        siteFrame.srcdoc = data.html;
+        siteProgress.hidden = true;
+        siteStage.hidden = false;
+        var frame = instantPreview.querySelector(".instant-preview__frame");
+        if (frame) frame.hidden = true;
+        var label = instantPreview.querySelector(".instant-preview__label");
+        if (label) label.textContent = "Your website preview — built from what you told us";
+        fitSiteFrame();
+      } else if (eventName === "error") {
+        siteBox.hidden = true;
+      }
+    };
+
+    var startInstantSite = function () {
+      if (!siteBox || !siteFrame || !orderId) return;
+      siteBox.hidden = false;
+      siteBar.style.width = "2%";
+      siteLabel.textContent = siteStatusText(0);
+
+      Array.prototype.forEach.call(siteBox.querySelectorAll("[data-mode]"), function (btn) {
+        btn.addEventListener("click", function () {
+          siteMode = btn.getAttribute("data-mode");
+          Array.prototype.forEach.call(siteBox.querySelectorAll("[data-mode]"), function (b) {
+            b.setAttribute("aria-pressed", b === btn ? "true" : "false");
+          });
+          fitSiteFrame();
+        });
+      });
+      window.addEventListener("resize", fitSiteFrame);
+
+      fetch(api + "/api/instant-site", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ orderId: orderId })
+      })
+        .then(function (r) {
+          if (!r.ok || !r.body) throw new Error("HTTP " + r.status);
+          var reader = r.body.getReader();
+          var decoder = new TextDecoder();
+          var buffer = "";
+          var readChunk = function () {
+            return reader.read().then(function (result) {
+              if (result.done) return;
+              buffer += decoder.decode(result.value, { stream: true });
+              var events = buffer.split("\n\n");
+              buffer = events.pop();
+              events.forEach(handleSiteEvent);
+              return readChunk();
+            });
+          };
+          return readChunk();
+        })
+        .catch(function () {
+          if (siteStage.hidden) siteBox.hidden = true;
+        });
+    };
+
+    /* --- attachments (photos/documents, up to 100MB each) ---------------- */
+    var attachBtn = document.getElementById("attachBtn");
+    var filesInput = document.getElementById("storyFiles");
+    var filesWrap = document.getElementById("composerFiles");
+    var filesError = document.getElementById("composerFilesError");
+    var selectedFiles = [];
+    var MAX_FILE_BYTES = 100 * 1024 * 1024;
+    var MAX_FILES = 5;
+
+    var showFilesError = function (msg) {
+      if (!filesError) return;
+      filesError.textContent = msg || "";
+      filesError.hidden = !msg;
+    };
+
+    var formatFileSize = function (bytes) {
+      if (bytes >= 1024 * 1024) return (bytes / (1024 * 1024)).toFixed(1) + " MB";
+      return Math.max(1, Math.round(bytes / 1024)) + " KB";
+    };
+
+    var renderFiles = function () {
+      if (!filesWrap) return;
+      filesWrap.innerHTML = "";
+      filesWrap.hidden = selectedFiles.length === 0;
+      selectedFiles.forEach(function (file, index) {
+        var chip = el("span", "composer__file");
+        var label = el("span", null, file.name + " (" + formatFileSize(file.size) + ")");
+        var remove = el("button", null, "×");
+        remove.type = "button";
+        remove.setAttribute("aria-label", "Remove " + file.name);
+        remove.addEventListener("click", function () {
+          selectedFiles.splice(index, 1);
+          renderFiles();
+        });
+        chip.appendChild(label);
+        chip.appendChild(remove);
+        filesWrap.appendChild(chip);
+      });
+    };
+
+    if (attachBtn && filesInput) {
+      attachBtn.addEventListener("click", function () {
+        filesInput.click();
+      });
+
+      filesInput.addEventListener("change", function () {
+        showFilesError("");
+        var incoming = Array.prototype.slice.call(filesInput.files || []);
+        incoming.forEach(function (file) {
+          if (selectedFiles.length >= MAX_FILES) {
+            showFilesError("You can attach up to " + MAX_FILES + " files at a time.");
+            return;
+          }
+          if (file.size > MAX_FILE_BYTES) {
+            showFilesError('"' + file.name + '" is over the 100MB limit.');
+            return;
+          }
+          selectedFiles.push(file);
+        });
+        filesInput.value = "";
+        renderFiles();
+      });
+    }
+
     try {
       orderId = window.sessionStorage.getItem(KEY);
     } catch (err) {
@@ -206,7 +449,7 @@
     /* grow the box as they type, so nothing scrolls out of sight */
     field.addEventListener("input", function () {
       field.style.height = "auto";
-      field.style.height = Math.max(84, field.scrollHeight) + "px";
+      field.style.height = Math.max(128, field.scrollHeight) + "px";
     });
 
     var el = function (tag, cls, text) {
@@ -216,7 +459,7 @@
       return n;
     };
 
-    var addTurn = function (who, text) {
+    var addTurn = function (who, text, files) {
       var turn = el("div", "turn turn--" + who);
       var av = el("span", "avatar avatar--sm");
 
@@ -241,7 +484,14 @@
         body.appendChild(dots);
         turn.setAttribute("data-pending", "true");
       } else {
-        body.textContent = text;
+        if (text) body.textContent = text;
+        if (Array.isArray(files) && files.length) {
+          var list = el("ul", "turn__files");
+          files.forEach(function (file) {
+            list.appendChild(el("li", null, "📎 " + file.name));
+          });
+          body.appendChild(list);
+        }
       }
 
       turn.appendChild(av);
@@ -267,7 +517,7 @@
       quickWrap.style.gap = "10px";
       quickWrap.style.margin = "-8px 0 18px 51px";
 
-      items.slice(0, 4).forEach(function (item) {
+      items.slice(0, 3).forEach(function (item) {
         if (!item) return;
         var label = String(item.label || item.value || "").trim();
         var value = String(item.value || item.label || "").trim();
@@ -300,19 +550,12 @@
       clearQuickReplies();
       startForm.remove();
       var done = el("div", "chat__done");
-      done.appendChild(el("h2", null, "You're all set \u2014 thanks."));
+      done.appendChild(el("h2", null, "That's everything \u2014 thanks."));
       done.appendChild(
-        el("p", null, "Your preview stays right here. It's the look and feel \u2014 your own photos and details go in after you pay.")
+        el("p", null, "Your preview is building just below \u2014 it takes a minute or two. It shows the look and feel; your own photos and details go in after you decide.")
       );
-      if (orderId) {
-        var buy = el("a", "btn btn--lg", "Get it for \u20ac99");
-        buy.href = api + "/buy/" + encodeURIComponent(orderId);
-        buy.rel = "noopener";
-        buy.style.margin = "14px 0 8px";
-        done.appendChild(buy);
-      }
       done.appendChild(
-        el("p", null, "Nothing has been charged. Close this page and you owe nothing.")
+        el("p", null, "Nothing has been charged, and you'll see the whole thing before you decide.")
       );
       thread.parentNode.insertBefore(done, thread.nextSibling);
       done.scrollIntoView({ block: "nearest", behavior: reduced ? "auto" : "smooth" });
@@ -337,7 +580,8 @@
       if (sending) return;
 
       var story = field.value.trim();
-      if (!story) {
+      var files = selectedFiles.slice();
+      if (!story && !files.length) {
         field.focus();
         return;
       }
@@ -349,6 +593,8 @@
         document.activeElement.blur();
       }
       clearQuickReplies();
+      showFilesError("");
+      if (story) userTurns.push(story);
 
       /* Sarah's opening bubble becomes part of the thread once it's underway. */
       if (intro && intro.parentNode) {
@@ -357,9 +603,11 @@
         intro = null;
       }
 
-      addTurn("them", story);
+      addTurn("them", story, files);
       field.value = "";
       field.style.height = "auto";
+      selectedFiles = [];
+      renderFiles();
 
       sending = true;
       if (sendBtn) sendBtn.disabled = true;
@@ -367,19 +615,40 @@
       var attribution = typeof window.web99Attribution === "function" ? window.web99Attribution() : null;
       var trackingConsent = typeof window.web99TrackingConsent === "function" ? window.web99TrackingConsent() : false;
 
-      fetch(api + "/api/chat", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          orderId: orderId,
-          message: story,
-          attribution: attribution,
-          trackingConsent: trackingConsent
-        }),
-      })
+      var requestInit;
+      if (files.length) {
+        var formData = new FormData();
+        formData.append("orderId", orderId || "");
+        formData.append("message", story);
+        formData.append("attribution", JSON.stringify(attribution || {}));
+        formData.append("trackingConsent", trackingConsent ? "true" : "false");
+        files.forEach(function (file) {
+          formData.append("files", file, file.name);
+        });
+        requestInit = { method: "POST", body: formData };
+      } else {
+        requestInit = {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            orderId: orderId,
+            message: story,
+            attribution: attribution,
+            trackingConsent: trackingConsent
+          }),
+        };
+      }
+
+      fetch(api + "/api/chat", requestInit)
         .then(function (r) {
-          if (!r.ok) throw new Error("HTTP " + r.status);
-          return r.json();
+          return r.json().catch(function () { return {}; }).then(function (data) {
+            if (!r.ok) {
+              var err = new Error((data && data.error) || ("HTTP " + r.status));
+              if (data && data.error) err.userMessage = data.error;
+              throw err;
+            }
+            return data;
+          });
         })
         .then(function (data) {
           pending.remove();
@@ -392,19 +661,12 @@
               window.sessionStorage.setItem(KEY, orderId);
             } catch (err) {}
           }
-          if (orderId) {
-            try {
-              window.dispatchEvent(new CustomEvent("web99:order", { detail: { orderId: orderId } }));
-            } catch (err) {}
-          }
 
           addTurn("sarah", data.reply);
-          if (data.preview && data.preview.trade) {
-            try {
-              window.dispatchEvent(new CustomEvent("web99:preview", {
-                detail: { brief: data.preview, orderId: data.orderId || orderId }
-              }));
-            } catch (err) {}
+          if (!instantPreviewStarted && userTurns.length >= 3) {
+            instantPreviewStarted = true;
+            startInstantPreview();
+            startInstantSite();
           }
           if (data.readyToBuild) {
             try {
@@ -428,11 +690,15 @@
           /* Deliberately no field.focus() here. On mobile, Sarah's reply should
              stay readable instead of making the keyboard jump back up. */
         })
-        .catch(function () {
+        .catch(function (err) {
           pending.remove();
           sending = false;
           if (sendBtn) sendBtn.disabled = false;
-          breakDown();
+          if (err && err.userMessage) {
+            addTurn("sarah", err.userMessage);
+          } else {
+            breakDown();
+          }
         });
     });
   }

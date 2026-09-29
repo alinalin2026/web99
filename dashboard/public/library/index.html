@@ -1,0 +1,77 @@
+<!doctype html>
+<html lang="en-IE">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="robots" content="noindex,nofollow">
+<title>Web99 preview photo library</title>
+<style>
+  :root { --bg:#f6f5fb; --card:#fff; --ink:#17152b; --muted:#77738f; --line:#e6e2f0; --violet:#5b3fe8; }
+  * { box-sizing: border-box; }
+  body { margin:0; background:var(--bg); color:var(--ink); font:15px/1.5 system-ui,-apple-system,"Segoe UI",Roboto,sans-serif; }
+  header { padding:28px clamp(16px,4vw,48px) 8px; }
+  h1 { margin:0 0 4px; font-size:26px; letter-spacing:-.01em; }
+  header p { margin:0; color:var(--muted); max-width:70ch; }
+  .bar { position:sticky; top:0; z-index:5; background:var(--bg); padding:12px clamp(16px,4vw,48px); border-bottom:1px solid var(--line); display:flex; gap:12px; align-items:center; flex-wrap:wrap; }
+  .bar input { flex:1; min-width:200px; max-width:360px; padding:10px 14px; border:1px solid var(--line); border-radius:10px; font:inherit; background:#fff; }
+  .bar span { color:var(--muted); font-size:13px; }
+  main { padding:20px clamp(16px,4vw,48px) 64px; display:grid; gap:20px; }
+  section { background:var(--card); border:1px solid var(--line); border-radius:16px; padding:16px; }
+  section h2 { margin:0 0 2px; font-size:17px; }
+  section code { color:var(--violet); font-size:12.5px; }
+  .row { display:grid; grid-template-columns:repeat(3,1fr); gap:10px; margin-top:12px; }
+  figure { margin:0; }
+  figure button { all:unset; display:block; cursor:zoom-in; width:100%; }
+  figure img { display:block; width:100%; aspect-ratio:3/2; object-fit:cover; border-radius:10px; background:#eee; }
+  figcaption { font-size:12px; color:var(--muted); margin-top:5px; }
+  figcaption b { color:var(--ink); text-transform:uppercase; font-size:11px; letter-spacing:.06em; margin-right:6px; }
+  @media (max-width:640px) { .row { grid-template-columns:1fr; } }
+  dialog { border:0; padding:0; background:transparent; max-width:96vw; }
+  dialog::backdrop { background:rgba(10,8,25,.82); }
+  dialog img { display:block; max-width:96vw; max-height:92vh; border-radius:12px; }
+</style>
+</head>
+<body>
+<header>
+  <h1>Web99 preview photo library</h1>
+  <p>Every photograph the instant preview is allowed to use. The preview picks the single closest trade below and uses only that trade's three images. To add a trade: add a folder with <code>hero.webp</code>, <code>work.webp</code>, <code>detail.webp</code> and an entry in <code>manifest.json</code>.</p>
+</header>
+<div class="bar"><input id="q" type="search" placeholder="Filter trades…" autocomplete="off"><span id="count"></span></div>
+<main id="list"></main>
+<dialog id="dlg"><img id="big" alt=""></dialog>
+<script>
+(function () {
+  var list = document.getElementById("list"), count = document.getElementById("count"), q = document.getElementById("q");
+  var dlg = document.getElementById("dlg"), big = document.getElementById("big");
+  var data = {};
+  var ROLES = ["hero", "work", "detail"];
+  function el(tag, cls, text) { var n = document.createElement(tag); if (cls) n.className = cls; if (text != null) n.textContent = text; return n; }
+  function render() {
+    var term = q.value.trim().toLowerCase();
+    list.textContent = "";
+    var keys = Object.keys(data).filter(function (k) { return !term || (k + " " + data[k].label).toLowerCase().indexOf(term) >= 0; });
+    keys.forEach(function (key) {
+      var t = data[key], s = el("section"), h = el("h2", null, t.label + " ");
+      h.appendChild(el("code", null, key));
+      s.appendChild(h);
+      var row = el("div", "row");
+      ROLES.forEach(function (role) {
+        if (!(t.alts && t.alts[role])) return;
+        var fig = el("figure"), btn = el("button"), img = el("img");
+        img.loading = "lazy"; img.src = "/library/" + key + "/" + role + ".webp"; img.alt = (t.alts && t.alts[role]) || t.label;
+        btn.type = "button"; btn.appendChild(img);
+        btn.addEventListener("click", function () { big.src = img.src; big.alt = img.alt; dlg.showModal(); });
+        var cap = el("figcaption"); cap.appendChild(el("b", null, role)); cap.appendChild(document.createTextNode(img.alt));
+        fig.appendChild(btn); fig.appendChild(cap); row.appendChild(fig);
+      });
+      s.appendChild(row); list.appendChild(s);
+    });
+    count.textContent = keys.length + " of " + Object.keys(data).length + " trades, " + list.querySelectorAll("figure").length + " photos";
+  }
+  dlg.addEventListener("click", function () { dlg.close(); });
+  q.addEventListener("input", render);
+  fetch("/library/manifest.json").then(function (r) { return r.json(); }).then(function (m) { data = m; render(); });
+})();
+</script>
+</body>
+</html>

@@ -1,43 +1,27 @@
 /* ===========================================================================
-   INSTANT PREVIEW
+   INSTANT PREVIEW (the four-section teaser)
    ---------------------------------------------------------------------------
-   The free, pre-payment "watch it build" preview shown inside the /start chat.
-   Separate from the real pipeline in master-pipeline.ts / openai-builder.ts —
-   this never touches an order row, never blocks on images, and never runs the
-   plan-approval gate. It exists to show a lead what their site will feel like
-   while they are still talking to Sarah.
-
-   Order of events, all streamed to the browser as they happen:
-     1. THEME   — instant, zero AI. Colours, fonts and the trade's imagery
-                  (library photos, or generated art) from image-library.ts.
-                  The page looks designed before a single word is written.
-     2. SECTION — hero / services / trust / contact, each its own small OpenAI
-                  call, all in parallel, delivered in whatever order they finish.
-     3. done
-
-   Real photos, the customer's own images and a human-checked build only exist
-   in the paid pipeline, which shares no code path with this file.
+   Fills the wait on /start while the full-page site (instant-site.ts) is being
+   written: hero / services / trust / contact, each its own small OpenAI call,
+   all in parallel, streamed to the browser as they finish. Never touches an
+   order row and never throws — a failed section is swapped for a plain
+   fallback so one bad call can't blank the preview.
    =========================================================================== */
 
 import { MODELS, text } from "./ai";
-import { buildTheme, type PreviewTheme } from "./image-library";
 
 export interface InstantBrief {
   businessName: string;
   trade: string;
   description: string;
   location?: string;
-  /** modern | classic | bold | soft | dark — anything else becomes modern. */
-  style?: string;
   /** The customer's conversation language, e.g. "Spanish". Defaults to English. */
   language?: string;
 }
 
 export type SectionId = "hero" | "services" | "trust" | "contact";
 
-export type PreviewEvent =
-  | { type: "theme"; theme: PreviewTheme }
-  | { type: "section"; id: SectionId; html: string };
+export interface PreviewEvent { id: SectionId; html: string }
 
 const RULES = `Write for a single small-business homepage section for an Irish business. Plain confident Irish-English, short sentences. No markdown, no code fences, no <html>/<head>/<body>/<style>/<script> tags — return ONLY the inner HTML fragment for this one section, using semantic tags (h1/h2/p/ul/li/button) and the CSS classes named in the instructions, nothing else. No <img> tags and no links: imagery is handled separately.
 
@@ -90,19 +74,15 @@ export function cleanFragment(html: string): string {
 const esc = (s: string) =>
   s.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;");
 
-/** Fires the theme immediately, then all sections in parallel; emits each the
+/** Fires all sections in parallel; emits each the
  *  instant it resolves, in whatever order they actually finish (not
  *  SECTION_ORDER) — that out-of-order arrival is what makes the assembly feel
  *  alive. Never throws: a failed section is swapped for a minimal fallback so
  *  one bad call can't blank the whole preview. */
 export async function runInstantPreview(
   brief: InstantBrief,
-  emit: (event: PreviewEvent) => void,
-  opts: { themeOnly?: boolean } = {}
+  emit: (event: PreviewEvent) => void
 ): Promise<void> {
-  emit({ type: "theme", theme: buildTheme(brief) });
-  if (opts.themeOnly) return;
-
   await Promise.all(
     SECTION_ORDER.map(async (id) => {
       let html: string;
@@ -113,7 +93,7 @@ export async function runInstantPreview(
       } catch {
         html = fallback(id, brief);
       }
-      emit({ type: "section", id, html });
+      emit({ id, html });
     })
   );
 }

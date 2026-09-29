@@ -98,7 +98,7 @@ const businessJsonLd = `<script type="application/ld+json">${JSON.stringify({
     "@type": "Offer",
     price: "99",
     priceCurrency: "EUR",
-    description: "Complete website, free domain, hosting and business email for one year. Real preview within 48 hours, live within 5 working days.",
+    description: "Complete website, free domain, hosting and business email for one year. See the design live in the chat before paying, live within 5 working days of your details.",
   },
 })}</script>`;
 

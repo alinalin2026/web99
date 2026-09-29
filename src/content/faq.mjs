@@ -6,8 +6,8 @@ export const faqs = [
     home: true,
     q: "Do I really not pay anything to see it?",
     a: [
-      "No. Nothing. We build a real preview of your website and email you the link within 48 hours. You look at it, show it to whoever you like, sleep on it.",
-      "If you want it, you pay €99 and we finish and launch the real thing. If you don't, you do nothing and you owe nothing.",
+      "No. Nothing. While you chat with Sarah, the design of your website builds live in front of you — the colours, the layout, the feel of it. No card, no waiting.",
+      "If you like the look, you pay €99, send us your details, and we finish and launch the real thing with your photos and imagery. If you don't, you close the chat and you owe nothing.",
     
     ],
   },
@@ -24,7 +24,7 @@ export const faqs = [
     home: true,
     q: "What if I don't like it?",
     a: [
-      "You pay nothing. Tell us what's wrong and we'll usually fix it — most things are a quick change to the preview.",
+      "You pay nothing. Tell Sarah what's wrong — a different colour, a different feel — and we'll take it on board. The preview is only the starting point for the look.",
       "If it's still not for you, walk away. You were never charged and there's nothing to cancel.",
     
     ],
@@ -58,8 +58,8 @@ export const faqs = [
     home: true,
     q: "How long does it actually take?",
     a: [
-      "Two minutes of your time to tell us about your business. Within 48 hours you're looking at a real preview — before paying anything.",
-      "Once you say yes, we send one short checklist to collect everything we need, and your finished site is live within 5 working days of your details arriving.",
+      "Two minutes of your time to tell us about your business, and you see the design of your website right there in the chat — before paying anything.",
+      "Once you pay, you fill in one short checklist with your photos, logo and details. We add the imagery and everything else, and your finished site is live within 5 working days of your details arriving.",
     
     ],
   },
@@ -76,8 +76,8 @@ export const faqs = [
     home: false,
     q: "What do you need from me to get started?",
     a: [
-      "Your business name, what you do, and where you're based. That's enough to begin.",
-      "If you have photos, a logo or opening hours to hand, send them along and we'll use them. If you don't, we'll build it without them and you can send them later.",
+      "Your business name, what you do, and where you're based. That's enough to see your design.",
+      "Photos, a logo, opening hours and the rest come after you pay, in one short checklist. No photos? We add the imagery for you.",
     ],
   },
   {
@@ -100,7 +100,7 @@ export const faqs = [
     home: false,
     q: "How do I pay the €99?",
     a: [
-      "By card, after you've seen your preview and decided to go ahead. We send you a payment link — handled by Stripe, we never see your card details.",
+      "By card, after you've seen your design and decided to go ahead. You get a payment link — handled by Stripe, we never see your card details.",
       "One payment. No subscription, no direct debit, nothing that renews behind your back.",
     
     ],

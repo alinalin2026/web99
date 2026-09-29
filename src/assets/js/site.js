@@ -302,10 +302,10 @@
       var done = el("div", "chat__done");
       done.appendChild(el("h2", null, "That's everything — thanks."));
       done.appendChild(
-        el("p", null, "Your website is being built now. We'll email you the link tomorrow.")
+        el("p", null, "Your design is being put together now. This is the look and feel — your own photos and details go in after you pay.")
       );
       done.appendChild(
-        el("p", null, "You'll see the whole thing before you decide. Nothing has been charged.")
+        el("p", null, "Nothing has been charged.")
       );
       thread.parentNode.insertBefore(done, thread.nextSibling);
       done.scrollIntoView({ block: "nearest", behavior: reduced ? "auto" : "smooth" });

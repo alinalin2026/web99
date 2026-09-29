@@ -9,7 +9,7 @@ export const included = [
     top: true,
     icon: "i-eye",
     title: "See it before you buy",
-    line: "No credit card to look. We build a real preview of your website, send you the link, and you decide then.",
+    line: "No credit card to look. Your website's design builds live in the chat while you talk to Sarah, and you decide then.",
   },
   {
     top: true,
@@ -52,8 +52,8 @@ export const included = [
   {
     top: true,
     icon: "i-clock",
-    title: "Preview in 48 hours. Live in 5 working days",
-    line: "You see a real preview within 48 hours. Once you say yes and send your details, your site is live within 5 working days.",
+    title: "See it now. Live in 5 working days",
+    line: "You see the design straight away, in the chat. Once you pay and send your details, we add your photos and imagery and your site is live within 5 working days.",
   },
   {
     top: true,

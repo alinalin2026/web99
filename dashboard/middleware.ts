@@ -19,6 +19,7 @@ function appPath(pathname: string): string {
    JSON 401 rather than HTML/redirects to API callers. */
 const PUBLIC = [
   "/api/chat",
+  "/api/instant-preview",
   "/api/stripe",
   "/api/login",
   "/api/health",

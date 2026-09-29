@@ -18,6 +18,7 @@ import { isPublicPath, config } from "../middleware.ts";
 const routes = [
   // Sarah's chat — talked to by anyone before they're a customer at all.
   ["/api/chat", true, "the /start/ page, unauthenticated visitors"],
+  ["/api/instant-preview", true, "the live preview on /start/, unauthenticated visitors"],
 
   // Login itself. The bug: this was false.
   ["/login", true, "the login page"],

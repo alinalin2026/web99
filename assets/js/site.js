@@ -287,6 +287,15 @@
     var siteFrame = document.getElementById("instantSiteFrame");
     var siteMode = window.innerWidth < 720 ? "mobile" : "desktop";
     var loveAnnounced = false;
+    var regenerating = false;
+    var againBtn = document.getElementById("instantSiteAgain");
+    var stylesRow = document.getElementById("instantSiteStyles");
+    var loveBar = document.getElementById("instantSiteLove");
+    var finishRegen = function () {
+      regenerating = false;
+      if (loveBar) loveBar.classList.remove("is-busy");
+      if (buildBar) buildBar.hidden = true;
+    };
 
     var fitSiteFrame = function () {
       if (!siteFrame || !siteViewport) return;
@@ -341,7 +350,18 @@
         var label = instantPreview.querySelector(".instant-preview__label");
         if (label) label.textContent = "Your website preview — built from what you told us. Click around it like a real website.";
         fitSiteFrame();
+        if (againBtn) {
+          againBtn.hidden = typeof data.remaining === "number" && data.remaining <= 0;
+          if (typeof data.remaining === "number" && data.remaining > 0 && data.version > 1) againBtn.textContent = "Try another version (" + data.remaining + " left)";
+        }
+        if (regenerating) {
+          finishRegen();
+          addTurn("sarah", "Here\u2019s another take \u2014 version " + (data.version || "") + ". Like this one better? Tap the button at the bottom, or try another.");
+        }
         setTimeout(function () { siteStage.scrollIntoView({ block: "start", behavior: reduced ? "auto" : "smooth" }); }, 150);
+      } else if (eventName === "error" && regenerating) {
+        finishRegen();
+        addTurn("sarah", "Sorry \u2014 I couldn\u2019t build another version just now. Your first design is still here, and you can try again in a moment.");
       } else if (eventName === "error") {
         siteBox.hidden = true;
         if (buildBar) buildBar.hidden = true;
@@ -349,6 +369,64 @@
         if (sketchLabel) sketchLabel.textContent = "Your site, building live —";
       }
     };
+
+    var streamSite = function (payload, onFail) {
+      fetch(api + "/api/instant-site", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(payload)
+      })
+        .then(function (r) {
+          if (!r.ok || !r.body) throw new Error("HTTP " + r.status);
+          var reader = r.body.getReader();
+          var decoder = new TextDecoder();
+          var buffer = "";
+          var readChunk = function () {
+            return reader.read().then(function (result) {
+              if (result.done) return;
+              buffer += decoder.decode(result.value, { stream: true });
+              var events = buffer.split("\n\n");
+              buffer = events.pop();
+              events.forEach(handleSiteEvent);
+              return readChunk();
+            });
+          };
+          return readChunk();
+        })
+        .catch(function (err) { onFail(err); });
+    };
+
+    /* "Try another version": rebuilds the site in a different direction (the server caps how many). */
+    var regenerate = function (style) {
+      if (regenerating || !orderId) return;
+      regenerating = true;
+      if (loveBar) loveBar.classList.add("is-busy");
+      if (buildBar) buildBar.hidden = false;
+      siteProgress.hidden = false;
+      siteBar.style.width = "2%";
+      siteLabel.textContent = "Building another version\u2026";
+      addTurn("sarah", "Sure \u2014 let me try another look. Please wait, it usually takes about 60 seconds.");
+      var payload = { orderId: orderId, regenerate: true };
+      if (style) payload.style = style;
+      streamSite(payload, function (err) {
+        finishRegen();
+        if (err && err.message === "HTTP 409" && againBtn) {
+          againBtn.hidden = true;
+          addTurn("sarah", "You\u2019ve seen all the versions I can build here. Pick the one you like best \u2014 and once it\u2019s yours you can ask for changes.");
+        } else {
+          addTurn("sarah", "Sorry \u2014 I couldn\u2019t build another version just now. Your current design is still here.");
+        }
+      });
+    };
+    if (againBtn && stylesRow) {
+      againBtn.addEventListener("click", function () { stylesRow.hidden = !stylesRow.hidden; });
+      stylesRow.addEventListener("click", function (ev) {
+        var b = ev.target && ev.target.closest ? ev.target.closest("[data-style]") : null;
+        if (!b) return;
+        stylesRow.hidden = true;
+        regenerate(b.getAttribute("data-style"));
+      });
+    }
 
     var startInstantSite = function () {
       if (!siteBox || !siteFrame || !orderId) return;
@@ -369,34 +447,12 @@
       });
       window.addEventListener("resize", fitSiteFrame);
 
-      fetch(api + "/api/instant-site", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ orderId: orderId })
-      })
-        .then(function (r) {
-          if (!r.ok || !r.body) throw new Error("HTTP " + r.status);
-          var reader = r.body.getReader();
-          var decoder = new TextDecoder();
-          var buffer = "";
-          var readChunk = function () {
-            return reader.read().then(function (result) {
-              if (result.done) return;
-              buffer += decoder.decode(result.value, { stream: true });
-              var events = buffer.split("\n\n");
-              buffer = events.pop();
-              events.forEach(handleSiteEvent);
-              return readChunk();
-            });
-          };
-          return readChunk();
-        })
-        .catch(function () {
-          if (siteStage.hidden) {
-            siteBox.hidden = true;
-            if (buildBar) buildBar.hidden = true;
-          }
-        });
+      streamSite({ orderId: orderId }, function () {
+        if (siteStage.hidden) {
+          siteBox.hidden = true;
+          if (buildBar) buildBar.hidden = true;
+        }
+      });
     };
 
     /* --- "Keep this for me" ------------------------------------------------

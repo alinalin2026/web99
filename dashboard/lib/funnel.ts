@@ -13,6 +13,8 @@ export interface FunnelInfo {
   wantsIt: boolean;
   /* They pressed "Keep this for me" and we emailed them a link back (latest time). */
   savedAt: string | null;
+  /* How many designs they were shown (1 + "try another version" presses). */
+  versions: number;
   /* Cents charged, from the Stripe webhook's "paid" event. Null if the order
      was marked paid by hand, or hasn't paid. */
   paidCents: number | null;
@@ -26,6 +28,7 @@ interface Row {
   paid_cents: string | null;
   wants_it: boolean;
   saved_at: string | null;
+  versions: string;
 }
 
 export async function loadFunnel(): Promise<Map<string, FunnelInfo>> {
@@ -37,6 +40,7 @@ export async function loadFunnel(): Promise<Map<string, FunnelInfo>> {
       (SELECT p.category FROM previews p WHERE p.order_id = o.id ORDER BY p.created_at DESC LIMIT 1) AS preview_category,
       EXISTS (SELECT 1 FROM order_events e WHERE e.order_id = o.id AND e.kind = 'wants_it') AS wants_it,
       (SELECT max(e.created_at) FROM order_events e WHERE e.order_id = o.id AND e.kind = 'saved_for_later') AS saved_at,
+      (SELECT count(*) FROM order_events e WHERE e.order_id = o.id AND e.kind = 'instant_site' AND e.detail ? 'html') AS versions,
       (SELECT (e.detail->>'amount') FROM order_events e
         WHERE e.order_id = o.id AND e.kind = 'state_change' AND e.detail->>'step' = 'paid'
         ORDER BY e.created_at DESC LIMIT 1) AS paid_cents
@@ -44,7 +48,7 @@ export async function loadFunnel(): Promise<Map<string, FunnelInfo>> {
   return new Map(
     rows.map((r) => {
       const cents = r.paid_cents != null && /^\d+$/.test(r.paid_cents) ? Number(r.paid_cents) : null;
-      return [r.id, { siteBuiltAt: r.site_built_at, previewId: r.preview_id, previewCategory: r.preview_category, wantsIt: r.wants_it, savedAt: r.saved_at, paidCents: cents }];
+      return [r.id, { siteBuiltAt: r.site_built_at, previewId: r.preview_id, previewCategory: r.preview_category, wantsIt: r.wants_it, savedAt: r.saved_at, versions: Number(r.versions), paidCents: cents }];
     })
   );
 }

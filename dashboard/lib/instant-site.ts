@@ -30,10 +30,20 @@ export function siteOrigin(): string {
 export interface LibraryTrade {
   key: string;
   label: string;
+  /** Words that, when the owner uses them, point at this folder (label, key and manifest aliases). */
+  terms: string[];
+  /** A general-purpose folder (offices, tools, people…) used when no trade matches. */
+  generic: boolean;
   images: { role: string; url: string; alt: string }[];
 }
 
-interface ManifestEntry { label: string; alts: Record<string, string> }
+interface ManifestEntry { label: string; alts: Record<string, string>; aliases?: string[]; generic?: boolean }
+
+const STOP = new Set(["and", "the", "for", "services", "service", "shop", "store", "company", "business", "care", "home", "house"]);
+const termsFor = (key: string, entry: ManifestEntry): string[] => {
+  const words = `${key.replace(/-/g, " ")} ${entry.label}`.toLowerCase().split(/[^a-z]+/).filter((w) => w.length >= 3 && !STOP.has(w));
+  return [...new Set([...words, ...(entry.aliases ?? []).map((a) => a.toLowerCase())])];
+};
 
 export function loadLibrary(): LibraryTrade[] {
   const dir = path.join(process.cwd(), "public", "library");
@@ -51,9 +61,33 @@ export function loadLibrary(): LibraryTrade[] {
       url: `${siteOrigin()}/library/${key}/${role}.webp`,
       alt: entry.alts?.[role] ?? entry.label,
     }));
-    if (images.some((i) => i.role === "hero")) trades.push({ key, label: entry.label, images });
+    if (images.some((i) => i.role === "hero")) trades.push({ key, label: entry.label, terms: termsFor(key, entry), generic: entry.generic === true, images });
   }
   return trades;
+}
+
+/** The folders worth showing the model for THIS business: up to three that match the owner's own
+ *  words, plus every generic folder as a fallback. Keeps the prompt short as the library grows.
+ *  If nothing matches and there are no generic folders, the whole library is offered. */
+export function pickLibrary(brief: string, library: LibraryTrade[]): LibraryTrade[] {
+  const text = brief.toLowerCase();
+  const scored = library
+    .filter((t) => !t.generic)
+    .map((t) => {
+      let score = 0;
+      for (const term of t.terms) {
+        const stem = term.includes(" ") ? term : term.slice(0, Math.max(Math.min(term.length, 4), Math.ceil(term.length * 0.65)));
+        if (new RegExp(`\\b${escapeRe(stem)}`, "i").test(text)) score += term.includes(" ") ? 3 : 2;
+      }
+      return { t, score };
+    })
+    .filter((x) => x.score > 0)
+    .sort((a, b) => b.score - a.score)
+    .slice(0, 3)
+    .map((x) => x.t);
+  const generic = library.filter((t) => t.generic);
+  if (!scored.length && !generic.length) return library;
+  return [...scored, ...generic];
 }
 
 function libraryMenu(library: LibraryTrade[]): string {
@@ -61,10 +95,41 @@ function libraryMenu(library: LibraryTrade[]): string {
   const lines = library.map(
     (t) => `- ${t.key} (${t.label}): ` + t.images.map((i) => `${i.role} = ${i.url} — ${i.alt}`).join(" | ")
   );
-  return `IMAGE LIBRARY — the ONLY photographs you may use. Choose the ONE folder whose trade is closest to this business and use only that folder's images (you may reuse an image). If NO folder is a reasonable match, use no photographs and rely on typography, colour blocks, gradients and CSS patterns instead — never use a mismatched trade's photos.\n${lines.join("\n")}`;
+  return `IMAGE LIBRARY — the ONLY photographs you may use. Choose the ONE folder whose trade is closest to this business and use only that folder's images (you may reuse an image). If no trade folder is a good match, use a generic-* folder instead — the page must ALWAYS have real photographs (at minimum the hero, and photos on the feature cards or a split band). Never use a mismatched trade's photos, and never leave the page photo-less unless the list below is empty.\n${lines.join("\n")}`;
 }
 
-export function instantSiteInstructions(library: LibraryTrade[]): string {
+
+/** What the customer can ask for when they press "Try another version". */
+export const STYLES = {
+  lighter: { label: "Lighter", brief: "Use a LIGHT theme: white or warm-cream backgrounds, dark text, one fresh accent colour. Airy, generous whitespace, photo-forward." },
+  darker: { label: "Darker", brief: "Use a DARK premium theme: near-black or deep navy backgrounds, light text, one vivid accent colour. Photography with strong contrast." },
+  bolder: { label: "Bolder", brief: "Go BOLD and high-contrast: oversized condensed headlines, saturated brand-colour blocks, chunky buttons, a confident grid. Colourful, energetic, not corporate." },
+  softer: { label: "Softer", brief: "Go SOFT and friendly: warm neutrals, rounded shapes, a gentle pastel or earthy accent, a warm serif or rounded display font." },
+  photos: { label: "More photos", brief: "Make it MORE PHOTOGRAPHIC: a full-bleed hero photo, large image bands between sections, photo-led cards. Keep text short and let the pictures work." },
+} as const;
+export type StyleKey = keyof typeof STYLES;
+export const STYLE_KEYS = Object.keys(STYLES) as StyleKey[];
+
+export interface VersionOptions {
+  /** Requested direction; when absent on a retry a not-yet-used one is chosen. */
+  style?: StyleKey;
+  /** Directions the customer has already seen, so the new one is clearly different. */
+  seen?: string[];
+}
+
+export function nextStyle(seen: string[], requested?: string): StyleKey {
+  if (requested && (STYLE_KEYS as string[]).includes(requested)) return requested as StyleKey;
+  const fresh = STYLE_KEYS.filter((k) => !seen.includes(k));
+  const pool = fresh.length ? fresh : STYLE_KEYS;
+  return pool[Math.floor(Math.random() * pool.length)];
+}
+
+function versionBrief(opts?: VersionOptions): string {
+  if (!opts?.style) return "";
+  return `\n\nTHIS IS A NEW VERSION — the customer saw an earlier design and asked to try another. ${STYLES[opts.style].brief} It must look CLEARLY different from before: a different palette, different fonts, a different hero layout and different section styling. Same business facts and the same fact rules.${opts.seen?.length ? ` Directions already shown: ${opts.seen.join(", ")}.` : ""}`;
+}
+
+export function instantSiteInstructions(library: LibraryTrade[], opts?: VersionOptions): string {
   return `You are a senior web designer and conversion copywriter at a Dublin studio. Produce ONE complete, self-contained, production-quality HTML document (inline <style> only) for a small business front page that looks like a professional agency designed it — comparable to a premium Framer/Webflow marketing site.
 
 HARD TECHNICAL RULES
@@ -75,7 +140,7 @@ HARD TECHNICAL RULES
 - Fully responsive at 1280px and 390px. Sticky header. No horizontal scroll.
 
 ART DIRECTION
-Pick ONE strong direction that fits the trade (Premium Dark, Bold Industrial, Modern Local, Warm Boutique, Minimal Editorial, Classic Professional, Friendly Family…) and commit: a deliberate palette (one dominant + one accent, as CSS custom properties), big confident type, generous spacing, consistent radius and subtle shadows/borders. Real visual hierarchy. Use consistent inline SVG icons. Hero photo goes behind a tinted overlay so text is always readable, but keep the photo clearly visible: use a directional gradient (dark on the text side, at most ~15% tint on the photo side), never a uniform dark wash. Decorative badges, floating cards and shapes must never overlap text or each other — place them in normal flow or leave generous clear space.
+Pick ONE strong direction that fits the trade (Fresh & Light, Modern Local, Warm Boutique, Minimal Editorial, Classic Professional, Friendly Family, Bold Industrial, Premium Dark…) and commit. DEFAULT TO A LIGHT, BRIGHT DESIGN (white or warm backgrounds, dark text, one strong accent) — most small-business customers want to feel welcomed, not spooked; only choose a dark theme where the trade truly suits it (barber, nightlife, luxury, cinema, tattoo). Whatever you pick, the page is PHOTOGRAPHIC: a large real hero photograph and photos on the service cards or split bands — a page with no images is a failure. Commit to a deliberate palette (one dominant + one accent, as CSS custom properties), big confident type, generous spacing, consistent radius and subtle shadows/borders. Real visual hierarchy. Use consistent inline SVG icons. Hero photo goes behind a tinted overlay so text is always readable, but keep the photo clearly visible: use a directional gradient (dark on the text side, at most ~15% tint on the photo side), never a uniform dark wash. Decorative badges, floating cards and shapes must never overlap text or each other — place them in normal flow or leave generous clear space.
 
 SECTIONS (all required, in order)
 1. Sticky header: wordmark, nav anchors, primary CTA.  2. Hero: eyebrow, huge headline, supporting paragraph, two CTAs, three qualitative trust chips.  3. Services grid (id="services"), 6-8 cards with icons (use the "work" and "detail" photos on feature cards or a split band).  4. Value band of 3-4 qualitative benefits.  5. "How it works" process (id="process"), 4-5 numbered steps.  6. About/positioning split section (id="about").  7. FAQ (id="faq"), 4 items.  8. Big CTA band (id="contact") + full footer. The header nav shows: Services, How it works, About, FAQ, Contact.
@@ -83,7 +148,7 @@ SECTIONS (all required, in order)
 ${libraryMenu(library)}
 
 FACT RULES (strict)
-Write finished, ready-to-ship copy in plain confident Irish-English using the real business name. NEVER invent prices, years in business, staff counts, awards, certifications, insurance, named clients, testimonials, star ratings, project counts, statistics or opening hours, and never invent phone numbers, emails or addresses — use the neutral link text "Get a free quote" pointing to #contact. No placeholder/template language ("lorem", "your text here", "sample", "coming soon"). Only use what the owner said; for anything they did not say, write normal category-level descriptive copy for the trade.`;
+Write finished, ready-to-ship copy in plain confident Irish-English using the real business name. NEVER invent prices, years in business, staff counts, awards, certifications, insurance, named clients, testimonials, star ratings, project counts, statistics or opening hours, and never invent phone numbers, emails or addresses — use the neutral link text "Get a free quote" pointing to #contact. No placeholder/template language ("lorem", "your text here", "sample", "coming soon"). Only use what the owner said; for anything they did not say, write normal category-level descriptive copy for the trade.${versionBrief(opts)}`;
 }
 
 const GUARD_CSS = `html{scroll-behavior:smooth}[id]{scroll-margin-top:96px}.wrap{box-sizing:border-box!important;width:100%!important;max-width:1200px!important;margin-left:auto!important;margin-right:auto!important;padding-left:clamp(20px,4vw,40px)!important;padding-right:clamp(20px,4vw,40px)!important}img{max-width:100%}`;
@@ -173,7 +238,7 @@ export function fixNavigation(html: string): string {
 /** Reasons a generated page must NOT be shown to a customer. Empty = fine. A page can be
  *  perfectly sanitised and still be broken (cut off mid-section, unclosed tags, placeholder
  *  text, no content) — this is the last gate before it is saved or served. */
-export function siteProblems(html: string): string[] {
+export function siteProblems(html: string, opts: { photos?: boolean } = {}): string[] {
   const problems: string[] = [];
   const count = (re: RegExp) => (html.match(re) ?? []).length;
   if (!/<\/html\s*>\s*$/i.test(html.trim())) problems.push("page is cut off (no closing </html>)");
@@ -184,6 +249,7 @@ export function siteProblems(html: string): string[] {
     if (open !== close) problems.push(`unbalanced <${tag}> (${open} open, ${close} closed)`);
   }
   if (count(/<section[\s>]/gi) < 5) problems.push("fewer than 5 sections");
+  if (opts.photos && count(/\/library\/[a-z0-9-]+\/[a-z]+\.webp/gi) < 3) problems.push("page has no real photographs");
   if (!/<h1[\s>]/i.test(html)) problems.push("no main headline");
   if (!/<footer[\s>]/i.test(html)) problems.push("no footer");
   if (!/<style[\s>][\s\S]{500,}?<\/style>/i.test(html)) problems.push("no styling");
@@ -231,12 +297,14 @@ const RETRY_ONLY_IF_FASTER_THAN_MS = 70_000;
 export async function generateInstantSite(
   brief: string,
   onProgress?: (pct: number) => void,
-  signal?: AbortSignal
+  signal?: AbortSignal,
+  version?: VersionOptions
 ): Promise<InstantSiteResult> {
   const started = Date.now();
   const effort = (process.env.ANTHROPIC_INSTANT_SITE_EFFORT as Effort | undefined) ?? "low";
   let bestPct = -1;
   let lastProblems: string[] = [];
+  const offered = pickLibrary(brief, loadLibrary());
 
   /* One attempt is normally enough. If the result is cut off or fails the quality gate we try
      once more (only when there's time left before the request is aborted) — a customer should
@@ -246,7 +314,7 @@ export async function generateInstantSite(
     const message = await createMessage(
       {
         model: process.env.ANTHROPIC_INSTANT_SITE_MODEL ?? process.env.ANTHROPIC_BUILD_MODEL ?? DEFAULT_MODEL,
-        system: instantSiteInstructions(loadLibrary()),
+        system: instantSiteInstructions(offered, version),
         messages: [{ role: "user", content: `WHAT THE OWNER TOLD US ABOUT THEIR BUSINESS (their own words):\n${brief}` }],
         max_tokens: tokenBudget(30000, effort),
         effort,
@@ -268,7 +336,7 @@ export async function generateInstantSite(
     else {
       try {
         const html = finalizeHtml(out);
-        lastProblems = siteProblems(html);
+        lastProblems = siteProblems(html, { photos: offered.some((t) => t.images.length > 0) });
         if (!lastProblems.length) return { html, ms: Date.now() - started, outputChars: out.length };
       } catch (err) {
         lastProblems = [(err as Error).message];

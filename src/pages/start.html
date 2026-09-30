@@ -136,7 +136,13 @@
   .buildbar__building > small { display: block; margin-top: 8px; font-size: 0.82rem; line-height: 1.45; color: var(--muted); }
   .instant-site__stage { scroll-margin-top: 84px; }
   .instant-site__open { font-size: 0.8rem; font-weight: 700; color: var(--violet-deep); text-decoration: none; margin-left: auto; margin-right: 10px; white-space: nowrap; }
-  .instant-site__love { position: sticky; bottom: 10px; z-index: 5; display: flex; gap: 8px; justify-content: center; margin-top: 12px; padding: 8px; border-radius: 999px; background: rgba(255, 255, 255, 0.96); border: 1px solid var(--lav-line); box-shadow: 0 8px 24px rgba(45, 27, 143, 0.2); }
+  .instant-site__love { position: sticky; bottom: 10px; z-index: 5; display: flex; flex-direction: column; gap: 8px; align-items: center; margin-top: 12px; padding: 8px; border-radius: 22px; background: rgba(255, 255, 255, 0.97); border: 1px solid var(--lav-line); box-shadow: 0 8px 24px rgba(45, 27, 143, 0.2); }
+  .instant-site__love-row { display: flex; flex-wrap: wrap; gap: 8px; justify-content: center; }
+  .instant-site__styles { display: flex; flex-wrap: wrap; gap: 6px; align-items: center; justify-content: center; }
+  .instant-site__styles span { font-size: 0.78rem; font-weight: 700; color: var(--muted); }
+  .instant-site__styles button { border: 1px solid var(--lav-line); background: var(--lav); color: var(--violet-deep); border-radius: 999px; padding: 6px 12px; font: inherit; font-size: 0.78rem; font-weight: 700; cursor: pointer; }
+  .instant-site__styles button:hover { background: var(--violet); color: #fff; }
+  .instant-site__love.is-busy .btn { opacity: 0.5; pointer-events: none; }
   .instant-site__love .btn { width: auto; flex: 0 1 auto; padding: 8px 16px; font-size: 0.8rem; }
   .keep-note { margin: 10px 0 0; font-size: 0.9rem; color: var(--muted); }
   .keep-form { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 12px; }
@@ -239,8 +245,20 @@
             </div>
           </div>
           <div class="instant-site__love" id="instantSiteLove" hidden>
-            <a class="btn" id="instantSiteBuy" href="#">Yes, I love it &mdash; {{price}}</a>
-            <button class="btn btn--ghost" type="button" data-keep>Keep this for me</button>
+            <div class="instant-site__styles" id="instantSiteStyles" hidden>
+              <span>Change it:</span>
+              <button type="button" data-style="lighter">Lighter</button>
+              <button type="button" data-style="darker">Darker</button>
+              <button type="button" data-style="bolder">Bolder</button>
+              <button type="button" data-style="softer">Softer</button>
+              <button type="button" data-style="photos">More photos</button>
+              <button type="button" data-style="">Surprise me</button>
+            </div>
+            <div class="instant-site__love-row">
+              <a class="btn" id="instantSiteBuy" href="#">Yes, I love it &mdash; {{price}}</a>
+              <button class="btn btn--ghost" type="button" id="instantSiteAgain">Try another version</button>
+              <button class="btn btn--ghost" type="button" data-keep>Keep this for me</button>
+            </div>
           </div>
         </div>
       </div>

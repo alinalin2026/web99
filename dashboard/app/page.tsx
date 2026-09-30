@@ -202,7 +202,7 @@ function LeadsTab({ orders, funnel, group }: { orders: Order[]; funnel: Map<stri
             </div>
             <div className="chips">
               <Contact order={o} />
-              {f?.siteBuiltAt && <span className="chip chip--blue">Site built {ago(f.siteBuiltAt)} ago</span>}
+              {f?.siteBuiltAt && <span className="chip chip--blue">Site built {ago(f.siteBuiltAt)} ago{f.versions > 1 ? ` · ${f.versions} versions tried` : ""}</span>}
               {stage === "wants" && <span className="chip chip--amber">Pressed “Yes, I love it”</span>}
               {f?.savedAt && stage !== "paid" && <span className="chip chip--violet">Saved for later {ago(f.savedAt)} ago</span>}
               {customRequests(o).length > 0 && <span className="chip chip--amber">Custom quote: {customRequests(o).join(", ").slice(0, 80)}</span>}

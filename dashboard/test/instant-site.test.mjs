@@ -3,7 +3,7 @@
 
 import assert from "node:assert/strict";
 import { test } from "node:test";
-import { finalizeHtml, siteProblems } from "../lib/instant-site.ts";
+import { finalizeHtml, siteProblems, pickLibrary, loadLibrary, instantSiteInstructions, nextStyle, STYLE_KEYS } from "../lib/instant-site.ts";
 
 const filler = "<p>" + "Content. ".repeat(600) + "</p>";
 const page = (body, head = "") =>
@@ -109,4 +109,49 @@ test("siteProblems: cut-off, unbalanced, thin and placeholder pages are all refu
   assert.match(siteProblems(good.replace(/<section[\s\S]*<\/section>/, "<section>x</section>")).join(), /fewer than 5 sections|too little text/);
   assert.match(siteProblems(good.replace("Real copy", "Lorem ipsum")).join(), /placeholder/);
   assert.match(siteProblems(good.replace("<h1>Hello</h1>", "")).join(), /headline/);
+});
+
+const mk = (key, label, terms, generic = false) => ({ key, label, terms, generic, images: [{ role: "hero", url: `https://web99.ie/library/${key}/hero.webp`, alt: label }] });
+const fake = [mk("plumber", "Plumber", ["plumber", "plumbing", "boiler"]), mk("pest-control", "Pest control", ["pest", "rodent", "pest control"]), mk("florist", "Florist", ["florist", "flowers"]), mk("generic-office", "General", [], true)];
+
+test("pickLibrary offers the matching trade plus generic fallbacks, not the whole library", () => {
+  const keys = (b) => pickLibrary(b, fake).map((t) => t.key);
+  assert.deepEqual(keys("We do plumbing and boiler repairs in Cork"), ["plumber", "generic-office"]);
+  assert.deepEqual(keys("Rodent and pest control across Dublin"), ["pest-control", "generic-office"]);
+  assert.deepEqual(keys("Something nobody has heard of"), ["generic-office"]);
+});
+
+test("pickLibrary with no generic folders and no match offers everything", () => {
+  assert.equal(pickLibrary("xyz", fake.filter((t) => !t.generic)).length, 3);
+});
+
+test("the real library loads with aliases, and 'plumbing' finds the plumber folder", () => {
+  const real = loadLibrary();
+  assert.ok(real.length >= 31);
+  assert.ok(pickLibrary("Emergency plumbing and heating", real).some((t) => t.key === "plumber"));
+});
+
+test("a new version's prompt names the requested direction and defaults are light + photographic", () => {
+  const base = instantSiteInstructions(fake);
+  assert.match(base, /DEFAULT TO A LIGHT, BRIGHT DESIGN/);
+  assert.match(base, /no images is a failure/);
+  assert.doesNotMatch(base, /THIS IS A NEW VERSION/);
+  const v = instantSiteInstructions(fake, { style: "darker", seen: ["lighter"] });
+  assert.match(v, /THIS IS A NEW VERSION/);
+  assert.match(v, /DARK premium theme/);
+  assert.match(v, /Directions already shown: lighter/);
+});
+
+test("nextStyle honours a valid request, otherwise picks one not yet seen", () => {
+  assert.equal(nextStyle([], "bolder"), "bolder");
+  const seen = STYLE_KEYS.slice(0, STYLE_KEYS.length - 1);
+  assert.equal(nextStyle(seen), STYLE_KEYS[STYLE_KEYS.length - 1]);
+  assert.ok(STYLE_KEYS.includes(nextStyle([], "not-a-style")));
+});
+
+test("siteProblems can require real photographs", () => {
+  const bare = good.replace(/<\/h1>/, "</h1>");
+  assert.match(siteProblems(bare, { photos: true }).join(), /photographs/);
+  const withPhotos = good.replace("<h1>Hello</h1>", '<h1>Hello</h1><img src="https://web99.ie/library/plumber/hero.webp"><img src="https://web99.ie/library/plumber/work.webp"><img src="https://web99.ie/library/plumber/detail.webp">');
+  assert.deepEqual(siteProblems(withPhotos, { photos: true }), []);
 });

@@ -320,6 +320,12 @@
       } else if (eventName === "page" && data && typeof data.html === "string") {
         siteFrame.onload = function () { fitSiteFrame(); siteFrame.style.visibility = "hidden"; void siteFrame.offsetHeight; siteFrame.style.visibility = ""; };
         siteFrame.srcdoc = data.html;
+        var openRow = document.getElementById("instantSiteOpenRow");
+        var openLink = document.getElementById("instantSiteOpen");
+        if (openRow && openLink && orderId) {
+          openLink.href = api + "/api/instant-site/view/" + encodeURIComponent(orderId);
+          openRow.hidden = false;
+        }
         siteProgress.hidden = true;
         siteStage.hidden = false;
         var frame = instantPreview.querySelector(".instant-preview__frame");

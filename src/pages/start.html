@@ -127,6 +127,8 @@
   .instant-site__progress > span { display: block; margin-bottom: 8px; font-size: 0.9rem; font-weight: 600; color: var(--ink); }
   .instant-site__bar { height: 8px; border-radius: 999px; background: var(--lav); overflow: hidden; }
   .instant-site__bar i { display: block; height: 100%; width: 0; border-radius: 999px; background: linear-gradient(90deg, var(--violet), var(--violet-deep)); transition: width 0.6s ease; }
+  .instant-site__open { display: flex; flex-wrap: wrap; align-items: center; gap: 10px 16px; margin: 0 0 14px; }
+  .instant-site__open span { font-size: 0.88rem; color: var(--muted); }
   .instant-site__stage { border: 1px solid var(--lav-line); border-radius: 14px; overflow: hidden; background: var(--white); box-shadow: 0 10px 30px rgba(45, 27, 143, 0.10); }
   .instant-site__chrome { display: flex; align-items: center; justify-content: space-between; padding: 10px 14px; background: var(--lav); border-bottom: 1px solid var(--lav-line); }
   .instant-site__dots { display: inline-flex; gap: 6px; }
@@ -169,9 +171,19 @@
           placeholder="Type your answer here…"
           autocomplete="off"></textarea>
 
+        <div class="composer__files" id="composerFiles" hidden></div>
+        <p class="composer__filesError" id="composerFilesError" hidden></p>
+
         <div class="composer__foot">
           <p class="composer__hint">No credit card. Nothing to pay today.</p>
-          <button class="btn" type="submit">Send <svg class="btn__arrow" width="19" height="19" aria-hidden="true"><use href="#i-arrow"/></svg></button>
+          <div class="composer__actions">
+            <button class="composer__attach" type="button" id="attachBtn" title="Attach photos or documents, up to 100MB each">
+              📎 <span>Attach</span>
+            </button>
+            <input type="file" id="storyFiles" multiple hidden
+                   accept="image/jpeg,image/png,image/webp,image/gif,image/heic,image/heif,application/pdf,application/msword,application/vnd.openxmlformats-officedocument.wordprocessingml.document,application/vnd.ms-excel,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet,text/plain" />
+            <button class="btn" type="submit">Send <svg class="btn__arrow" width="19" height="19" aria-hidden="true"><use href="#i-arrow"/></svg></button>
+          </div>
         </div>
       </form>
 
@@ -188,6 +200,10 @@
           <div class="instant-site__progress" id="instantSiteProgress">
             <span id="instantSiteLabel">Building your full website…</span>
             <div class="instant-site__bar"><i id="instantSiteBar"></i></div>
+          </div>
+          <div class="instant-site__open" id="instantSiteOpenRow" hidden>
+            <a class="btn btn--lg" id="instantSiteOpen" href="#" target="_blank" rel="noopener">Open your website in a new tab <span class="btn__arrow" aria-hidden="true">↗</span></a>
+            <span>Full size &mdash; click around it like a live website.</span>
           </div>
           <div class="instant-site__stage" id="instantSiteStage" hidden>
             <div class="instant-site__chrome">

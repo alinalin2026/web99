@@ -73,7 +73,7 @@ export function AutopilotSelect({ id, value }: { id: string; value: string }) {
   );
 }
 
-export function LeadControls({ id, email, businessName }: { id: string; email: string | null; businessName: string }) {
+export function LeadControls({ id, email, businessName, canDelete = true }: { id: string; email: string | null; businessName: string; canDelete?: boolean }) {
   const router = useRouter();
   const [open, setOpen] = useState(false);
   const [subject, setSubject] = useState(`Web99 — ${businessName}`);
@@ -95,14 +95,15 @@ export function LeadControls({ id, email, businessName }: { id: string; email: s
   return (
     <div className="lead-controls">
       <div className="button-row">
-        <button className="btn" disabled={!!busy} onClick={() => run("queue")}>{busy === "queue" ? "Queuing…" : "Queue"}</button>
         <button className="btn btn--ghost" disabled={!email || !!busy} onClick={() => setOpen((v) => !v)}>Email</button>
-        <button
-          className="icon-btn danger"
-          disabled={!!busy}
-          aria-label="Delete lead"
-          onClick={() => window.confirm(`Delete ${businessName}?`) && run("delete")}
-        >Delete</button>
+        {canDelete && (
+          <button
+            className="icon-btn danger"
+            disabled={!!busy}
+            aria-label="Delete lead"
+            onClick={() => window.confirm(`Delete ${businessName}?`) && run("delete")}
+          >Delete</button>
+        )}
       </div>
       {open && (
         <div className="email-editor">

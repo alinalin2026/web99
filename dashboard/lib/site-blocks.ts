@@ -10,10 +10,10 @@ import { paletteById, pickPalette, type Palette } from "./palettes";
 
 export interface ServiceItem { icon: string; title: string; text: string }
 export interface SiteContent {
-  brand: { name: string; tagline: string };
+  brand: { name: string; tagline: string; icon: string };
   photoFolder: string | null;
   palette: string | null;
-  hero: { eyebrow: string; headline: string; sub: string; primaryCta: string; secondaryCta: string; chips: string[] };
+  hero: { eyebrow: string; headline: string; sub: string; primaryCta: string; secondaryCta: string; chips: { icon: string; text: string }[] };
   services: { eyebrow: string; title: string; intro: string; items: ServiceItem[] };
   values: { title: string; items: ServiceItem[] };
   process: { eyebrow: string; title: string; intro: string; steps: { title: string; text: string }[] };
@@ -25,11 +25,14 @@ export interface SiteContent {
 }
 
 export const VARIANTS = {
+  logo: ["badge", "monogram", "mark", "tagline"],
+  topbar: ["on", "off"],
   header: ["left", "center"],
   hero: ["split-right", "split-left", "full", "centered", "bold"],
   services: ["cards", "list", "feature", "tiles"],
   values: ["dark", "accent", "light"],
   process: ["cards", "timeline", "steps"],
+  band: ["ticker", "none"],
   about: ["photo-left", "photo-right", "centered"],
   faq: ["accordion", "two-col"],
   cta: ["accent", "dark", "photo"],
@@ -80,13 +83,16 @@ export function parseSiteContent(raw: string, opts: { folders: string[] }): Site
   const folder = typeof j.photoFolder === "string" && opts.folders.includes(j.photoFolder) ? j.photoFolder : null;
 
   const content: SiteContent = {
-    brand: { name: str(obj(j.brand).name, 60), tagline: str(obj(j.brand).tagline, 90) },
+    brand: { name: str(obj(j.brand).name, 60), tagline: str(obj(j.brand).tagline, 90), icon: iconOf(obj(j.brand).icon, "") },
     photoFolder: folder,
     palette: paletteById(str(j.palette, 40)) ? str(j.palette, 40) : null,
     hero: {
       eyebrow: str(h.eyebrow, 60), headline: str(h.headline, 95), sub: str(h.sub, 240),
       primaryCta: str(h.primaryCta, 28) || "Get a free quote", secondaryCta: str(h.secondaryCta, 28) || "See our services",
-      chips: arr(h.chips).map((c) => str(c, 34)).filter(Boolean).slice(0, 3),
+      chips: arr(h.chips)
+        .map((c, i) => (typeof c === "string" ? { icon: FALLBACK_ICONS[i % FALLBACK_ICONS.length], text: str(c, 34) } : { icon: iconOf(obj(c).icon, FALLBACK_ICONS[i % FALLBACK_ICONS.length]), text: str(obj(c).text, 34) }))
+        .filter((c) => c.text)
+        .slice(0, 3),
     },
     services: { eyebrow: str(sv.eyebrow, 40) || "What we do", title: str(sv.title, 80), intro: str(sv.intro, 200), items: items(sv.items, 8, 42, 175) },
     values: { title: str(va.title, 70), items: items(va.items, 4, 38, 130) },
@@ -115,6 +121,7 @@ export function parseSiteContent(raw: string, opts: { folders: string[] }): Site
   if (!content.about.paragraphs.length) missing.push("about.paragraphs");
   if (content.faq.items.length < 3) missing.push("faq (need 3+)");
   if (!content.cta.title) missing.push("cta.title");
+  if (!content.brand.icon) content.brand.icon = content.services.items[0]?.icon ?? "sparkles";
   if (missing.length) throw new Error(`content incomplete: ${missing.join(", ")}`);
 
   if (PLACEHOLDER.test(JSON.stringify(content))) throw new Error("content contains placeholder text");
@@ -157,11 +164,14 @@ export function chooseVariants(seed: string, o: { style?: string; photos: boolea
     return pool[Math.floor(rnd() * pool.length)] as Variants[K];
   };
   return {
+    logo: pick("logo"),
+    topbar: pick("topbar"),
     header: pick("header"),
     hero: pick("hero", o.photos ? undefined : ["centered", "bold"]),
     services: pick("services"),
     values: pick("values"),
     process: pick("process"),
+    band: pick("band"),
     about: pick("about", o.photos ? undefined : ["centered"]),
     faq: pick("faq"),
     cta: pick("cta", o.photos ? undefined : ["accent", "dark"]),

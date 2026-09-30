@@ -143,10 +143,10 @@ export function contentInstructions(library: LibraryTrade[]): string {
 
 JSON SHAPE (all strings plain text, no HTML, no emoji):
 {
- "brand": { "name": "the real business name", "tagline": "<=8 words describing what they do and where" },
+ "brand": { "name": "the real business name", "tagline": "<=8 words describing what they do and where", "icon": "ICON NAME that depicts the trade, used for the logo mark" },
  "photoFolder": "one key from PHOTO FOLDERS below",
  "palette": "one id from PALETTES below",
- "hero": { "eyebrow": "<=5 words, e.g. trade + place", "headline": "<=12 words, benefit-led, specific", "sub": "1-2 sentences (<=35 words)", "primaryCta": "<=4 words", "secondaryCta": "<=4 words", "chips": ["3 short trust points, <=4 words each"] },
+ "hero": { "eyebrow": "<=5 words, e.g. trade + place", "headline": "<=12 words, benefit-led, specific", "sub": "1-2 sentences (<=35 words)", "primaryCta": "<=4 words", "secondaryCta": "<=4 words", "chips": [ { "icon": "ICON NAME", "text": "<=4 word trust point, e.g. Same-day call-outs" } x 3 ] },
  "services": { "eyebrow": "What we do", "title": "<=9 words", "intro": "1 sentence", "items": [ { "icon": "ICON NAME", "title": "<=4 words", "text": "1-2 sentences (<=28 words)" } x 6 to 8 ] },
  "values": { "title": "<=7 words", "items": [ { "icon": "ICON NAME", "title": "<=3 words", "text": "1 sentence (<=20 words)" } x 4 ] },
  "process": { "eyebrow": "How it works", "title": "<=8 words", "intro": "1 sentence", "steps": [ { "title": "<=3 words", "text": "1 sentence (<=20 words)" } x 4 to 5 ] },
@@ -388,7 +388,8 @@ export async function generateInstantSite(
   const started = Date.now();
   const library = loadLibrary();
   const offered = pickLibrary(brief, library);
-  let content = version?.content;
+  // Saved copy may predate newer fields (logo icon, icon-tagged trust points): re-validate to normalise it.
+  let content = version?.content ? parseSiteContent(JSON.stringify(version.content), { folders: library.map((t) => t.key) }) : undefined;
   let chars = 0;
   if (!content) {
     const written = await writeContent(brief, offered, onProgress, signal, started);

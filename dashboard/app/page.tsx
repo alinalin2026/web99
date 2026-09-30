@@ -27,7 +27,7 @@ function day(iso: string | Date): string {
   return new Date(iso).toLocaleDateString("en-IE", { day: "numeric", month: "short", year: "numeric" });
 }
 
-function name(order: Order) { return order.business_name || order.trade || "Unnamed lead"; }
+function name(order: Order) { return order.business_name || order.trade || order.slug || "Unnamed lead"; }
 
 function hasPaid(o: Order) { return Boolean(o.paid_at) || o.state === "won"; }
 
@@ -83,7 +83,10 @@ export default async function MasterDashboard({
   try {
     await ensureMasterSchema();
     const [orders, funnel] = await Promise.all([listOrders(), loadFunnel()]);
-    const people = orders.filter((o) => o.conversation?.length || o.email || hasPaid(o) || funnel.get(o.id)?.previewId);
+    // Anyone with a chat, contact, payment or a site — including a built project that has no chat behind it.
+    const people = orders.filter((o) =>
+      o.conversation?.length || o.email || hasPaid(o) || o.generated || o.state === "live" || o.state === "sent" || funnel.get(o.id)?.previewId
+    );
 
     return (
       <main className="master-shell">

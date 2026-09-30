@@ -80,6 +80,8 @@ ln -s "$ENV_FILE" "$SOURCE_DIR/dashboard/.env.local"
 log "building $SHORT while live traffic keeps using the current copy"
 cd "$SOURCE_DIR/dashboard"
 npm ci --no-audit --no-fund
+# Next's generated route types from the previous build still name deleted pages and fail tsc.
+rm -rf .next/types
 npm run typecheck
 npm test
 npm run build

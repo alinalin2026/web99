@@ -73,7 +73,8 @@ async function sheet(key, cands) {
 }
 
 const wanted = process.argv.slice(2);
-const todo = [...newTrades, ...generic].filter((t) => (!wanted.length || wanted.includes(t.key)) && !fs.existsSync(path.join(LIB, t.key, "hero.webp")));
+const priority = ["pest-control"];
+const todo = [...generic, ...newTrades.filter((t) => priority.includes(t.key)), ...newTrades.filter((t) => !priority.includes(t.key))].filter((t) => (!wanted.length || wanted.includes(t.key)) && !fs.existsSync(path.join(LIB, t.key, "hero.webp")));
 console.log(`${todo.length} trades to search`);
 for (const t of todo) {
   const file = path.join(cacheDir, `${t.key}.json`);

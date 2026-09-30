@@ -458,5 +458,331 @@
       "dj",
       "marquee"
     ]
+  },
+  "pest-control": {
+    "label": "Pest control",
+    "aliases": [
+      "pest",
+      "rodent",
+      "rats",
+      "mice",
+      "exterminator",
+      "wasp",
+      "bed bugs",
+      "fumigation"
+    ],
+    "alts": {
+      "hero": "Peppermill beside cooking pots",
+      "work": "Person in gray long sleeve shirt holding green stick",
+      "detail": "A man in a white coverall spraying water on a brick wall"
+    }
+  },
+  "generic-office": {
+    "label": "General business (office)",
+    "aliases": [],
+    "generic": true,
+    "alts": {
+      "hero": "A laptop on a table",
+      "work": "Turned off MacBook Pro beside white ceramic mug filled with coffee",
+      "detail": "Coffee latte near white wireless keyboard and Apple EarPods on the table photography"
+    }
+  },
+  "generic-workshop": {
+    "label": "General trade (workshop)",
+    "aliases": [],
+    "generic": true,
+    "alts": {
+      "hero": "Assorted-color power tools",
+      "work": "Person holding silver and orange pipe",
+      "detail": "A man is working on a piece of wood"
+    }
+  },
+  "generic-storefront": {
+    "label": "General shop (storefront)",
+    "aliases": [],
+    "generic": true,
+    "alts": {
+      "hero": "A bicycle parked on a cobblestone sidewalk in front of a lamp shop",
+      "work": "White ceramic table with white table cloth",
+      "detail": "Brown wooden grand piano beside white and black desk lamp"
+    }
+  },
+  "generic-home": {
+    "label": "General home & family",
+    "aliases": [],
+    "generic": true,
+    "alts": {
+      "hero": "A living room filled with furniture and a large window",
+      "work": "Unknown person holding white ceramic kettle",
+      "detail": "Person holding red rose in front of white ceramic teacup"
+    }
+  },
+  "generic-outdoors": {
+    "label": "General outdoors",
+    "aliases": [],
+    "generic": true,
+    "alts": {
+      "hero": "A stone wall in the middle of a grassy field",
+      "work": "Macro shot of water droplets on green grass",
+      "detail": "Macro shot of droplets on leaves"
+    }
+  },
+  "generic-team": {
+    "label": "General team & service",
+    "aliases": [],
+    "generic": true,
+    "alts": {
+      "hero": "White wooden table with chairs",
+      "work": "Person wearing watch near laptop",
+      "detail": "Apple MacBook beside computer mouse on table"
+    }
+  },
+  "tiler": {
+    "label": "Tiler",
+    "aliases": [
+      "tiling",
+      "tiles",
+      "wall tiles",
+      "floor tiles",
+      "splashback"
+    ],
+    "alts": {
+      "hero": "A bathroom with a tub and sink",
+      "work": "Brown wooden stick on brown wooden table",
+      "detail": "White round table with chairs"
+    }
+  },
+  "plasterer": {
+    "label": "Plasterer",
+    "aliases": [
+      "plastering",
+      "skim",
+      "render",
+      "dry lining",
+      "plaster"
+    ],
+    "alts": {
+      "hero": "A wooden ladder, a white bar stool, and a snake plant in a room",
+      "work": "A man in blue overalls working on cement",
+      "detail": "White and gray concrete floor"
+    }
+  },
+  "windows-doors": {
+    "label": "Windows & doors",
+    "aliases": [
+      "double glazing",
+      "windows",
+      "doors",
+      "glazier",
+      "conservatory",
+      "upvc"
+    ],
+    "alts": {
+      "hero": "Brown brick building with white wooden door",
+      "work": "Grey metal framed glass window closed",
+      "detail": "A window with a bird sitting on the window sill"
+    }
+  },
+  "fencing-driveways": {
+    "label": "Fencing & driveways",
+    "aliases": [
+      "fencing",
+      "fence",
+      "driveway",
+      "paving",
+      "gates",
+      "block paving"
+    ],
+    "alts": {
+      "hero": "Brown brick house under blue sky during daytime",
+      "work": "Pink petaled flowers blooms near fence",
+      "detail": "Green grass beside brown wooden fence"
+    }
+  },
+  "tree-surgeon": {
+    "label": "Tree surgeon",
+    "aliases": [
+      "tree surgery",
+      "tree removal",
+      "arborist",
+      "stump grinding",
+      "tree felling"
+    ],
+    "alts": {
+      "hero": "Sunlight filters through trees onto a forest path",
+      "work": "Man in orange shirt sitting on tree branch",
+      "detail": "Multicolored strap and caribiner"
+    }
+  },
+  "window-cleaner": {
+    "label": "Window & gutter cleaning",
+    "aliases": [
+      "window cleaning",
+      "gutter cleaning",
+      "pressure washing",
+      "power washing",
+      "jet wash"
+    ],
+    "alts": {
+      "hero": "Contemporary home with stone facade, large windows, and sun flare",
+      "work": "Person holding yellow sponge on white surface",
+      "detail": "Orange and green rectangular frame"
+    }
+  },
+  "carpet-cleaning": {
+    "label": "Carpet & upholstery cleaning",
+    "aliases": [
+      "carpet cleaning",
+      "upholstery",
+      "steam cleaning",
+      "sofa cleaning",
+      "rug"
+    ],
+    "alts": {
+      "hero": "Rectangular brown wooden coffee table and gray 3-seat sofa",
+      "work": "White printer paper on blue and yellow textile",
+      "detail": "A close up of a metal object with a lot of paint on it"
+    }
+  },
+  "hvac": {
+    "label": "Heating & air conditioning",
+    "aliases": [
+      "air conditioning",
+      "heat pump",
+      "hvac",
+      "underfloor heating",
+      "radiators",
+      "boiler service"
+    ],
+    "alts": {
+      "hero": "A living room filled with furniture and large windows",
+      "work": "Close-up of an air conditioning unit on a sunny day",
+      "detail": "Air conditioner unit below large windows with green curtains"
+    }
+  },
+  "solar-energy": {
+    "label": "Solar & energy",
+    "aliases": [
+      "solar",
+      "solar panels",
+      "pv",
+      "battery storage",
+      "renewable",
+      "insulation"
+    ],
+    "alts": {
+      "hero": "Gray concrete house",
+      "work": "Two men carrying a metal sheet",
+      "detail": "A house with solar panels"
+    }
+  },
+  "security-systems": {
+    "label": "Security & alarms",
+    "aliases": [
+      "alarm",
+      "cctv",
+      "security camera",
+      "burglar alarm",
+      "smart home",
+      "intercom"
+    ],
+    "alts": {
+      "hero": "A modern house with a garage and lit doorway under a colorful evening sky",
+      "work": "Two bullet surveillance cameras attached on wall",
+      "detail": "White box security camera on wall"
+    }
+  },
+  "handyman": {
+    "label": "Handyman",
+    "aliases": [
+      "odd jobs",
+      "handyman",
+      "flat pack",
+      "small repairs",
+      "maintenance"
+    ],
+    "alts": {
+      "hero": "Minimalist photography of hand tools hanged on wall",
+      "work": "Selective focus photography blue and black Makita power drill",
+      "detail": "A couple of tools that are sitting on a table"
+    }
+  },
+  "kitchen-bathroom-fitter": {
+    "label": "Kitchen & bathroom fitter",
+    "aliases": [
+      "kitchen fitter",
+      "bathroom fitter",
+      "fitted kitchen",
+      "wet room",
+      "worktops"
+    ],
+    "alts": {
+      "hero": "Modern kitchen with island and stainless steel appliances",
+      "work": "A kitchen with white cabinets",
+      "detail": "A kitchen with white cabinets and a black oven"
+    }
+  },
+  "interior-designer": {
+    "label": "Interior designer",
+    "aliases": [
+      "interior design",
+      "home staging",
+      "styling",
+      "furnishing",
+      "curtains",
+      "blinds"
+    ],
+    "alts": {
+      "hero": "A living room filled with furniture and a fire place",
+      "work": "A cake with a candle surrounded by neutral material samples",
+      "detail": "A living room with a large flat screen tv"
+    }
+  },
+  "stonemason": {
+    "label": "Stonemason & masonry",
+    "aliases": [
+      "stonework",
+      "masonry",
+      "stone wall",
+      "pointing",
+      "granite",
+      "headstones"
+    ],
+    "alts": {
+      "hero": "Textured dry stone wall separating a golden field",
+      "work": "Brown and gray brick wall",
+      "detail": "Brown stone wall"
+    }
+  },
+  "swimming-pool-hot-tub": {
+    "label": "Pools & hot tubs",
+    "aliases": [
+      "swimming pool",
+      "hot tub",
+      "jacuzzi",
+      "pool maintenance",
+      "spa pool"
+    ],
+    "alts": {
+      "hero": "An aerial view of a house with a swimming pool in a grassy yard",
+      "work": "A pool with blue water and a tan umbrella",
+      "detail": "Fine blue and grey lines forming flowing wave patterns in a macro view"
+    }
+  },
+  "skip-waste": {
+    "label": "Skip hire & waste",
+    "aliases": [
+      "skip hire",
+      "waste removal",
+      "rubbish removal",
+      "junk",
+      "clearance",
+      "recycling"
+    ],
+    "alts": {
+      "hero": "A dumpster filled with trash on a street",
+      "work": "Construction dumpster with a wooden barrier in front",
+      "detail": "Brown cardboard boxes on brown wooden table"
+    }
   }
 }

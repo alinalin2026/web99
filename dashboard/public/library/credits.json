@@ -1,0 +1,393 @@
+{
+  "pest-control": {
+    "hero": {
+      "photographer": "Becca Tapert",
+      "profile": "https://unsplash.com/@beccatapert",
+      "photo": "https://unsplash.com/photos/peppermill-beside-cooking-pots-sY5RjMB1KkE"
+    },
+    "work": {
+      "photographer": "Thatselby",
+      "profile": "https://unsplash.com/@thatselby",
+      "photo": "https://unsplash.com/photos/person-in-gray-long-sleeve-shirt-holding-green-stick-wPBLuCOLNDg"
+    },
+    "detail": {
+      "photographer": "Ömer Haktan Bulut",
+      "profile": "https://unsplash.com/@omerhaktan",
+      "photo": "https://unsplash.com/photos/a-man-in-a-white-coverall-spraying-water-on-a-brick-wall-qEfQao31Rpw"
+    }
+  },
+  "generic-office": {
+    "hero": {
+      "photographer": "Andrew Neel",
+      "profile": "https://unsplash.com/@andrewtneel",
+      "photo": "https://unsplash.com/photos/a-laptop-on-a-table-Z_pg_rltaKE"
+    },
+    "work": {
+      "photographer": "Lauren Mancke",
+      "profile": "https://unsplash.com/@laurenmancke",
+      "photo": "https://unsplash.com/photos/turned-off-macbook-pro-beside-white-ceramic-mug-filled-with-coffee-aOC7TSLb1o8"
+    },
+    "detail": {
+      "photographer": "Lukas Blazek",
+      "profile": "https://unsplash.com/@goumbik",
+      "photo": "https://unsplash.com/photos/coffee-latte-near-white-wireless-keyboard-and-apple-earpods-on-the-table-photography-GnvurwJsKaY"
+    }
+  },
+  "generic-workshop": {
+    "hero": {
+      "photographer": "Michaela",
+      "profile": "https://unsplash.com/@m_hampi",
+      "photo": "https://unsplash.com/photos/assorted-color-power-tools-timgOn3RQMU"
+    },
+    "work": {
+      "photographer": "Austin Ramsey",
+      "profile": "https://unsplash.com/@austin__ramsey",
+      "photo": "https://unsplash.com/photos/person-holding-silver-and-orange-pipe-1SZsZjtCUBI"
+    },
+    "detail": {
+      "photographer": "Anton Savinov",
+      "profile": "https://unsplash.com/@tonchik",
+      "photo": "https://unsplash.com/photos/a-man-is-working-on-a-piece-of-wood-8Q_HMyCSxss"
+    }
+  },
+  "generic-storefront": {
+    "hero": {
+      "photographer": "Tem Rysh",
+      "profile": "https://unsplash.com/@tem_rysh",
+      "photo": "https://unsplash.com/photos/bicycle-parked-outside-lamp-shop-F6-U5fGAOik"
+    },
+    "work": {
+      "photographer": "Jan Zwarthoed",
+      "profile": "https://unsplash.com/@blackhats",
+      "photo": "https://unsplash.com/photos/white-ceramic-table-with-white-table-cloth-24C4MlZRqeI"
+    },
+    "detail": {
+      "photographer": "Piret Ilver",
+      "profile": "https://unsplash.com/@saltsup",
+      "photo": "https://unsplash.com/photos/brown-wooden-grand-piano-beside-white-and-black-desk-lamp-wqJtrt8Yt-I"
+    }
+  },
+  "generic-home": {
+    "hero": {
+      "photographer": "Spacejoy",
+      "profile": "https://unsplash.com/@spacejoy",
+      "photo": "https://unsplash.com/photos/a-living-room-filled-with-furniture-and-a-large-window-x3mSC1WnWhc"
+    },
+    "work": {
+      "photographer": "Louis Hansel",
+      "profile": "https://unsplash.com/@louishansel",
+      "photo": "https://unsplash.com/photos/unknown-person-holding-white-ceramic-kettle-WgvTj1l6wps"
+    },
+    "detail": {
+      "photographer": "Frames For Your Heart",
+      "profile": "https://unsplash.com/@framesforyourheart",
+      "photo": "https://unsplash.com/photos/person-holding-red-rose-in-front-of-white-ceramic-teacup-VFSa3QYSp8w"
+    }
+  },
+  "generic-outdoors": {
+    "hero": {
+      "photographer": "Julianna Okupski",
+      "profile": "https://unsplash.com/@juliannaokupski",
+      "photo": "https://unsplash.com/photos/a-stone-wall-in-the-middle-of-a-grassy-field-_0tj-Q6fLVU"
+    },
+    "work": {
+      "photographer": "Jonathan Hislop",
+      "profile": "https://unsplash.com/@kahika",
+      "photo": "https://unsplash.com/photos/macro-shot-of-water-droplets-on-green-grass-XSSibD1bt80"
+    },
+    "detail": {
+      "photographer": "Olivia Basile",
+      "profile": "https://unsplash.com/@obasile",
+      "photo": "https://unsplash.com/photos/macro-shot-of-droplets-on-leaves-RcciIaxiNus"
+    }
+  },
+  "generic-team": {
+    "hero": {
+      "photographer": "Quilia",
+      "profile": "https://unsplash.com/@heyquilia",
+      "photo": "https://unsplash.com/photos/white-wooden-table-with-chairs-7MKYpAA4aMw"
+    },
+    "work": {
+      "photographer": "NordWood Themes",
+      "profile": "https://unsplash.com/@nordwood",
+      "photo": "https://unsplash.com/photos/person-wearing-watch-near-laptop-kRNZiGKtz48"
+    },
+    "detail": {
+      "photographer": "Luca Bravo",
+      "profile": "https://unsplash.com/@lucabravo",
+      "photo": "https://unsplash.com/photos/apple-macbook-beside-computer-mouse-on-table-9l_326FISzk"
+    }
+  },
+  "tiler": {
+    "hero": {
+      "photographer": "Jessica Hearn",
+      "profile": "https://unsplash.com/@jessica_hearn",
+      "photo": "https://unsplash.com/photos/a-bathroom-with-a-tub-and-sink-ODU4mXpF-5I"
+    },
+    "work": {
+      "photographer": "Haneen Krimly",
+      "profile": "https://unsplash.com/@haneenkrimly",
+      "photo": "https://unsplash.com/photos/brown-wooden-stick-on-brown-wooden-table-FqAyHJpNhJA"
+    },
+    "detail": {
+      "photographer": "Laura Lauch",
+      "profile": "https://unsplash.com/@lauchmaedchen",
+      "photo": "https://unsplash.com/photos/white-round-table-with-chairs-zU72nHryswY"
+    }
+  },
+  "plasterer": {
+    "hero": {
+      "photographer": "Andrew Neel",
+      "profile": "https://unsplash.com/@andrewtneel",
+      "photo": "https://unsplash.com/photos/ladder-stool-and-snake-plant-DLD5LvnFblU"
+    },
+    "work": {
+      "photographer": "Bermix Studio",
+      "profile": "https://unsplash.com/@bermixstudio",
+      "photo": "https://unsplash.com/photos/a-man-in-blue-overalls-working-on-cement-nZZfP9QiQ6w"
+    },
+    "detail": {
+      "photographer": "Wolfgang Hasselmann",
+      "profile": "https://unsplash.com/@wolfgang_hasselmann",
+      "photo": "https://unsplash.com/photos/white-and-gray-concrete-floor-0nZAJcqKHOk"
+    }
+  },
+  "windows-doors": {
+    "hero": {
+      "photographer": "Viktor Forgacs",
+      "profile": "https://unsplash.com/@sonance",
+      "photo": "https://unsplash.com/photos/brown-brick-building-with-white-wooden-door-fHYztTcPZvU"
+    },
+    "work": {
+      "photographer": "Lai Man Nung",
+      "profile": "https://unsplash.com/@kirklai",
+      "photo": "https://unsplash.com/photos/grey-metal-framed-glass-window-closed-Dsms8jjMVQo"
+    },
+    "detail": {
+      "photographer": "Nick Russill",
+      "profile": "https://unsplash.com/@nickruss",
+      "photo": "https://unsplash.com/photos/a-window-with-a-bird-sitting-on-the-window-sill-awFiJ8yQLSQ"
+    }
+  },
+  "fencing-driveways": {
+    "hero": {
+      "photographer": "James Feaver",
+      "profile": "https://unsplash.com/@photofeaver",
+      "photo": "https://unsplash.com/photos/brown-brick-house-under-blue-sky-during-daytime-9bpBZ2iHe6o"
+    },
+    "work": {
+      "photographer": "Randy Fath",
+      "profile": "https://unsplash.com/@randyfath",
+      "photo": "https://unsplash.com/photos/pink-petaled-flowers-blooms-near-fence-07dDz_PI05k"
+    },
+    "detail": {
+      "photographer": "Sergio Lapunin",
+      "profile": "https://unsplash.com/@lapunin",
+      "photo": "https://unsplash.com/photos/green-grass-beside-brown-wooden-fence-AKFn51cY6bA"
+    }
+  },
+  "tree-surgeon": {
+    "hero": {
+      "photographer": "Kristaps Ungurs",
+      "profile": "https://unsplash.com/@kristapsungurs",
+      "photo": "https://unsplash.com/photos/sunlight-filters-through-trees-onto-a-forest-path-_6l0XJKMS3A"
+    },
+    "work": {
+      "photographer": "henry perks",
+      "profile": "https://unsplash.com/@hjkp",
+      "photo": "https://unsplash.com/photos/man-in-orange-shirt-sitting-on-tree-branch-uaKF5IZVcGc"
+    },
+    "detail": {
+      "photographer": "Malachi Brooks",
+      "profile": "https://unsplash.com/@mebrooks01",
+      "photo": "https://unsplash.com/photos/multicolored-strap-and-caribiner-cm3si9ZMG0Y"
+    }
+  },
+  "window-cleaner": {
+    "hero": {
+      "photographer": "Salvo Media LLC",
+      "profile": "https://unsplash.com/@salvomedia",
+      "photo": "https://unsplash.com/photos/contemporary-home-with-stone-facade-large-windows-and-sun-flare-VNhvTn5Omlk"
+    },
+    "work": {
+      "photographer": "CDC",
+      "profile": "https://unsplash.com/@cdc",
+      "photo": "https://unsplash.com/photos/person-holding-yellow-sponge-on-white-surface-pIn6MMEoK-c"
+    },
+    "detail": {
+      "photographer": "Steve A Johnson",
+      "profile": "https://unsplash.com/@steve_j",
+      "photo": "https://unsplash.com/photos/orange-and-green-rectangular-frame-NqpWSWv0oAs"
+    }
+  },
+  "carpet-cleaning": {
+    "hero": {
+      "photographer": "Francesca Tosolini",
+      "profile": "https://unsplash.com/@fromitaly",
+      "photo": "https://unsplash.com/photos/rectangular-brown-wooden-coffee-table-and-gray-3-seat-sofa-DmOhItSo49k"
+    },
+    "work": {
+      "photographer": "immo RENOVATION",
+      "profile": "https://unsplash.com/@immorenovation",
+      "photo": "https://unsplash.com/photos/white-printer-paper-on-blue-and-yellow-textile-K1gmjFKzTwU"
+    },
+    "detail": {
+      "photographer": "Bret Lama",
+      "profile": "https://unsplash.com/@sepiatone",
+      "photo": "https://unsplash.com/photos/a-close-up-of-a-metal-object-with-a-lot-of-paint-on-it-6T1m7XUFxm0"
+    }
+  },
+  "hvac": {
+    "hero": {
+      "photographer": "Clay Banks",
+      "profile": "https://unsplash.com/@claybanks",
+      "photo": "https://unsplash.com/photos/a-living-room-filled-with-furniture-and-large-windows-7pvC_d2iXSE"
+    },
+    "work": {
+      "photographer": "Khanh Do",
+      "profile": "https://unsplash.com/@donguyenkhanhs",
+      "photo": "https://unsplash.com/photos/close-up-of-an-air-conditioning-unit-on-a-sunny-day-Al9lWh3XKGM"
+    },
+    "detail": {
+      "photographer": "雙 film",
+      "profile": "https://unsplash.com/@film002",
+      "photo": "https://unsplash.com/photos/air-conditioner-unit-below-large-windows-with-green-curtains-SiRHTf1t-xg"
+    }
+  },
+  "solar-energy": {
+    "hero": {
+      "photographer": "Vivint Solar",
+      "profile": "https://unsplash.com/@vivintsolar",
+      "photo": "https://unsplash.com/photos/gray-concrete-house-_XxvXRdacDo"
+    },
+    "work": {
+      "photographer": "Ricardo Gomez Angel",
+      "profile": "https://unsplash.com/@rgaleriacom",
+      "photo": "https://unsplash.com/photos/two-men-carrying-a-metal-sheet-MagdWoazARo"
+    },
+    "detail": {
+      "photographer": "Watt A Lot",
+      "profile": "https://unsplash.com/@wattalot",
+      "photo": "https://unsplash.com/photos/a-house-with-solar-panels-Ja8t8nJN2I4"
+    }
+  },
+  "security-systems": {
+    "hero": {
+      "photographer": "Brian Babb",
+      "profile": "https://unsplash.com/@brianbabb",
+      "photo": "https://unsplash.com/photos/modern-house-with-garage-at-dusk-XbwHrt87mQ0"
+    },
+    "work": {
+      "photographer": "Scott Webb",
+      "profile": "https://unsplash.com/@scottwebb",
+      "photo": "https://unsplash.com/photos/two-bullet-surveillance-cameras-attached-on-wall-yekGLpc3vro"
+    },
+    "detail": {
+      "photographer": "Siarhei Horbach",
+      "profile": "https://unsplash.com/@srhhrbch",
+      "photo": "https://unsplash.com/photos/white-box-security-camera-on-wall-xJc--frJbuw"
+    }
+  },
+  "handyman": {
+    "hero": {
+      "photographer": "Katie Rodriguez",
+      "profile": "https://unsplash.com/@katertottz",
+      "photo": "https://unsplash.com/photos/minimalist-photography-of-hand-tools-hanged-on-wall-NP9kbCXeVK0"
+    },
+    "work": {
+      "photographer": "Theme Photos",
+      "profile": "https://unsplash.com/@themephotos",
+      "photo": "https://unsplash.com/photos/selective-focus-photography-blue-and-black-makita-power-drill-Klby0nxseY8"
+    },
+    "detail": {
+      "photographer": "benjamin lehman",
+      "profile": "https://unsplash.com/@abject",
+      "photo": "https://unsplash.com/photos/a-couple-of-tools-that-are-sitting-on-a-table-EJU7A__krX0"
+    }
+  },
+  "kitchen-bathroom-fitter": {
+    "hero": {
+      "photographer": "Clay Banks",
+      "profile": "https://unsplash.com/@claybanks",
+      "photo": "https://unsplash.com/photos/modern-kitchen-with-island-and-stainless-steel-appliances-YFzqRFFyauw"
+    },
+    "work": {
+      "photographer": "Point3D Commercial Imaging Ltd.",
+      "profile": "https://unsplash.com/@3dottawa",
+      "photo": "https://unsplash.com/photos/a-kitchen-with-white-cabinets-t_lgczbHikA"
+    },
+    "detail": {
+      "photographer": "Ambitious Studio* | Rick Barrett",
+      "profile": "https://unsplash.com/@weareambitious",
+      "photo": "https://unsplash.com/photos/a-kitchen-with-white-cabinets-and-a-black-oven-kDm04owPPEY"
+    }
+  },
+  "interior-designer": {
+    "hero": {
+      "photographer": "Spacejoy",
+      "profile": "https://unsplash.com/@spacejoy",
+      "photo": "https://unsplash.com/photos/a-living-room-filled-with-furniture-and-a-fire-place-EVjqpcn79AM"
+    },
+    "work": {
+      "photographer": "rafa gonzalez",
+      "profile": "https://unsplash.com/@rafagonza256",
+      "photo": "https://unsplash.com/photos/a-cake-with-a-candle-surrounded-by-neutral-material-samples-2YNw9B_ppcI"
+    },
+    "detail": {
+      "photographer": "Spacejoy",
+      "profile": "https://unsplash.com/@spacejoy",
+      "photo": "https://unsplash.com/photos/a-living-room-with-a-large-flat-screen-tv-xyygOyZO5VA"
+    }
+  },
+  "stonemason": {
+    "hero": {
+      "photographer": "Veronica White",
+      "profile": "https://unsplash.com/@veronicaa_white",
+      "photo": "https://unsplash.com/photos/textured-dry-stone-wall-separating-a-golden-field-ff2iRsuNY_g"
+    },
+    "work": {
+      "photographer": "Walter Walraven",
+      "profile": "https://unsplash.com/@walraven1956",
+      "photo": "https://unsplash.com/photos/brown-and-gray-brick-wall-Y9RonczVXHw"
+    },
+    "detail": {
+      "photographer": "Elizabeth Jamieson",
+      "profile": "https://unsplash.com/@diywm",
+      "photo": "https://unsplash.com/photos/brown-stone-wall-HEY0I2JVEO0"
+    }
+  },
+  "swimming-pool-hot-tub": {
+    "hero": {
+      "photographer": "Clay Banks",
+      "profile": "https://unsplash.com/@claybanks",
+      "photo": "https://unsplash.com/photos/house-with-swimming-pool-in-yard-JRMNJjCGrMs"
+    },
+    "work": {
+      "photographer": "Robert Katzki",
+      "profile": "https://unsplash.com/@ro_ka",
+      "photo": "https://unsplash.com/photos/a-pool-with-blue-water-and-a-tan-umbrella-f2yl2jvCL5M"
+    },
+    "detail": {
+      "photographer": "Barney Goodman",
+      "profile": "https://unsplash.com/@bgoodpic",
+      "photo": "https://unsplash.com/photos/blue-and-grey-flowing-wave-lines-3-k24nnQ9oU"
+    }
+  },
+  "skip-waste": {
+    "hero": {
+      "photographer": "Ruben Mavarez",
+      "profile": "https://unsplash.com/@justalifein",
+      "photo": "https://unsplash.com/photos/a-dumpster-filled-with-trash-on-a-street-vVEuDDjj7lE"
+    },
+    "work": {
+      "photographer": "Ruben Mavarez",
+      "profile": "https://unsplash.com/@justalifein",
+      "photo": "https://unsplash.com/photos/construction-dumpster-with-a-wooden-barrier-in-front-13L2U-8xzR0"
+    },
+    "detail": {
+      "photographer": "Michal Balog",
+      "profile": "https://unsplash.com/@mikbutcher",
+      "photo": "https://unsplash.com/photos/brown-cardboard-boxes-on-brown-wooden-table-66NaCdBrkCs"
+    }
+  }
+}

@@ -30,7 +30,23 @@ const selections = fs.existsSync(selectionsPath) ? JSON.parse(fs.readFileSync(se
 const meta = new Map([...newTrades, ...generic].map((t) => [t.key, t]));
 const SIZES = { hero: [1536, 1024, 78], work: [1536, 1024, 76], detail: [1536, 1024, 76] };
 
+/* Unsplash asks API apps to report each download. Those calls count against the hourly limit, so they
+   are queued in <work>/tracking-queue.json and flushed as far as the limit allows (rerun to finish). */
+const queuePath = path.join(WORK, "tracking-queue.json");
+const queue = fs.existsSync(queuePath) ? JSON.parse(fs.readFileSync(queuePath, "utf8")) : [];
+async function flushQueue() {
+  if (!KEY) return;
+  while (queue.length) {
+    const res = await fetch(queue[0], { headers: { Authorization: `Client-ID ${KEY}`, "Accept-Version": "v1" } }).catch(() => null);
+    if (!res || !res.ok) { console.log(`tracking paused (${res?.status ?? "network"}); ${queue.length} left — rerun later`); break; }
+    queue.shift();
+  }
+  fs.writeFileSync(queuePath, JSON.stringify(queue));
+}
+
 const clean = (s) => s.replace(/\s+/g, " ").replace(/^./, (c) => c.toUpperCase()).slice(0, 140);
+
+if (process.argv.includes("--track")) { await flushQueue(); process.exit(0); }
 
 for (const [key, picks] of Object.entries(selections)) {
   const t = meta.get(key);
@@ -49,7 +65,7 @@ for (const [key, picks] of Object.entries(selections)) {
     const buf = Buffer.from(await (await fetch(url)).arrayBuffer());
     const [w, h, q] = SIZES[role];
     await sharp(buf).resize(w, h, { fit: "cover", position: "attention" }).webp({ quality: q }).toFile(path.join(LIB, key, `${role}.webp`));
-    await fetch(c.download, { headers: { Authorization: `Client-ID ${KEY}`, "Accept-Version": "v1" } }).catch(() => {});
+    queue.push(c.download);
     alts[role] = picks.alts?.[role] ?? clean(c.alt || `${t.label} — ${role}`);
     credits[key][role] = { photographer: c.by, profile: c.byUrl, photo: c.page };
     console.log(`${key}/${role} ok`);
@@ -57,6 +73,7 @@ for (const [key, picks] of Object.entries(selections)) {
   manifest[key] = { label: t.label, aliases: t.aliases, ...(key.startsWith("generic-") ? { generic: true } : {}), alts };
 }
 
+await flushQueue();
 fs.writeFileSync(manifestPath, JSON.stringify(manifest, null, 2) + "\n");
 fs.writeFileSync(creditsPath, JSON.stringify(credits, null, 2) + "\n");
 console.log(`manifest: ${Object.keys(manifest).length} trades`);

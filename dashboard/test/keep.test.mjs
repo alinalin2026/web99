@@ -9,7 +9,7 @@ test("maskEmail hides most of the name but keeps the domain", () => {
   assert.doesNotMatch(maskEmail("longername@gmail.com"), /longername/);
 });
 
-test("the emailed link is the new-tab view of that order (which carries the buy bar)", () => {
+test("the emailed link opens that order's workspace (preview, chat and buy button)", () => {
   const id = "3021ddd6-0ac7-4f6f-b375-c06a25b74b15";
-  assert.match(siteUrlFor(id), new RegExp(`/api/instant-site/view/${id}$`));
+  assert.match(siteUrlFor(id), new RegExp(`/start/\\?site=${id}$`));
 });

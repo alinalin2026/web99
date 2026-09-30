@@ -26,8 +26,9 @@ export function maskEmail(email: string): string {
   return `${user.slice(0, 1)}${"•".repeat(Math.max(2, Math.min(user.length - 1, 6)))}@${domain}`;
 }
 
+/** The emailed link opens the customer's workspace (preview + chat + buy button), not just the bare page. */
 export function siteUrlFor(orderId: string): string {
-  return `${(process.env.APP_URL ?? "https://web99.ie").replace(/\/+$/, "")}/api/instant-site/view/${orderId}`;
+  return `${(process.env.APP_URL ?? "https://web99.ie").replace(/\/+$/, "")}/start/?site=${orderId}`;
 }
 
 export async function keepForLater(orderId: string, typedEmail?: string | null, ip = "unknown"): Promise<KeepResult> {

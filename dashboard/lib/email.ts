@@ -162,10 +162,10 @@ Web99.ie · (01) 234 3300`,
 export function savedForLater(name: string, businessName: string, siteUrl: string): Email {
   const first = name || "there";
   return {
-    subject: `${businessName} — your website is saved`,
+    subject: `${businessName} — your website is saved, ready when you are`,
     html: shell(
       p(`Hi ${first},`) +
-        p(`No rush — we've kept your website for you. Whenever you're ready, open it, have a look around, and if you love it there's a button at the bottom to take it.`) +
+        p(`Your website is saved automatically — there's nothing you need to do. Whenever you like, open it, have a look around and chat with Sarah about anything you'd change (she changes it while you watch). If you love it, there's a button to take it.`) +
         button(siteUrl, "Open my website") +
         p(`It's <strong>€99 once</strong>, and that covers the domain and hosting for the first year. Nothing has been charged and there's no card on file.`) +
         small(`Want something changed first? Just reply to this email and tell us — that's free before you buy.`) +
@@ -173,7 +173,7 @@ export function savedForLater(name: string, businessName: string, siteUrl: strin
     ),
     text: `Hi ${first},
 
-No rush — we've kept your website for you. Whenever you're ready, open it, have a look around, and if you love it there's a button at the bottom to take it.
+Your website is saved automatically — there's nothing you need to do. Whenever you like, open it, have a look around and chat with Sarah about anything you'd change (she changes it while you watch). If you love it, there's a button to take it.
 
 ${siteUrl}
 

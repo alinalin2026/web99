@@ -37,6 +37,7 @@ const PUBLIC = [
   "/api/instant-preview",
   "/api/instant-site",
   "/api/keep",
+  "/api/preview-chat",
 ];
 
 export function isPublicPath(pathname: string): boolean {

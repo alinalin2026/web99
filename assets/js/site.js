@@ -196,6 +196,15 @@
     var orderId = null;
     var sending = false;
     var quickWrap = null;
+    var chatRoot = document.getElementById("chatRoot");
+    var panelHead = document.getElementById("panelHead");
+    var composerHint = document.getElementById("composerHint");
+    var chipsWrap = document.getElementById("previewChips");
+    var mode = "intake";
+    var intakeDone = false;
+    var siteReady = false;
+    var workspace = false;
+    var UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
     /* --- instant preview ---------------------------------------------------
        Fires once, the moment we have a business name (turn 1), an email
@@ -315,6 +324,73 @@
       return "Adding the finishing touches…";
     };
 
+    var setStatus = function (text, actionLabel) {
+      var box = document.getElementById("siteStatus");
+      var txt = document.getElementById("siteStatusText");
+      var act = document.getElementById("siteStatusAction");
+      if (!box || !txt) return;
+      txt.textContent = text;
+      if (act) { act.hidden = !actionLabel; if (actionLabel) act.textContent = actionLabel; }
+      box.hidden = false;
+    };
+
+    var loadFrame = function () {
+      siteFrame.onload = function () { fitSiteFrame(); siteFrame.style.visibility = "hidden"; void siteFrame.offsetHeight; siteFrame.style.visibility = ""; };
+      siteFrame.src = api + "/api/instant-site/view/" + encodeURIComponent(orderId) + "?frame=1&t=" + Date.now();
+    };
+
+    var flashUpdated = function () {
+      if (!siteViewport) return;
+      siteViewport.classList.add("is-updated");
+      setTimeout(function () { siteViewport.classList.remove("is-updated"); }, 1800);
+    };
+
+    var openWorkspace = function () {
+      if (workspace) return;
+      workspace = true;
+      chatRoot.classList.add("is-workspace");
+      document.documentElement.classList.add("is-workspace");
+      if (panelHead) panelHead.hidden = false;
+      var eyebrow = document.getElementById("chatEyebrow");
+      var title = document.getElementById("chatTitle");
+      if (eyebrow) eyebrow.textContent = "Your website";
+      if (title) title.textContent = "Here it is. Have a look around.";
+      thread.scrollTop = thread.scrollHeight;
+    };
+
+    var showSite = function (data) {
+      openWorkspace();
+      siteReady = true;
+      loadFrame();
+      var buyBtn = document.getElementById("instantSiteBuy");
+      var love = document.getElementById("instantSiteLove");
+      if (buyBtn && love && orderId) { buyBtn.href = "/buy/" + encodeURIComponent(orderId); love.hidden = false; }
+      var openLink = document.getElementById("instantSiteOpen");
+      if (openLink && orderId) openLink.href = api + "/api/instant-site/view/" + encodeURIComponent(orderId);
+      if (instantPreview) instantPreview.hidden = false;
+      if (siteBox) siteBox.hidden = false;
+      if (buildBar) buildBar.hidden = true;
+      siteProgress.hidden = true;
+      siteStage.hidden = false;
+      setVersion(data.version, data.remaining);
+      fitSiteFrame();
+      if (typeof requestAnimationFrame === "function") requestAnimationFrame(fitSiteFrame);
+      var statusBox = document.getElementById("siteStatus");
+      if (data.emailed === undefined && statusBox && !statusBox.hidden) { /* a later look keeps the existing "saved" note */ }
+      else if (data.emailed && typeof data.emailed === "string") setStatus("Saved automatically \u2014 link emailed to " + data.emailed + ".");
+      else if (data.emailed === true) setStatus("Saved automatically \u2014 we\u2019ve emailed you the link.");
+      else setStatus("Saved automatically.", data.emailed === false ? "Email me the link" : null);
+    };
+
+    var setVersion = function (version, remaining) {
+      var ver = document.getElementById("siteVersion");
+      if (ver && version) ver.textContent = "Version " + version;
+      if (againBtn) {
+        againBtn.hidden = typeof remaining === "number" && remaining <= 0;
+        if (typeof remaining === "number" && remaining > 0 && version > 1) againBtn.textContent = "Try another look (" + remaining + " left)";
+      }
+    };
+
     var handleSiteEvent = function (block) {
       var eventName = "message";
       var dataLines = [];
@@ -330,35 +406,20 @@
         siteBar.style.width = data.pct + "%";
         siteLabel.textContent = siteStatusText(data.pct);
       } else if (eventName === "page" && data && typeof data.html === "string") {
-        siteFrame.onload = function () { fitSiteFrame(); siteFrame.style.visibility = "hidden"; void siteFrame.offsetHeight; siteFrame.style.visibility = ""; };
-        siteFrame.src = api + "/api/instant-site/view/" + encodeURIComponent(orderId) + "?frame=1&t=" + Date.now();
-        var buyHref = "/buy/" + encodeURIComponent(orderId);
-        var buyBtn = document.getElementById("instantSiteBuy");
-        var love = document.getElementById("instantSiteLove");
-        if (buyBtn && love && orderId) { buyBtn.href = buyHref; love.hidden = false; }
+        var firstShow = !siteReady;
+        showSite(data);
         if (!loveAnnounced && orderId) {
           loveAnnounced = true;
-          var loveTurn = addTurn("sarah", "Here it is \u2014 your website! Do you like it? Click around \u2014 and if you love it, tap the button at the bottom.");
-        }
-        var openLink = document.getElementById("instantSiteOpen");
-        if (openLink && orderId) openLink.href = api + "/api/instant-site/view/" + encodeURIComponent(orderId);
-        if (buildBar) buildBar.hidden = true;
-        siteProgress.hidden = true;
-        siteStage.hidden = false;
-        var frame = instantPreview.querySelector(".instant-preview__frame");
-        if (frame) frame.hidden = true;
-        var label = instantPreview.querySelector(".instant-preview__label");
-        if (label) label.textContent = "Your website preview — built from what you told us. Click around it like a real website.";
-        fitSiteFrame();
-        if (againBtn) {
-          againBtn.hidden = typeof data.remaining === "number" && data.remaining <= 0;
-          if (typeof data.remaining === "number" && data.remaining > 0 && data.version > 1) againBtn.textContent = "Try another version (" + data.remaining + " left)";
+          addTurn("sarah", "Here it is \u2014 your website! It\u2019s saved automatically" + (data.emailed ? ", and I\u2019ve emailed the link to " + data.emailed : "") +
+            ".\nClick around it. Want anything changed? Just tell me and I\u2019ll update it while you watch \u2014 or tap \u201cYes, I love it\u201d when you\u2019re happy.");
+          if (!data.emailed) setStatus("Saved automatically.", "Email me the link");
         }
         if (regenerating) {
           finishRegen();
-          addTurn("sarah", "Here\u2019s another take \u2014 version " + (data.version || "") + ". Like this one better? Tap the button at the bottom, or try another.");
+          addTurn("sarah", "Here\u2019s another take \u2014 version " + (data.version || "") + ". Like this one better? Tap \u201cYes, I love it\u201d, or ask me to adjust anything.");
         }
-        setTimeout(function () { siteStage.scrollIntoView({ block: "start", behavior: reduced ? "auto" : "smooth" }); }, 150);
+        if (firstShow && intakeDone) enterPreviewMode(false);
+        setTimeout(function () { if (!workspace || window.innerWidth < 980) siteStage.scrollIntoView({ block: "start", behavior: reduced ? "auto" : "smooth" }); }, 150);
       } else if (eventName === "error" && regenerating) {
         finishRegen();
         addTurn("sarah", "Sorry \u2014 I couldn\u2019t build another version just now. Your first design is still here, and you can try again in a moment.");
@@ -428,14 +489,7 @@
       });
     }
 
-    var startInstantSite = function () {
-      if (!siteBox || !siteFrame || !orderId) return;
-      siteBox.hidden = false;
-      if (buildBar) buildBar.hidden = false;
-      addTurn("sarah", "Please wait while we build your website \u2014 it usually takes less than a minute. It will appear right below.");
-      siteBar.style.width = "2%";
-      siteLabel.textContent = siteStatusText(0);
-
+    if (siteBox) {
       Array.prototype.forEach.call(siteBox.querySelectorAll("[data-mode]"), function (btn) {
         btn.addEventListener("click", function () {
           siteMode = btn.getAttribute("data-mode");
@@ -446,6 +500,15 @@
         });
       });
       window.addEventListener("resize", fitSiteFrame);
+    }
+
+    var startInstantSite = function () {
+      if (!siteBox || !siteFrame || !orderId) return;
+      siteBox.hidden = false;
+      if (buildBar) buildBar.hidden = false;
+      addTurn("sarah", "Please wait while we build your website \u2014 it usually takes less than a minute. It will appear right below.");
+      siteBar.style.width = "2%";
+      siteLabel.textContent = siteStatusText(0);
 
       streamSite({ orderId: orderId }, function () {
         if (siteStage.hidden) {
@@ -455,9 +518,9 @@
       });
     };
 
-    /* --- "Keep this for me" ------------------------------------------------
-       Emails them a private link back to their site (with the buy button on it).
-       Sarah usually already has their email; if not, she asks for it right here. */
+    /* --- Saving ------------------------------------------------------------
+       The site saves itself and the first build emails the customer a link back to their workspace. This is only
+       the fallback for "no email on file / the email didn't go": Sarah asks for the address right here. */
     var keepSaved = false;
     var keepPost = function (email, done) {
       var payload = email ? { email: email } : {};
@@ -469,13 +532,6 @@
         .then(function (r) { return r.json().catch(function () { return { status: "failed" }; }); })
         .then(done)
         .catch(function () { done({ status: "failed" }); });
-    };
-
-    var markKeepButtons = function () {
-      Array.prototype.forEach.call(document.querySelectorAll("[data-keep]"), function (b) {
-        b.textContent = "Saved \u2713 \u2014 check your email";
-        b.disabled = true;
-      });
     };
 
     var askForEmail = function (message) {
@@ -509,9 +565,9 @@
     var handleKeepResult = function (res) {
       if (res.status === "sent" || res.status === "throttled") {
         keepSaved = true;
-        markKeepButtons();
-        addTurn("sarah", (res.status === "sent" ? "Saved! I\u2019ve emailed a private link to " : "Your link is already on its way to ") + res.maskedEmail +
-          ". Open it whenever you\u2019re ready \u2014 your website will be there, with a button to take it. Nothing to pay today. (If you can\u2019t see it in a minute, look in spam.)");
+        setStatus("Saved automatically \u2014 link emailed to " + res.maskedEmail + ".");
+        addTurn("sarah", (res.status === "sent" ? "Done \u2014 I\u2019ve emailed a private link to " : "Your link is already on its way to ") + res.maskedEmail +
+          ". Open it whenever you\u2019re ready \u2014 your website and this chat will be waiting. Nothing to pay today. (If you can\u2019t see it in a minute, look in spam.)");
       } else if (res.status === "need_email") {
         askForEmail("Happy to keep it for you. What email should I send the link to?");
       } else if (res.status === "invalid_email") {
@@ -519,23 +575,20 @@
       } else if (res.status === "rate_limited") {
         addTurn("sarah", "That\u2019s a few too many tries in a row \u2014 please wait a little while and try again.");
       } else if (res.status === "no_site") {
-        addTurn("sarah", "Your website is still being built \u2014 give it a moment, then tap Keep this for me again.");
+        addTurn("sarah", "Your website is still being built \u2014 give it a moment and try again.");
       } else {
         addTurn("sarah", "Sorry \u2014 I couldn\u2019t send that just now. Please try again in a minute.");
       }
     };
 
-    document.addEventListener("click", function (ev) {
-      var t = ev.target;
-      var btn = t && t.closest ? t.closest("[data-keep]") : null;
-      if (!btn || !orderId || keepSaved) return;
-      ev.preventDefault();
-      btn.disabled = true;
-      keepPost(null, function (res) {
-        btn.disabled = false;
-        handleKeepResult(res);
+    var statusAction = document.getElementById("siteStatusAction");
+    if (statusAction) {
+      statusAction.addEventListener("click", function () {
+        if (!orderId || keepSaved) return;
+        statusAction.disabled = true;
+        keepPost(null, function (res) { statusAction.disabled = false; handleKeepResult(res); });
       });
-    });
+    }
 
     /* --- attachments (photos/documents, up to 100MB each) ---------------- */
     var attachBtn = document.getElementById("attachBtn");
@@ -658,7 +711,8 @@
       turn.appendChild(av);
       turn.appendChild(body);
       thread.appendChild(turn);
-      turn.scrollIntoView({ block: "nearest", behavior: reduced ? "auto" : "smooth" });
+      if (workspace) thread.scrollTo({ top: thread.scrollHeight, behavior: reduced ? "auto" : "smooth" });
+      else turn.scrollIntoView({ block: "nearest", behavior: reduced ? "auto" : "smooth" });
       return turn;
     };
 
@@ -709,7 +763,9 @@
 
     var finish = function () {
       clearQuickReplies();
-      startForm.remove();
+      intakeDone = true;
+      if (siteReady) { enterPreviewMode(false); return; }
+      startForm.hidden = true;
       var done = el("div", "chat__done");
       done.appendChild(el("h2", null, "That's everything \u2014 thanks."));
       done.appendChild(
@@ -719,8 +775,106 @@
         el("p", null, "Nothing has been charged, and you'll see the whole thing before you decide.")
       );
       thread.parentNode.insertBefore(done, thread.nextSibling);
-      done.scrollIntoView({ block: "nearest", behavior: reduced ? "auto" : "smooth" });
+      if (!workspace) done.scrollIntoView({ block: "nearest", behavior: reduced ? "auto" : "smooth" });
     };
+
+    /* --- chatting about the finished preview --------------------------------
+       Once the site exists the same composer talks to /api/preview-chat: Sarah answers, and when she changes
+       something the preview reloads. Every change is validated server-side, so the page can never break. */
+    var CHIP_TEXTS = [
+      "Make it a bit brighter",
+      "Change the headline",
+      "Add my phone number",
+      "I need to think about it"
+    ];
+
+    var hideChips = function () { if (chipsWrap) chipsWrap.hidden = true; };
+
+    var setMode = function (m) {
+      mode = m;
+      chatRoot.classList.toggle("is-preview-mode", m === "preview");
+      if (m === "preview") {
+        field.placeholder = "Tell Sarah what you\u2019d like changed, or ask anything\u2026";
+        if (composerHint) composerHint.textContent = "Changes are free until you buy.";
+        if (chipsWrap && !chipsWrap.children.length) {
+          CHIP_TEXTS.forEach(function (t) {
+            var b = el("button", null, t);
+            b.type = "button";
+            b.addEventListener("click", function () {
+              if (sending) return;
+              field.value = t;
+              startForm.requestSubmit();
+            });
+            chipsWrap.appendChild(b);
+          });
+        }
+        if (chipsWrap) chipsWrap.hidden = false;
+      }
+    };
+
+    var enterPreviewMode = function (announce) {
+      if (mode === "preview") return;
+      var done = chatRoot.querySelector(".chat__done");
+      if (done) done.remove();
+      startForm.hidden = false;
+      clearQuickReplies();
+      setMode("preview");
+      if (announce) addTurn("sarah", "Of course \u2014 what would you like to change, or ask about? I\u2019ll update your website while you watch.");
+    };
+
+    var sendPreviewMessage = function (story) {
+      addTurn("them", story);
+      field.value = "";
+      field.style.height = "auto";
+      sending = true;
+      if (sendBtn) sendBtn.disabled = true;
+      var pending = addTurn("sarah", null);
+      var settle = function () { pending.remove(); sending = false; if (sendBtn) sendBtn.disabled = false; };
+
+      fetch(api + "/api/preview-chat", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ orderId: orderId, message: story })
+      })
+        .then(function (r) {
+          return r.json().catch(function () { return {}; }).then(function (data) { return { ok: r.ok, data: data }; });
+        })
+        .then(function (res) {
+          settle();
+          var data = res.data || {};
+          if (!res.ok) {
+            addTurn("sarah", data.error || "Sorry \u2014 I couldn\u2019t get a reply through just now. Please try again.");
+            return;
+          }
+          addTurn("sarah", data.reply || "Done.");
+          if (data.updated) {
+            loadFrame();
+            flashUpdated();
+            setVersion(data.version, data.remaining);
+          }
+          if (data.readyToBuy) {
+            var buy = document.getElementById("instantSiteBuy");
+            if (buy) { buy.classList.remove("is-pulse"); void buy.offsetWidth; buy.classList.add("is-pulse"); }
+          }
+        })
+        .catch(function () {
+          settle();
+          addTurn("sarah", "Sorry \u2014 I couldn\u2019t get a reply through just now. Please try again.");
+        });
+    };
+
+    var chatBtn = document.getElementById("chatAboutIt");
+    if (chatBtn) {
+      chatBtn.addEventListener("click", function () {
+        if (!siteReady) return;
+        if (mode !== "preview") { intakeDone = true; enterPreviewMode(true); }
+        if (window.innerWidth < 980) {
+          var panel = document.getElementById("sarahPanel");
+          if (panel) panel.scrollIntoView({ block: "center", behavior: reduced ? "auto" : "smooth" });
+        }
+        field.focus({ preventScroll: true });
+      });
+    }
 
     var breakDown = function () {
       clearQuickReplies();
@@ -744,6 +898,14 @@
       var files = selectedFiles.slice();
       if (!story && !files.length) {
         field.focus();
+        return;
+      }
+
+      if (mode === "preview") {
+        if (!story) return;
+        if (window.innerWidth < 980) field.blur();
+        hideChips();
+        sendPreviewMessage(story);
         return;
       }
 
@@ -862,5 +1024,44 @@
           }
         });
     });
+
+    /* --- coming back to a saved website --------------------------------------
+       The link in the "saved" email (and a refresh) opens /start/?site=<order id>: straight into the workspace
+       with the website, the chat so far and the buy button. Nothing is shown unless that order has a website. */
+    var resumeWorkspace = function (id, state) {
+      orderId = id;
+      try { window.sessionStorage.setItem(KEY, orderId); } catch (err) {}
+      intakeDone = true;
+      loveAnnounced = true;
+      instantPreviewStarted = true;
+      if (intro && intro.parentNode) { intro.remove(); intro = null; }
+      showSite({ version: state.version, remaining: state.remaining, emailed: state.emailed ? (state.maskedEmail || true) : false });
+      var title = document.getElementById("chatTitle");
+      if (title) title.textContent = state.businessName ? "Welcome back \u2014 here\u2019s " + state.businessName + "." : "Welcome back \u2014 here\u2019s your website.";
+      var history = Array.isArray(state.history) ? state.history : [];
+      history.forEach(function (h) {
+        if (h && h.content) addTurn(h.role === "user" ? "them" : "sarah", h.content);
+      });
+      enterPreviewMode(false);
+      if (!state.canChat) {
+        addTurn("sarah", "This website was made before chat editing arrived. Tap \u201cTry another look\u201d once and then I can make changes for you while you watch.");
+      } else if (!history.length) {
+        addTurn("sarah", "Your website is saved and waiting. Want anything changed? Tell me and I\u2019ll update it while you watch \u2014 or tap \u201cYes, I love it\u201d when you\u2019re ready.");
+      } else {
+        addTurn("sarah", "Welcome back! Anything else you\u2019d like to change?");
+      }
+    };
+
+    var params = new URLSearchParams(window.location.search);
+    var siteParam = params.get("site");
+    var resumeId = siteParam && UUID_RE.test(siteParam) ? siteParam : (orderId && UUID_RE.test(orderId) ? orderId : null);
+    if (resumeId) {
+      fetch(api + "/api/preview-chat?orderId=" + encodeURIComponent(resumeId), { cache: "no-store" })
+        .then(function (r) { return r.ok ? r.json() : null; })
+        .then(function (state) {
+          if (state && state.hasSite && !siteReady && !userTurns.length) resumeWorkspace(resumeId, state);
+        })
+        .catch(function () { /* no saved website to resume: the normal conversation carries on */ });
+    }
   }
 })();

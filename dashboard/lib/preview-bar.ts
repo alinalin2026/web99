@@ -16,7 +16,7 @@ export function withPreviewBar(html: string, orderId: string): string {
     `@media(max-width:560px){.w99bar-sub{display:none}.w99bar{gap:8px 12px;padding-top:10px}body{padding-bottom:84px !important}}</style>` +
     `<div class="w99bar"><span>This is your Web99 preview. <b style="font-weight:800">Do you like it?</b> <span class="w99bar-sub">${commercials.price} &mdash; website, domain &amp; hosting for the first year</span></span>` +
     `<a href="/buy/${orderId}">Yes, I love it &mdash; get it live</a>` +
-    `<a class="w99keep" href="/api/keep/${orderId}">Keep this for me</a></div>`;
+    `<a class="w99keep" href="/start/?site=${orderId}">Chat about it</a></div>`;
   const at = html.toLowerCase().lastIndexOf("</body>");
   return at === -1 ? html + bar : html.slice(0, at) + bar + html.slice(at);
 }

@@ -25,6 +25,6 @@ test("a page with no </body> still gets the bar, and non-UUID ids are refused", 
   assert.throws(() => withPreviewBar(page, "1; DROP TABLE"), /order UUID/);
 });
 
-test("the bar also offers 'Keep this for me', pointing at this order's keep page", () => {
-  assert.match(withPreviewBar(page, ID), new RegExp(`href="/api/keep/${ID}">Keep this for me`));
+test("the bar also offers 'Chat about it', opening this order's workspace", () => {
+  assert.match(withPreviewBar(page, ID), new RegExp(`href="/start/\\?site=${ID}">Chat about it`));
 });

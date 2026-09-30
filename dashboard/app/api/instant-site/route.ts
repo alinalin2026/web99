@@ -3,6 +3,7 @@ import { ensureMasterSchema, getOrder, logEvent, sql } from "@/lib/db";
 import { clientIp } from "@/lib/ratelimit";
 import { fixNavigation, generateInstantSite, nextStyle, siteProblems, type VersionOptions } from "@/lib/instant-site";
 import type { SiteContent, SiteDesign } from "@/lib/site-blocks";
+import { keepForLater } from "@/lib/keep";
 
 export const runtime = "nodejs";
 export const maxDuration = 200;
@@ -101,8 +102,8 @@ export async function POST(req: NextRequest) {
     const saved = await sql<{ html: string | null; style: string | null; palette: string | null; content: SiteContent | null; design: SiteDesign | null }[]>`
       SELECT detail->>'html' AS html, detail->>'style' AS style, detail->>'palette' AS palette, detail->'content' AS content, detail->'design' AS design FROM order_events
       WHERE order_id = ${orderId} AND kind = 'instant_site' AND detail ? 'html'
-      ORDER BY created_at DESC`;
-    versions = saved.length;
+      ORDER BY created_at DESC, id DESC`;
+    versions = saved.filter((r) => r.style !== "chat").length;
     seenStyles = saved.map((r) => r.style).filter((x): x is string => !!x && x !== "default");
     seenPalettes = saved.map((r) => r.palette).filter((x): x is string => !!x);
     latestContent = saved.find((r) => r.content)?.content ?? null;
@@ -159,7 +160,15 @@ export async function POST(req: NextRequest) {
         try {
           await logEvent(orderId as string, "instant_site", { html: result.html, ms: result.ms, outputChars: result.outputChars, style: style ?? "default", palette: result.palette, content: result.content, design: result.design, version });
         } catch (err) { console.error("instant-site cache write failed", err); }
-        out.send("page", { html: result.html, version, remaining: Math.max(0, MAX_VERSIONS - version) });
+        // First build: the site is already saved (above) — also email the customer a link back to it, automatically.
+        let emailed: string | null = null;
+        if (!regenerate) {
+          try {
+            const sent = await keepForLater(orderId as string, null, ip);
+            if (sent.status === "sent" || sent.status === "throttled") emailed = sent.maskedEmail;
+          } catch (err) { console.error("auto-email failed", (err as Error).message); }
+        }
+        out.send("page", { html: result.html, version, remaining: Math.max(0, MAX_VERSIONS - version), emailed });
         out.send("done", {});
       } catch (err) {
         const message = (err as Error).message;

@@ -323,14 +323,6 @@
   .buildbar__building > small { display: block; margin-top: 8px; font-size: 0.82rem; line-height: 1.45; color: var(--muted); }
   .instant-site__stage { scroll-margin-top: 84px; }
   .instant-site__open { font-size: 0.8rem; font-weight: 700; color: var(--violet-deep); text-decoration: none; margin-left: auto; margin-right: 10px; white-space: nowrap; }
-  .instant-site__love { position: sticky; bottom: 10px; z-index: 5; display: flex; flex-direction: column; gap: 8px; align-items: center; margin-top: 12px; padding: 8px; border-radius: 22px; background: rgba(255, 255, 255, 0.97); border: 1px solid var(--lav-line); box-shadow: 0 8px 24px rgba(45, 27, 143, 0.2); }
-  .instant-site__love-row { display: flex; flex-wrap: wrap; gap: 8px; justify-content: center; }
-  .instant-site__styles { display: flex; flex-wrap: wrap; gap: 6px; align-items: center; justify-content: center; }
-  .instant-site__styles span { font-size: 0.78rem; font-weight: 700; color: var(--muted); }
-  .instant-site__styles button { border: 1px solid var(--lav-line); background: var(--lav); color: var(--violet-deep); border-radius: 999px; padding: 6px 12px; font: inherit; font-size: 0.78rem; font-weight: 700; cursor: pointer; }
-  .instant-site__styles button:hover { background: var(--violet); color: #fff; }
-  .instant-site__love.is-busy .btn { opacity: 0.5; pointer-events: none; }
-  .instant-site__love .btn { width: auto; flex: 0 1 auto; padding: 8px 16px; font-size: 0.8rem; }
   .keep-note { margin: 10px 0 0; font-size: 0.9rem; color: var(--muted); }
   .keep-form { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 12px; }
   .keep-form input { flex: 1 1 200px; min-width: 0; padding: 11px 14px; border: 2px solid var(--lav-line); border-radius: 12px; font: inherit; }
@@ -351,6 +343,88 @@
   .instant-site__toggle button[aria-pressed="true"] { background: var(--violet); color: var(--white); }
   .instant-site__viewport { position: relative; height: clamp(540px, 82vh, 800px); overflow: hidden; background: #f4f4f6; }
   .instant-site__viewport iframe { display: block; border: 0; background: #fff; transform-origin: 0 0; }
+
+  /* --- workspace: once the website exists the page becomes preview + Sarah, side by side ----------- */
+  .sarah-panel { display: flex; flex-direction: column; min-width: 0; }
+  .sarah-panel__head { display: flex; align-items: center; gap: 12px; padding: 14px 16px; background: var(--lav); border-bottom: 1px solid var(--lav-line); }
+  .sarah-panel__head[hidden] { display: none; }
+  .sarah-panel__head .avatar { width: 40px; height: 40px; }
+  .sarah-panel__head strong { display: block; font-size: 1rem; line-height: 1.2; }
+  .sarah-panel__head small { display: block; font-size: 0.78rem; font-weight: 600; color: var(--muted); line-height: 1.35; }
+
+  .chat.is-workspace { max-width: 1200px; display: grid; grid-template-columns: minmax(0, 1fr); column-gap: 28px; align-items: start; }
+  .chat.is-workspace > * { grid-column: 1 / -1; min-width: 0; }
+  .chat.is-workspace > .chat__head { grid-row: 1; margin-bottom: 16px; }
+  .chat.is-workspace > .buildbar { grid-row: 2; }
+  .chat.is-workspace > .instant-preview { grid-row: 3; margin-top: 0; }
+  .chat.is-workspace > .sarah-panel { grid-row: 4; margin-top: 18px; }
+  .chat.is-workspace > .start__reassure { grid-row: 5; }
+  .chat.is-workspace .sarah-panel { background: #fff; border: 1px solid var(--lav-line); border-radius: 20px; box-shadow: var(--shadow-md); overflow: hidden; height: min(74vh, 640px); min-height: 420px; }
+  .chat.is-workspace .chat__thread { flex: 1 1 auto; min-height: 0; overflow-y: auto; margin: 0; padding: 16px; align-content: start; gap: 12px; overscroll-behavior: contain; }
+  .chat.is-workspace .turn__body { font-size: 0.97rem; padding: 11px 14px; max-width: 90%; white-space: pre-line; }
+  .chat.is-workspace .avatar--sm { width: 32px; height: 32px; }
+  .chat.is-workspace .chat__confirm { margin: 0 14px 10px !important; }
+  .chat.is-workspace .composer { border: 0; border-top: 1px solid var(--lav-line); border-radius: 0; box-shadow: none; padding: 10px 12px; }
+  .chat.is-workspace .composer__hint { font-size: 0.78rem; }
+  .chat.is-workspace .instant-preview__label, .chat.is-workspace .instant-preview__frame { display: none; }
+  .chat.is-preview-mode #attachBtn { display: none; }
+  .chat.is-workspace .chat__done { margin: 0 14px 12px; padding: 14px; }
+  .chat.is-workspace .chat__done h2 { font-size: 1.05rem; }
+
+  @media (min-width: 980px) {
+    .chat.is-workspace { grid-template-columns: minmax(0, 1fr) 390px; }
+    .chat.is-workspace > .instant-preview { grid-column: 1; }
+    .chat.is-workspace > .sarah-panel { grid-column: 2; grid-row: 3; margin-top: 0; position: sticky; top: 96px; height: min(calc(100vh - 170px), 720px); }
+  }
+
+  .chips { display: flex; flex-wrap: wrap; gap: 8px; padding: 0 14px 12px; }
+  .chips[hidden] { display: none; }
+  .chips button { border: 1px solid var(--lav-line); background: var(--lav); color: var(--violet-deep); border-radius: 999px; padding: 7px 13px; font: inherit; font-size: 0.85rem; font-weight: 700; cursor: pointer; text-align: left; }
+  @media (max-width: 979px) { .chips { flex-wrap: nowrap; overflow-x: auto; scrollbar-width: none; } .chips::-webkit-scrollbar { display: none; } .chips button { white-space: nowrap; flex: none; } }
+  .chips button:hover, .chips button:focus-visible { background: var(--violet); color: #fff; }
+
+  .site-status { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; margin: 0 0 10px; padding: 9px 14px; border-radius: 12px; background: #eefaf2; border: 1px solid #c9ead5; color: #14532d; font-size: 0.88rem; font-weight: 650; }
+  .site-status[hidden] { display: none; }
+  .site-status__dot { width: 9px; height: 9px; border-radius: 50%; background: #16a34a; flex: none; }
+  .site-status__action { border: 0; background: transparent; padding: 0; font: inherit; font-weight: 800; color: #14532d; text-decoration: underline; cursor: pointer; }
+
+  .instant-site__ver { font-size: 0.8rem; font-weight: 700; color: var(--muted); margin-left: 10px; white-space: nowrap; }
+  .instant-site__ver:empty { display: none; }
+  .instant-site__again { border: 1px solid var(--lav-line); background: var(--white); color: var(--violet-deep); border-radius: 999px; padding: 6px 13px; font: inherit; font-size: 0.8rem; font-weight: 700; cursor: pointer; margin-right: 10px; white-space: nowrap; }
+  .instant-site__again:hover { background: var(--violet); color: #fff; }
+  .instant-site__again[hidden] { display: none; }
+  .instant-site__chrome { gap: 4px; }
+  .instant-site__styles { display: flex; flex-wrap: wrap; gap: 6px; align-items: center; padding: 10px 14px; background: var(--white); border-bottom: 1px solid var(--lav-line); }
+  .instant-site__styles[hidden] { display: none; }
+  .instant-site__styles span { font-size: 0.8rem; font-weight: 700; color: var(--muted); margin-right: 4px; }
+  .instant-site__styles button { border: 1px solid var(--lav-line); background: var(--lav); color: var(--violet-deep); border-radius: 999px; padding: 6px 12px; font: inherit; font-size: 0.8rem; font-weight: 700; cursor: pointer; }
+  .instant-site__styles button:hover { background: var(--violet); color: #fff; }
+
+  .instant-site__updated { position: absolute; top: 12px; right: 14px; z-index: 3; padding: 6px 12px; border-radius: 999px; background: #16a34a; color: #fff; font-size: 0.8rem; font-weight: 800; opacity: 0; transform: translateY(-6px); transition: opacity 0.25s ease, transform 0.25s ease; pointer-events: none; }
+  .instant-site__viewport.is-updated .instant-site__updated { opacity: 1; transform: none; }
+  .instant-site__viewport.is-updated { box-shadow: inset 0 0 0 3px #16a34a; }
+
+  .instant-site__love { position: sticky; bottom: 12px; z-index: 5; display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 10px 16px; margin-top: 14px; padding: 10px 12px 10px 18px; border-radius: 18px; background: rgba(255, 255, 255, 0.98); border: 1px solid var(--lav-line); box-shadow: 0 10px 30px rgba(45, 27, 143, 0.22); }
+  .instant-site__love[hidden] { display: none; }
+  .love-note { margin: 0; font-size: 0.85rem; line-height: 1.35; color: var(--muted); }
+  .love-note strong { color: var(--ink); display: block; }
+  .love-actions { display: flex; flex-wrap: wrap; gap: 8px; }
+  .instant-site__love .btn { width: auto; flex: 0 1 auto; padding: 11px 20px; font-size: 0.92rem; }
+  .instant-site__love .btn.is-pulse { animation: w99pulse 1.2s ease-in-out 4; }
+  @keyframes w99pulse { 0%, 100% { box-shadow: 0 0 0 0 rgba(109, 40, 217, 0.5); } 50% { box-shadow: 0 0 0 10px rgba(109, 40, 217, 0); } }
+
+  @media (max-width: 979px) {
+    .instant-site__love { position: fixed; left: 10px; right: 10px; bottom: 10px; margin: 0; padding: 8px; z-index: 60; justify-content: center; }
+    .love-note { display: none; }
+    .love-actions { flex-wrap: nowrap; width: 100%; }
+    .love-actions .btn { flex: 1 1 0; padding: 12px 10px; font-size: 0.9rem; text-align: center; justify-content: center; }
+    html.is-workspace body { padding-bottom: 84px; }
+  }
+  @media (max-width: 720px) {
+    .instant-site__viewport { height: clamp(440px, 64vh, 640px); }
+    .instant-site__ver { display: none; }
+  }
+  @media (prefers-reduced-motion: reduce) { .instant-site__love .btn.is-pulse { animation: none; } }
 </style>
 
 <section class="start">
@@ -371,10 +445,10 @@
 </svg>
 
   <div class="wrap">
-    <div class="chat">
+    <div class="chat" id="chatRoot">
       <div class="chat__head">
-        <p class="eyebrow">Step one of one</p>
-        <h1 class="h2">Tell us about your business.</h1>
+        <p class="eyebrow" id="chatEyebrow">Step one of one</p>
+        <h1 class="h2" id="chatTitle">Tell us about your business.</h1>
       </div>
 
       <div class="buildbar" id="buildBar" hidden>
@@ -385,6 +459,14 @@
         </div>
       </div>
 
+      <div class="sarah-panel" id="sarahPanel">
+      <div class="sarah-panel__head" id="panelHead" hidden>
+        <span class="avatar" role="img" aria-label="Sarah, Web99's AI assistant"></span>
+        <div>
+          <strong>Sarah</strong>
+          <small>Web99's AI assistant &middot; changes are free until you buy</small>
+        </div>
+      </div>
       <div class="chat__thread" id="chatThread" aria-live="polite"></div>
 
       <div class="chat__intro" id="sarahIntro">
@@ -396,6 +478,8 @@
           <span class="chat__who"><strong>Sarah</strong> · Web99's AI assistant. A person checks your finished website before it goes live.</span>
         </div>
       </div>
+
+      <div class="chips" id="previewChips" hidden></div>
 
       <form class="composer" id="startForm" method="post" action="#" novalidate
             data-api="" data-whatsapp="https://wa.me/353000000000?text=Hi%2C%20I%20saw%20Web99%20and%20I'd%20like%20a%20website%20for%20my%20business.">
@@ -411,7 +495,7 @@
         <p class="composer__filesError" id="composerFilesError" hidden></p>
 
         <div class="composer__foot">
-          <p class="composer__hint">No credit card. Nothing to pay today.</p>
+          <p class="composer__hint" id="composerHint">No credit card. Nothing to pay today.</p>
           <div class="composer__actions">
             <button class="composer__attach" type="button" id="attachBtn" title="Attach photos or documents, up to 100MB each">
               📎 <span>Attach</span>
@@ -422,6 +506,7 @@
           </div>
         </div>
       </form>
+      </div>
 
       <div class="instant-preview" id="instantPreview" hidden aria-live="polite">
         <p class="instant-preview__label" id="instantPreviewLabel">A quick sketch of your style — not your website yet. Your full website is being built now.</p>
@@ -433,22 +518,24 @@
         </div>
 
         <div class="instant-site" id="instantSite" hidden>
+          <p class="site-status" id="siteStatus" hidden>
+            <span class="site-status__dot" aria-hidden="true"></span>
+            <span id="siteStatusText"></span>
+            <button type="button" class="site-status__action" id="siteStatusAction" hidden></button>
+          </p>
           <div class="instant-site__stage" id="instantSiteStage" hidden>
             <div class="instant-site__chrome">
               <span class="instant-site__dots" aria-hidden="true"><i></i><i></i><i></i></span>
+              <span class="instant-site__ver" id="siteVersion"></span>
               <a class="instant-site__open" id="instantSiteOpen" href="#" target="_blank" rel="noopener">Open full size ↗</a>
+              <button type="button" class="instant-site__again" id="instantSiteAgain">Try another look</button>
               <span class="instant-site__toggle">
                 <button type="button" data-mode="desktop" aria-pressed="true">Desktop</button>
                 <button type="button" data-mode="mobile" aria-pressed="false">Mobile</button>
               </span>
             </div>
-            <div class="instant-site__viewport" id="instantSiteViewport">
-              <iframe id="instantSiteFrame" title="Your website preview" sandbox="" referrerpolicy="no-referrer"></iframe>
-            </div>
-          </div>
-          <div class="instant-site__love" id="instantSiteLove" hidden>
             <div class="instant-site__styles" id="instantSiteStyles" hidden>
-              <span>Change it:</span>
+              <span>Change the look:</span>
               <button type="button" data-style="lighter">Lighter</button>
               <button type="button" data-style="darker">Darker</button>
               <button type="button" data-style="bolder">Bolder</button>
@@ -456,10 +543,16 @@
               <button type="button" data-style="photos">More photos</button>
               <button type="button" data-style="">Surprise me</button>
             </div>
-            <div class="instant-site__love-row">
+            <div class="instant-site__viewport" id="instantSiteViewport">
+              <iframe id="instantSiteFrame" title="Your website preview" sandbox="" referrerpolicy="no-referrer"></iframe>
+              <span class="instant-site__updated" aria-hidden="true">Updated &#10003;</span>
+            </div>
+          </div>
+          <div class="instant-site__love" id="instantSiteLove" hidden>
+            <p class="love-note"><strong>Free changes until you love it.</strong> <span>Nothing charged today.</span></p>
+            <div class="love-actions">
+              <button class="btn btn--ghost" type="button" id="chatAboutIt">Let&rsquo;s chat about it</button>
               <a class="btn" id="instantSiteBuy" href="#">Yes, I love it &mdash; €99</a>
-              <button class="btn btn--ghost" type="button" id="instantSiteAgain">Try another version</button>
-              <button class="btn btn--ghost" type="button" data-keep>Keep this for me</button>
             </div>
           </div>
         </div>
@@ -521,7 +614,7 @@
 </footer>
 
 
-    <script src="/assets/js/site.js?v=89a4cdc3" defer></script>
+    <script src="/assets/js/site.js?v=bd0ce5b3" defer></script>
     <script src="/assets/js/tracking.js?v=20260817a" defer></script>
   </body>
 </html>

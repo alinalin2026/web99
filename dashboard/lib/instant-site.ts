@@ -95,7 +95,7 @@ function libraryMenu(library: LibraryTrade[]): string {
   const lines = library.map(
     (t) => `- ${t.key} (${t.label}): ` + t.images.map((i) => `${i.role} = ${i.url} — ${i.alt}`).join(" | ")
   );
-  return `IMAGE LIBRARY — the ONLY photographs you may use. Choose the ONE folder whose trade is closest to this business and use only that folder's images (you may reuse an image). If no trade folder is a good match, use a generic-* folder instead — the page must ALWAYS have real photographs (at minimum the hero, and photos on the feature cards or a split band). Never use a mismatched trade's photos, and never leave the page photo-less unless the list below is empty.\n${lines.join("\n")}`;
+  return `IMAGE LIBRARY — the ONLY photographs you may use. Choose the ONE folder whose trade is closest to this business and use only that folder's images (you may reuse an image). If no trade folder is a good match, fall back to a generic-* folder — but generic photos are atmosphere only: use the least specific one (generic-outdoors or generic-team beat generic-home/-office/-workshop/-storefront) for the hero and at most ONE split band, and give the service cards icons, not photos. A photograph must genuinely show what the card or section is about; if it doesn't, use an icon or a colour block instead (a living-room photo on a bouncy-castle page, or a cup of tea on a delivery card, is a failure). Never use a mismatched trade's photos, and never leave the page without a hero photograph unless the list below is empty.\n${lines.join("\n")}`;
 }
 
 
@@ -249,7 +249,7 @@ export function siteProblems(html: string, opts: { photos?: boolean } = {}): str
     if (open !== close) problems.push(`unbalanced <${tag}> (${open} open, ${close} closed)`);
   }
   if (count(/<section[\s>]/gi) < 5) problems.push("fewer than 5 sections");
-  if (opts.photos && count(/\/library\/[a-z0-9-]+\/[a-z]+\.webp/gi) < 3) problems.push("page has no real photographs");
+  if (opts.photos && count(/\/library\/[a-z0-9-]+\/[a-z]+\.webp/gi) < 2) problems.push("page has no real photographs");
   if (!/<h1[\s>]/i.test(html)) problems.push("no main headline");
   if (!/<footer[\s>]/i.test(html)) problems.push("no footer");
   if (!/<style[\s>][\s\S]{500,}?<\/style>/i.test(html)) problems.push("no styling");

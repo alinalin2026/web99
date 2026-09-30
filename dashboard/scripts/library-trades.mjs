@@ -40,6 +40,9 @@ export const existing = {
 const t = (key, label, aliases, q, q2) => ({ key, label, aliases, q, q2 });
 
 export const newTrades = [
+  /* events & family */
+  t("party-hire", "Party & bouncy castle hire", ["bouncy castle", "party hire", "soft play", "kids party", "birthday party", "communion", "inflatable", "face painting", "children's entertainer"], "children's birthday party balloons colourful", "colourful balloons confetti close up"),
+  t("event-hire-marquee", "Marquee & event hire", ["marquee", "event hire", "tables and chairs", "stage hire", "sound and lighting", "wedding hire", "furniture hire"], "marquee tent garden evening lights", "string lights table setting close"),
   /* home & property */
   t("pest-control", "Pest control", ["pest", "rodent", "rats", "mice", "exterminator", "wasp", "bed bugs", "fumigation"], "clean kitchen home interior bright", "pest control technician spraying"),
   t("tiler", "Tiler", ["tiling", "tiles", "wall tiles", "floor tiles", "splashback"], "tiled bathroom modern interior", "tiler laying tiles trowel"),

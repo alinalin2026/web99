@@ -89,17 +89,19 @@ export async function POST(req: NextRequest) {
   let cachedHtml: string | null = null;
   let versions = 0;
   let seenStyles: string[] = [];
+  let seenPalettes: string[] = [];
   try {
     await ensureMasterSchema();
     const order = await getOrder(orderId);
     if (!order) return new Response("Unknown order", { status: 404 });
     brief = ownerBrief(order.conversation);
-    const saved = await sql<{ html: string | null; style: string | null }[]>`
-      SELECT detail->>'html' AS html, detail->>'style' AS style FROM order_events
+    const saved = await sql<{ html: string | null; style: string | null; palette: string | null }[]>`
+      SELECT detail->>'html' AS html, detail->>'style' AS style, detail->>'palette' AS palette FROM order_events
       WHERE order_id = ${orderId} AND kind = 'instant_site' AND detail ? 'html'
       ORDER BY created_at DESC`;
     versions = saved.length;
     seenStyles = saved.map((r) => r.style).filter((x): x is string => !!x && x !== "default");
+    seenPalettes = saved.map((r) => r.palette).filter((x): x is string => !!x);
     // A saved page that would fail today's quality gate is treated as missing and rebuilt.
     const latest = saved[0]?.html ? fixNavigation(saved[0].html) : null;
     cachedHtml = latest && siteProblems(latest).length === 0 ? latest : null;
@@ -142,11 +144,11 @@ export async function POST(req: NextRequest) {
           ownerText,
           (pct) => out.send("progress", { pct }),
           AbortSignal.timeout(170_000),
-          style ? { style, seen: seenStyles } : undefined
+          style ? { style, seen: seenStyles, seenPalettes } : undefined
         );
         const version = versions + 1;
         try {
-          await logEvent(orderId as string, "instant_site", { html: result.html, ms: result.ms, outputChars: result.outputChars, style: style ?? "default", version });
+          await logEvent(orderId as string, "instant_site", { html: result.html, ms: result.ms, outputChars: result.outputChars, style: style ?? "default", palette: result.palette, version });
         } catch (err) { console.error("instant-site cache write failed", err); }
         out.send("page", { html: result.html, version, remaining: Math.max(0, MAX_VERSIONS - version) });
         out.send("done", {});

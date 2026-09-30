@@ -18,6 +18,8 @@
 
 import fs from "node:fs";
 import path from "node:path";
+import iconData from "./icons.json";
+import { paletteById, paletteInstructions, palettes, pickPalette, type Palette } from "./palettes";
 import { assertNotRefused, createMessage, DEFAULT_MODEL, messageText, tokenBudget, type Effort } from "./anthropic";
 
 const EXPECTED_CHARS = 38000;
@@ -115,6 +117,10 @@ export interface VersionOptions {
   style?: StyleKey;
   /** Directions the customer has already seen, so the new one is clearly different. */
   seen?: string[];
+  /** Palettes already shown, so a new version gets a fresh one. */
+  seenPalettes?: string[];
+  /** The palette this version must use (chosen from the style; set by generateInstantSite). */
+  palette?: Palette;
 }
 
 export function nextStyle(seen: string[], requested?: string): StyleKey {
@@ -135,15 +141,20 @@ export function instantSiteInstructions(library: LibraryTrade[], opts?: VersionO
 HARD TECHNICAL RULES
 - Output ONLY the raw HTML document starting with <!doctype html>. No markdown fences, no commentary.
 - NO JavaScript of any kind (no <script>, no event-handler attributes). FAQ uses native <details>/<summary>. Navigation must work without JS: on mobile widths simply hide the text links and keep the logo + one CTA button. EVERY link on the page (header, hero buttons, cards, footer) must be an in-page anchor to a section that exists — href="#services", "#process", "#about", "#faq", "#contact" — with those exact ids on the matching <section> elements. Never link to other pages, external sites or "#" placeholders: the whole site is this one page and the customer will click every link.
-- Load fonts with ONE Google Fonts <link> (display + body pairing). No other external resources. Photos only from the IMAGE LIBRARY below, via <img src> or CSS url().
+- Load fonts with the ONE Google Fonts <link> given in the palette. No other external resources. Photos only from the IMAGE LIBRARY below, via <img src> or CSS url().
 - LAYOUT CONTAINER: every section's content must sit inside its own <div class="wrap"> element. Never put width, max-width, margin or padding rules on the same element as .wrap, and never give a hero/inner wrapper class a width:100% that could fight it. Full-bleed backgrounds go on the <section>; the text goes in .wrap inside it.
 - Fully responsive at 1280px and 390px. Sticky header. No horizontal scroll.
 
 ART DIRECTION
-Pick ONE strong direction that fits the trade (Fresh & Light, Modern Local, Warm Boutique, Minimal Editorial, Classic Professional, Friendly Family, Bold Industrial, Premium Dark…) and commit. DEFAULT TO A LIGHT, BRIGHT DESIGN (white or warm backgrounds, dark text, one strong accent) — most small-business customers want to feel welcomed, not spooked; only choose a dark theme where the trade truly suits it (barber, nightlife, luxury, cinema, tattoo). Whatever you pick, the page is PHOTOGRAPHIC: a large real hero photograph and photos on the service cards or split bands — a page with no images is a failure. Commit to a deliberate palette (one dominant + one accent, as CSS custom properties), big confident type, generous spacing, consistent radius and subtle shadows/borders. Real visual hierarchy. Use consistent inline SVG icons. HERO LAYOUT: for LIGHT themes prefer a split hero (headline and buttons on the solid page background, the photo in a large rounded frame beside it); otherwise a full-bleed photo with WHITE text over a strong dark gradient on the text side (at most ~15% tint on the photo side, never a uniform dark wash). TEXT CONTRAST IS MANDATORY: any text placed over a photograph must be white on a genuinely dark gradient, and dark text may only sit on a light solid or very light area — never dark text over a dark, tinted or busy photo. Check every text-on-image spot, including hero eyebrow, headline, paragraph, chips and buttons. Decorative badges, floating cards and shapes must never overlap text or each other — place them in normal flow or leave generous clear space.
+Pick ONE strong direction that fits the trade (Fresh & Light, Modern Local, Warm Boutique, Minimal Editorial, Classic Professional, Friendly Family, Bold Industrial, Premium Dark…) and commit. DEFAULT TO A LIGHT, BRIGHT DESIGN (white or warm backgrounds, dark text, one strong accent) — most small-business customers want to feel welcomed, not spooked; only choose a dark theme where the trade truly suits it (barber, nightlife, luxury, cinema, tattoo). Whatever you pick, the page is PHOTOGRAPHIC: a large real hero photograph and photos on the service cards or split bands — a page with no images is a failure. Commit to the palette below, big confident type, generous spacing, consistent radius and subtle shadows/borders. Real visual hierarchy. HERO LAYOUT: for LIGHT themes prefer a split hero (headline and buttons on the solid page background, the photo in a large rounded frame beside it); otherwise a full-bleed photo with WHITE text over a strong dark gradient on the text side (at most ~15% tint on the photo side, never a uniform dark wash). TEXT CONTRAST IS MANDATORY: any text placed over a photograph must be white on a genuinely dark gradient, and dark text may only sit on a light solid or very light area — never dark text over a dark, tinted or busy photo. Check every text-on-image spot, including hero eyebrow, headline, paragraph, chips and buttons. Decorative badges, floating cards and shapes must never overlap text or each other — place them in normal flow or leave generous clear space.
 
 SECTIONS (all required, in order)
 1. Sticky header: wordmark, nav anchors, primary CTA.  2. Hero: eyebrow, huge headline, supporting paragraph, two CTAs, three qualitative trust chips.  3. Services grid (id="services"), 6-8 cards with icons (use the "work" and "detail" photos on feature cards or a split band).  4. Value band of 3-4 qualitative benefits.  5. "How it works" process (id="process"), 4-5 numbered steps.  6. About/positioning split section (id="about").  7. FAQ (id="faq"), 4 items.  8. Big CTA band (id="contact") + full footer. The header nav shows: Services, How it works, About, FAQ, Contact.
+
+${paletteInstructions(opts?.palette)}
+
+ICONS — never draw SVG yourself. Write <i class="ic" data-icon="NAME"></i> and the real icon is inserted for you. NAME must be one of the names below; choose the icon that actually depicts the thing (wrench for repairs, droplet for water, shield-check for insured — never a plus or a circle as a stand-in). Icons use currentColor and are 1.5em by default; give the element your own class or style to change size or colour (e.g. <i class="ic card-icon" data-icon="wrench"></i> with .card-icon{width:28px;height:28px;color:var(--accent)}). Use the same icon style throughout.
+${iconMenu()}
 
 ${libraryMenu(library)}
 
@@ -151,7 +162,31 @@ FACT RULES (strict)
 Write finished, ready-to-ship copy in plain confident Irish-English using the real business name. NEVER invent prices, years in business, staff counts, awards, certifications, insurance, named clients, testimonials, star ratings, project counts, statistics or opening hours, and never invent phone numbers, emails or addresses — use the neutral link text "Get a free quote" pointing to #contact. No placeholder/template language ("lorem", "your text here", "sample", "coming soon"). Only use what the owner said; for anything they did not say, write normal category-level descriptive copy for the trade.${versionBrief(opts)}`;
 }
 
-const GUARD_CSS = `html{scroll-behavior:smooth}[id]{scroll-margin-top:96px}.wrap{box-sizing:border-box!important;width:100%!important;max-width:1200px!important;margin-left:auto!important;margin-right:auto!important;padding-left:clamp(20px,4vw,40px)!important;padding-right:clamp(20px,4vw,40px)!important}img{max-width:100%}`;
+/* --- icons ------------------------------------------------------------------
+   The model never draws SVG: it writes <i class="ic" data-icon="wrench"></i> using names from the
+   curated list (icons.json, Lucide, ISC licence) and finalizeHtml() swaps in the real inline SVG. */
+const ICONS = iconData.icons as Record<string, string>;
+const ICON_GROUPS = iconData.groups as Record<string, string[]>;
+
+export function iconMenu(): string {
+  return Object.entries(ICON_GROUPS).map(([g, names]) => `${g}: ${names.join(" ")}`).join("\n");
+}
+
+const iconSvg = (name: string, extra: string) =>
+  `<svg class="ic${extra}" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false">${ICONS[name] ?? ICONS.check}</svg>`;
+
+export function inlineIcons(html: string): string {
+  return html.replace(/<(i|span)\b([^>]*?)\bdata-icon\s*=\s*["']([a-z0-9-]{1,40})["']([^>]*)>\s*<\/\1\s*>/gi, (_w, _t, before: string, name: string, after: string) => {
+    const attrs = `${before} ${after}`;
+    const cls = attrs.match(/\bclass\s*=\s*["']([^"']*)["']/i)?.[1] ?? "";
+    const style = attrs.match(/\bstyle\s*=\s*"([^"]*)"/i)?.[1] ?? attrs.match(/\bstyle\s*=\s*'([^']*)'/i)?.[1];
+    const extra = cls.split(/\s+/).filter((c) => c && c !== "ic" && /^[\w-]+$/.test(c)).map((c) => ` ${c}`).join("");
+    const svg = iconSvg(name, extra);
+    return style ? svg.replace("<svg ", `<svg style="${style.replace(/"/g, "&quot;")}" `) : svg;
+  });
+}
+
+const GUARD_CSS = `:where(.ic){width:1.5em;height:1.5em;flex:none;vertical-align:-0.25em}html{scroll-behavior:smooth}[id]{scroll-margin-top:96px}.wrap{box-sizing:border-box!important;width:100%!important;max-width:1200px!important;margin-left:auto!important;margin-right:auto!important;padding-left:clamp(20px,4vw,40px)!important;padding-right:clamp(20px,4vw,40px)!important}img{max-width:100%}`;
 
 const BLANK_GIF = "data:image/gif;base64,R0lGODlhAQABAAAAACH5BAEKAAEALAAAAAABAAEAAAICTAEAOw==";
 const escapeRe = (v: string) => v.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
@@ -238,7 +273,16 @@ export function fixNavigation(html: string): string {
 /** Reasons a generated page must NOT be shown to a customer. Empty = fine. A page can be
  *  perfectly sanitised and still be broken (cut off mid-section, unclosed tags, placeholder
  *  text, no content) — this is the last gate before it is saved or served. */
-export function siteProblems(html: string, opts: { photos?: boolean } = {}): string[] {
+/** Which palette a page was built from: its data-palette id if known, else any palette whose bg and accent both appear. */
+export function usedPalette(html: string): Palette | undefined {
+  const byId = paletteById(html.match(/data-palette\s*=\s*["']([a-z-]+)["']/i)?.[1]);
+  const lower = html.toLowerCase();
+  const has = (p: Palette) => lower.includes(p.accent.toLowerCase()) && lower.includes(p.bg.toLowerCase());
+  if (byId && has(byId)) return byId;
+  return palettes.find(has);
+}
+
+export function siteProblems(html: string, opts: { photos?: boolean; palette?: Palette | "any" } = {}): string[] {
   const problems: string[] = [];
   const count = (re: RegExp) => (html.match(re) ?? []).length;
   if (!/<\/html\s*>\s*$/i.test(html.trim())) problems.push("page is cut off (no closing </html>)");
@@ -250,6 +294,10 @@ export function siteProblems(html: string, opts: { photos?: boolean } = {}): str
   }
   if (count(/<section[\s>]/gi) < 5) problems.push("fewer than 5 sections");
   if (opts.photos && count(/\/library\/[a-z0-9-]+\/[a-z]+\.webp/gi) < 2) problems.push("page has no real photographs");
+  if (opts.palette) {
+    const used = usedPalette(html);
+    if (opts.palette === "any" ? !used : used?.id !== opts.palette.id) problems.push(opts.palette === "any" ? "no curated palette applied" : `palette ${opts.palette.id} was not applied`);
+  }
   if (!/<h1[\s>]/i.test(html)) problems.push("no main headline");
   if (!/<footer[\s>]/i.test(html)) problems.push("no footer");
   if (!/<style[\s>][\s\S]{500,}?<\/style>/i.test(html)) problems.push("no styling");
@@ -276,6 +324,7 @@ export function finalizeHtml(raw: string, library: LibraryTrade[] = loadLibrary(
     .replace(/(href|src)\s*=\s*(["'])\s*javascript:[^"']*\2/gi, '$1=$2#$2')
     .replace(/(["'(])\/library\//g, `$1${siteOrigin()}/library/`);
   html = enforceLibrary(html, library);
+  html = inlineIcons(html);
   html = fixNavigation(html);
 
   if (!/<head[\s>]/i.test(html) || !/<body[\s>]/i.test(html) || html.length < 4000) {
@@ -290,7 +339,7 @@ export function finalizeHtml(raw: string, library: LibraryTrade[] = loadLibrary(
   return html;
 }
 
-export interface InstantSiteResult { html: string; ms: number; outputChars: number }
+export interface InstantSiteResult { html: string; ms: number; outputChars: number; palette: string | null }
 
 const RETRY_ONLY_IF_FASTER_THAN_MS = 70_000;
 
@@ -305,6 +354,9 @@ export async function generateInstantSite(
   let bestPct = -1;
   let lastProblems: string[] = [];
   const offered = pickLibrary(brief, loadLibrary());
+  // A new version is forced onto a fresh palette from the requested style; the first build lets the model choose.
+  const forced = version?.style ? pickPalette(version.style, version.seenPalettes ?? []) : undefined;
+  const versionWithPalette: VersionOptions | undefined = version ? { ...version, palette: forced } : undefined;
 
   /* One attempt is normally enough. If the result is cut off or fails the quality gate we try
      once more (only when there's time left before the request is aborted) — a customer should
@@ -314,7 +366,7 @@ export async function generateInstantSite(
     const message = await createMessage(
       {
         model: process.env.ANTHROPIC_INSTANT_SITE_MODEL ?? process.env.ANTHROPIC_BUILD_MODEL ?? DEFAULT_MODEL,
-        system: instantSiteInstructions(offered, version),
+        system: instantSiteInstructions(offered, versionWithPalette),
         messages: [{ role: "user", content: `WHAT THE OWNER TOLD US ABOUT THEIR BUSINESS (their own words):\n${brief}` }],
         max_tokens: tokenBudget(30000, effort),
         effort,
@@ -336,8 +388,8 @@ export async function generateInstantSite(
     else {
       try {
         const html = finalizeHtml(out);
-        lastProblems = siteProblems(html, { photos: offered.some((t) => t.images.length > 0) });
-        if (!lastProblems.length) return { html, ms: Date.now() - started, outputChars: out.length };
+        lastProblems = siteProblems(html, { photos: offered.some((t) => t.images.length > 0), palette: forced ?? "any" });
+        if (!lastProblems.length) return { html, ms: Date.now() - started, outputChars: out.length, palette: usedPalette(html)?.id ?? null };
       } catch (err) {
         lastProblems = [(err as Error).message];
       }

@@ -3,7 +3,8 @@
 
 import assert from "node:assert/strict";
 import { test } from "node:test";
-import { finalizeHtml, siteProblems, pickLibrary, loadLibrary, instantSiteInstructions, nextStyle, STYLE_KEYS } from "../lib/instant-site.ts";
+import { finalizeHtml, siteProblems, pickLibrary, loadLibrary, instantSiteInstructions, nextStyle, STYLE_KEYS, inlineIcons, iconMenu, usedPalette } from "../lib/instant-site.ts";
+import { palettes } from "../lib/palettes.ts";
 
 const filler = "<p>" + "Content. ".repeat(600) + "</p>";
 const page = (body, head = "") =>
@@ -154,4 +155,29 @@ test("siteProblems can require real photographs", () => {
   assert.match(siteProblems(bare, { photos: true }).join(), /photographs/);
   const withPhotos = good.replace("<h1>Hello</h1>", '<h1>Hello</h1><img src="https://web99.ie/library/plumber/hero.webp"><img src="https://web99.ie/library/plumber/work.webp"><img src="https://web99.ie/library/plumber/detail.webp">');
   assert.deepEqual(siteProblems(withPhotos, { photos: true }), []);
+});
+
+test("inlineIcons swaps <i data-icon> for the real inline SVG, keeps class/style, falls back safely", () => {
+  const out = inlineIcons('<i class="ic card-icon" data-icon="wrench" style="color:red"></i><span data-icon="not-a-real-icon"></span><i data-icon="bad name!"></i>');
+  assert.match(out, /<svg style="color:red" class="ic card-icon"[^>]*viewBox="0 0 24 24"/);
+  assert.equal((out.match(/<svg/g) ?? []).length, 2, "the malformed name is left alone, not turned into an icon");
+  assert.match(out, /<i data-icon="bad name!"><\/i>/);
+  assert.doesNotMatch(out, /data-icon="wrench"/);
+});
+
+test("finalizeHtml inlines icons, and the icon menu lists real names for the prompt", () => {
+  const html = finalizeHtml(page(`<i class="ic" data-icon="shield-check"></i>`));
+  assert.match(html, /<svg class="ic"/);
+  assert.match(iconMenu(), /Trades & tools: .*wrench/);
+  assert.match(instantSiteInstructions([]), /ICONS — never draw SVG yourself/);
+});
+
+test("palette detection and enforcement", () => {
+  const p = palettes[0];
+  const themed = good.replace("<body>", `<body data-palette="${p.id}"><style>:root{--bg:${p.bg};--accent:${p.accent}}</style>`);
+  assert.equal(usedPalette(themed)?.id, p.id);
+  assert.deepEqual(siteProblems(themed, { palette: p }), []);
+  assert.match(siteProblems(themed, { palette: palettes[1] }).join(), /was not applied/);
+  assert.match(siteProblems(good, { palette: "any" }).join(), /no curated palette/);
+  assert.deepEqual(siteProblems(good), [], "old saved pages are not palette-checked");
 });

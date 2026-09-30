@@ -81,7 +81,7 @@ function emailCapturedCopy() {
 /* Public and it spends model credit on every call: cap messages, brand-new conversations and
    uploaded files per caller, and the length of any one conversation. */
 const messageLimit = createLimiter(90, 3_600_000);
-const newOrderLimit = createLimiter(8, 3_600_000);
+const newOrderLimit = createLimiter(25, 3_600_000);
 const uploadLimit = createLimiter(30, 3_600_000);
 const MAX_USER_TURNS = 100;
 const tooMany = (req: NextRequest) => withCors(req, NextResponse.json({ error: "You've sent a lot of messages in a short time — please wait a few minutes and try again." }, { status: 429 }));

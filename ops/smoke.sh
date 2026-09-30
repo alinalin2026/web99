@@ -19,17 +19,21 @@ echo "$PUBLIC_HEALTH" | grep -q '"ok":true' || fail "public health says not ok"
 pass "public API routing"
 
 START_HTML="$(curl -fsS --max-time 15 -H 'Cache-Control: no-cache' "$BASE_URL/start/?smoke=$(date +%s)")" || fail "/start"
-echo "$START_HTML" | grep -q 'Tell us about your business' || fail "/start returned wrong page"
-echo "$START_HTML" | grep -q 'Sarah' || fail "Sarah intake missing"
+# Here-strings, not `echo | grep -q`: grep -q exits at the first match, and under
+# pipefail the echo on the other side can be reported as a failed pipeline (SIGPIPE).
+grep -q 'Tell us about your business' <<<"$START_HTML" || fail "/start returned wrong page"
+grep -q 'Sarah' <<<"$START_HTML" || fail "Sarah intake missing"
 
 # Do not couple production health to an asset filename. During the migration
 # both sarah.svg and the legacy sarah-photo.svg name may point at the same new
 # vector avatar. Verify the asset the page actually references and its content.
-if echo "$START_HTML" | grep -q 'sarah.svg'; then
+if grep -q 'sarah\.svg' <<<"$START_HTML"; then
   AVATAR_PATH="/assets/img/sarah.svg"
-elif echo "$START_HTML" | grep -q 'sarah-photo.svg'; then
+elif grep -q 'sarah-photo\.svg' <<<"$START_HTML"; then
   AVATAR_PATH="/assets/img/sarah-photo.svg"
 else
+  printf '%s' "$START_HTML" > /tmp/web99-smoke-start.html
+  echo "[smoke] /start was ${#START_HTML} bytes; saved to /tmp/web99-smoke-start.html. Starts: $(printf '%s' "$START_HTML" | head -c 160 | tr '\n' ' ')" >&2
   fail "Sarah avatar is not referenced"
 fi
 

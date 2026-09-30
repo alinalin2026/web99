@@ -37,9 +37,17 @@ else
   fail "Sarah avatar is not referenced"
 fi
 
-SARAH_ASSET="$(curl -fsS --max-time 10 -H 'Cache-Control: no-cache' "$BASE_URL$AVATAR_PATH?smoke=$(date +%s)")" || fail "Sarah avatar asset"
-echo "$SARAH_ASSET" | grep -qi '<svg' || fail "Sarah avatar did not return SVG"
-echo "$SARAH_ASSET" | grep -q 'Sarah, the Web99 assistant' || fail "unexpected Sarah avatar asset"
+# The asset is fetched with retries: right after the live tree is swapped in, one early request can
+# race the nginx reload. Each failure is logged with what was actually returned.
+SARAH_ASSET=""
+for attempt in 1 2 3 4 5; do
+  SARAH_ASSET="$(curl -sS --max-time 10 -H 'Cache-Control: no-cache' "$BASE_URL$AVATAR_PATH?smoke=$(date +%s)" || true)"
+  if grep -qi '<svg' <<<"$SARAH_ASSET" && grep -q 'Sarah, the Web99 assistant' <<<"$SARAH_ASSET"; then break; fi
+  echo "[smoke] avatar attempt $attempt: ${#SARAH_ASSET} bytes, starts: $(printf '%s' "$SARAH_ASSET" | head -c 120 | tr '\n' ' ')" >&2
+  SARAH_ASSET=""
+  sleep 2
+done
+[[ -n "$SARAH_ASSET" ]] || fail "Sarah avatar did not return the expected SVG after 5 tries"
 pass "Sarah intake + vector avatar ($AVATAR_PATH)"
 
 CONTROL_CODE="$(curl -sS -o /dev/null --max-time 15 -w '%{http_code}' "$BASE_URL/control")"

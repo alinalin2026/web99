@@ -1839,6 +1839,7 @@ details[open] .faq__sign::after {
 
 .chat__thread {
   display: grid;
+  grid-template-columns: minmax(0, 1fr);
   gap: 16px;
   margin-bottom: 26px;
 }
@@ -1862,6 +1863,8 @@ details[open] .faq__sign::after {
   font-size: 1.02rem;
   line-height: 1.5;
   max-width: 84%;
+  min-width: 0;
+  overflow-wrap: anywhere;
 }
 
 .turn--them .turn__body {

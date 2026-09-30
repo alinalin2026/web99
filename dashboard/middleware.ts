@@ -31,12 +31,12 @@ const PUBLIC = [
   "/demo",
   "/api/choose",
   "/api/cron",
-  "/build",
   "/p",
   "/api/previews",
   "/api/preview-events",
   "/api/instant-preview",
   "/api/instant-site",
+  "/api/keep",
 ];
 
 export function isPublicPath(pathname: string): boolean {

@@ -70,3 +70,27 @@ test("enforceLibrary blanks every library URL when none is valid, and leaves pho
   assert.match(enforceLibrary(`<img src="${O}/ghost/hero.webp">`, [lib("cafe")]), /data:image\/gif/);
   assert.equal(enforceLibrary("<h1>no photos</h1>", [lib("cafe")]), "<h1>no photos</h1>");
 });
+
+test("every link lands on a real section: dead anchors, other pages and external links are remapped", () => {
+  const html = finalizeHtml(
+    page(
+      `<nav><a href="#services">Services</a><a href="#how-it-works">How it works</a><a href="/about.html">About us</a>` +
+        `<a href="https://facebook.com/x" target="_blank" rel="noopener">Find us</a><a href="contact.html">Contact</a><a href="#nowhere">Random</a></nav>` +
+        `<section id="services">s</section><section id="process">p</section><section id="about">a</section><section>cta</section>`
+    )
+  );
+  const ids = [...html.matchAll(/\sid="([^"]+)"/g)].map((m) => m[1]);
+  assert.ok(ids.includes("contact"), "a contact target is created when the page has none");
+  const links = [...html.matchAll(/<a\b[^>]*\shref="([^"]*)"/g)].map((m) => m[1]);
+  for (const href of links) assert.ok(href === "#" || ids.includes(href.slice(1)), `dead link ${href}`);
+  assert.match(html, /<a href="#process">How it works<\/a>/);
+  assert.match(html, /<a href="#about">About us<\/a>/);
+  assert.match(html, /<a href="#contact">Contact<\/a>/);
+  assert.doesNotMatch(html, /target=|facebook\.com/);
+});
+
+test("mailto and tel links are left alone", () => {
+  const html = finalizeHtml(page(`<a href="tel:+353123">Call</a><a href="mailto:a@b.ie">Mail</a><section id="contact">c</section>`));
+  assert.match(html, /href="tel:\+353123"/);
+  assert.match(html, /href="mailto:a@b\.ie"/);
+});

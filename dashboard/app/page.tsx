@@ -40,6 +40,13 @@ function stageOf(o: Order, f: FunnelInfo | undefined): Stage {
   return q === "lead" || q === "can_build" ? "can_build" : "chatting";
 }
 
+/* Things the customer asked for that the standard €99 site doesn't cover (an online shop, bookings…).
+   Sarah records them on the brief; the operator quotes them by hand. */
+function customRequests(o: Order): string[] {
+  const v = (o.brief as { customRequests?: unknown } | null)?.customRequests;
+  return Array.isArray(v) ? v.filter((x): x is string => typeof x === "string" && x.trim() !== "") : [];
+}
+
 /* Every page that shows the site the customer was given, one place to build the links. */
 function siteLinks(o: Order, f: FunnelInfo | undefined): { label: string; href: string }[] {
   const links: { label: string; href: string }[] = [];
@@ -197,6 +204,8 @@ function LeadsTab({ orders, funnel, group }: { orders: Order[]; funnel: Map<stri
               <Contact order={o} />
               {f?.siteBuiltAt && <span className="chip chip--blue">Site built {ago(f.siteBuiltAt)} ago</span>}
               {stage === "wants" && <span className="chip chip--amber">Pressed “Yes, I love it”</span>}
+              {f?.savedAt && stage !== "paid" && <span className="chip chip--violet">Saved for later {ago(f.savedAt)} ago</span>}
+              {customRequests(o).length > 0 && <span className="chip chip--amber">Custom quote: {customRequests(o).join(", ").slice(0, 80)}</span>}
               {hasPaid(o) && <span className="chip chip--violet">Paid{f?.paidCents != null ? ` ${euro(f.paidCents)}` : ""}</span>}
             </div>
             {lastCustomer && <p className="chat-snippet">“{lastCustomer.slice(0, 180)}{lastCustomer.length > 180 ? "…" : ""}”</p>}
@@ -293,7 +302,11 @@ function OrdersTab({ orders, funnel }: { orders: Order[]; funnel: Map<string, Fu
               </div>
               <span className="age">{f?.siteBuiltAt ? `built ${ago(f.siteBuiltAt)} ago` : ago(o.updated_at)}</span>
             </div>
-            <div className="chips"><Contact order={o} /></div>
+            <div className="chips">
+              <Contact order={o} />
+              {f?.savedAt && <span className="chip chip--violet">Saved for later {ago(f.savedAt)} ago</span>}
+              {customRequests(o).length > 0 && <span className="chip chip--amber">Custom quote: {customRequests(o).join(", ").slice(0, 80)}</span>}
+            </div>
             <SiteButtons links={siteLinks(o, f)} />
             <div className="button-row">
               <MarkPaidButton id={o.id} businessName={name(o)} />

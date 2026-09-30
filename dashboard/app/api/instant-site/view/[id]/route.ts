@@ -1,6 +1,6 @@
 import { NextRequest } from "next/server";
 import { sql } from "@/lib/db";
-import { siteOrigin } from "@/lib/instant-site";
+import { fixNavigation, siteOrigin } from "@/lib/instant-site";
 import { withPreviewBar } from "@/lib/preview-bar";
 
 export const runtime = "nodejs";
@@ -14,15 +14,16 @@ export const dynamic = "force-dynamic";
 
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
-function headers(): Record<string, string> {
+function headers(framed = false): Record<string, string> {
   const origin = siteOrigin();
   return {
     "Content-Type": "text/html; charset=utf-8",
     "Cache-Control": "private, max-age=60",
     "X-Robots-Tag": "noindex, nofollow, noarchive",
     "X-Content-Type-Options": "nosniff",
+    "X-Frame-Options": framed ? "SAMEORIGIN" : "DENY",
     "Referrer-Policy": "no-referrer",
-    "Content-Security-Policy": `default-src 'none'; img-src ${origin} data:; style-src 'unsafe-inline' https://fonts.googleapis.com; font-src https://fonts.gstatic.com; base-uri 'none'; form-action 'none'; frame-ancestors 'none'`,
+    "Content-Security-Policy": `default-src 'none'; img-src ${origin} data:; style-src 'unsafe-inline' https://fonts.googleapis.com; font-src https://fonts.gstatic.com; base-uri 'none'; form-action 'none'; frame-ancestors ${framed ? "'self'" : "'none'"}`,
   };
 }
 
@@ -45,6 +46,10 @@ export async function GET(req: NextRequest, { params }: { params: Promise<{ id: 
   const html = rows[0]?.html;
   if (!html) return missing();
   // ?clean=1 is for the operator dashboard: the site as-is, without the customer-facing buy bar.
-  const clean = req.nextUrl.searchParams.get("clean") === "1";
-  return new Response(clean ? html : withPreviewBar(html, id), { headers: headers() });
+  // ?frame=1 is the chat's own preview frame: also bar-less (the chat has its own buttons) and
+  // allowed to be framed by our own pages only. It's loaded by URL, not srcdoc, so in-page links work.
+  const framed = req.nextUrl.searchParams.get("frame") === "1";
+  const clean = framed || req.nextUrl.searchParams.get("clean") === "1";
+  const page = fixNavigation(html);
+  return new Response(clean ? page : withPreviewBar(page, id), { headers: headers(framed) });
 }

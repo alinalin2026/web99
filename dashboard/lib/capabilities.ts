@@ -103,11 +103,11 @@ export const capabilities: Capability[] = [
   },
   {
     id: "shop",
-    status: "planned",
-    label: "Shop Setup (ecommerce)",
+    status: "addon",
+    label: "An online shop, or any other custom request",
     detail:
-      "Not offered at all — to leads or to paying customers. If anyone asks for a shop, Sarah says plainly that online shops aren't something Web99 offers — no vague maybe, no workaround. Kept here only so the answer is written down.",
-    price: null,
+      "Never turned down. An online shop, payments, logins or any custom feature is taken on as a custom project with its own quote, worked out before anything starts. It is NOT included in the standard website price, and Sarah never gives a number or range herself.",
+    price: "quoted per project, before anything starts",
   },
   {
     id: "language",

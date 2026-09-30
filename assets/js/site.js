@@ -274,9 +274,11 @@
        The server builds a complete art-directed front page from the owner's own
        chat messages (by orderId — nothing the browser sends becomes a prompt)
        and streams real progress. It is untrusted model output, so it is shown
-       in a script-less sandboxed iframe (sandbox="" = no scripts, no same-origin).
+       in a script-less sandboxed iframe (sandbox="" = no scripts, no same-origin), loaded by URL rather
+       than srcdoc so its menu links scroll to real sections.
        If it fails the four-section teaser above simply stays. */
     var siteBox = document.getElementById("instantSite");
+    var buildBar = document.getElementById("buildBar");
     var siteLabel = document.getElementById("instantSiteLabel");
     var siteBar = document.getElementById("instantSiteBar");
     var siteProgress = document.getElementById("instantSiteProgress");
@@ -320,9 +322,11 @@
         siteLabel.textContent = siteStatusText(data.pct);
       } else if (eventName === "page" && data && typeof data.html === "string") {
         siteFrame.onload = function () { fitSiteFrame(); siteFrame.style.visibility = "hidden"; void siteFrame.offsetHeight; siteFrame.style.visibility = ""; };
-        siteFrame.srcdoc = data.html;
+        siteFrame.src = api + "/api/instant-site/view/" + encodeURIComponent(orderId) + "?frame=1&t=" + Date.now();
         var buyHref = "/buy/" + encodeURIComponent(orderId);
         var buyBtn = document.getElementById("instantSiteBuy");
+        var buyTop = document.getElementById("buildBarBuy");
+        if (buyTop && orderId) buyTop.href = buyHref;
         var love = document.getElementById("instantSiteLove");
         if (buyBtn && love && orderId) { buyBtn.href = buyHref; love.hidden = false; }
         if (!loveAnnounced && orderId) {
@@ -332,8 +336,13 @@
           loveCta.href = buyHref;
           loveCta.style.display = "inline-flex";
           loveCta.style.marginTop = "12px";
+          var keepCta = el("button", "btn btn--lg btn--ghost", "Keep this for me");
+          keepCta.type = "button";
+          keepCta.setAttribute("data-keep", "");
+          keepCta.style.marginTop = "12px";
+          keepCta.style.marginLeft = "8px";
           var loveBody = loveTurn.querySelector(".turn__body");
-          if (loveBody) loveBody.appendChild(loveCta);
+          if (loveBody) { loveBody.appendChild(loveCta); loveBody.appendChild(keepCta); }
         }
         var openRow = document.getElementById("instantSiteOpenRow");
         var openLink = document.getElementById("instantSiteOpen");
@@ -346,16 +355,20 @@
         var frame = instantPreview.querySelector(".instant-preview__frame");
         if (frame) frame.hidden = true;
         var label = instantPreview.querySelector(".instant-preview__label");
-        if (label) label.textContent = "Your website preview — built from what you told us";
+        if (label) label.textContent = "Your website preview — built from what you told us. Click around it like a real website.";
         fitSiteFrame();
       } else if (eventName === "error") {
         siteBox.hidden = true;
+        if (buildBar) buildBar.hidden = true;
+        var sketchLabel = document.getElementById("instantPreviewLabel");
+        if (sketchLabel) sketchLabel.textContent = "Your site, building live —";
       }
     };
 
     var startInstantSite = function () {
       if (!siteBox || !siteFrame || !orderId) return;
       siteBox.hidden = false;
+      if (buildBar) buildBar.hidden = false;
       addTurn("sarah", "Please wait while we build your website \u2014 it usually takes about 60 seconds. It will appear right below.");
       siteBar.style.width = "2%";
       siteLabel.textContent = siteStatusText(0);
@@ -394,9 +407,92 @@
           return readChunk();
         })
         .catch(function () {
-          if (siteStage.hidden) siteBox.hidden = true;
+          if (siteStage.hidden) {
+            siteBox.hidden = true;
+            if (buildBar) buildBar.hidden = true;
+          }
         });
     };
+
+    /* --- "Keep this for me" ------------------------------------------------
+       Emails them a private link back to their site (with the buy button on it).
+       Sarah usually already has their email; if not, she asks for it right here. */
+    var keepSaved = false;
+    var keepPost = function (email, done) {
+      var payload = email ? { email: email } : {};
+      fetch(api + "/api/keep/" + encodeURIComponent(orderId), {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(payload)
+      })
+        .then(function (r) { return r.json().catch(function () { return { status: "failed" }; }); })
+        .then(done)
+        .catch(function () { done({ status: "failed" }); });
+    };
+
+    var markKeepButtons = function () {
+      Array.prototype.forEach.call(document.querySelectorAll("[data-keep]"), function (b) {
+        b.textContent = "Saved \u2713 \u2014 check your email";
+        b.disabled = true;
+      });
+    };
+
+    var askForEmail = function (message) {
+      var turn = addTurn("sarah", message);
+      var body = turn.querySelector(".turn__body");
+      var form = el("form", "keep-form");
+      var input = el("input");
+      input.type = "email";
+      input.required = true;
+      input.placeholder = "you@yourbusiness.ie";
+      input.setAttribute("aria-label", "Your email");
+      input.autocomplete = "email";
+      var go = el("button", "btn", "Email me the link");
+      go.type = "submit";
+      form.appendChild(input);
+      form.appendChild(go);
+      form.addEventListener("submit", function (ev) {
+        ev.preventDefault();
+        go.disabled = true;
+        keepPost(input.value.trim(), function (res) {
+          go.disabled = false;
+          if (res.status === "invalid_email") { addTurn("sarah", "That email doesn\u2019t look quite right \u2014 could you check it?"); return; }
+          form.remove();
+          handleKeepResult(res);
+        });
+      });
+      body.appendChild(form);
+      input.focus();
+    };
+
+    var handleKeepResult = function (res) {
+      if (res.status === "sent" || res.status === "throttled") {
+        keepSaved = true;
+        markKeepButtons();
+        addTurn("sarah", (res.status === "sent" ? "Saved! I\u2019ve emailed a private link to " : "Your link is already on its way to ") + res.maskedEmail +
+          ". Open it whenever you\u2019re ready \u2014 your website will be there, with a button to take it. Nothing to pay today. (If you can\u2019t see it in a minute, look in spam.)");
+      } else if (res.status === "need_email") {
+        askForEmail("Happy to keep it for you. What email should I send the link to?");
+      } else if (res.status === "invalid_email") {
+        askForEmail("That email doesn\u2019t look quite right \u2014 could you check it?");
+      } else if (res.status === "no_site") {
+        addTurn("sarah", "Your website is still being built \u2014 give it a moment, then tap Keep this for me again.");
+      } else {
+        addTurn("sarah", "Sorry \u2014 I couldn\u2019t send that just now. Please try again in a minute.");
+      }
+    };
+
+    document.addEventListener("click", function (ev) {
+      var t = ev.target;
+      var btn = t && t.closest ? t.closest("[data-keep]") : null;
+      if (!btn || !orderId || keepSaved) return;
+      ev.preventDefault();
+      btn.disabled = true;
+      keepPost(null, function (res) {
+        btn.disabled = false;
+        handleKeepResult(res);
+      });
+    });
 
     /* --- attachments (photos/documents, up to 100MB each) ---------------- */
     var attachBtn = document.getElementById("attachBtn");
@@ -471,7 +567,7 @@
     /* grow the box as they type, so nothing scrolls out of sight */
     field.addEventListener("input", function () {
       field.style.height = "auto";
-      field.style.height = Math.max(128, field.scrollHeight) + "px";
+      field.style.height = Math.max(56, Math.min(220, field.scrollHeight)) + "px";
     });
 
     var el = function (tag, cls, text) {

@@ -69,7 +69,7 @@ export function instantSiteInstructions(library: LibraryTrade[]): string {
 
 HARD TECHNICAL RULES
 - Output ONLY the raw HTML document starting with <!doctype html>. No markdown fences, no commentary.
-- NO JavaScript of any kind (no <script>, no event-handler attributes). FAQ uses native <details>/<summary>. Navigation must work without JS: on mobile widths simply hide the text links and keep the logo + one CTA button.
+- NO JavaScript of any kind (no <script>, no event-handler attributes). FAQ uses native <details>/<summary>. Navigation must work without JS: on mobile widths simply hide the text links and keep the logo + one CTA button. EVERY link on the page (header, hero buttons, cards, footer) must be an in-page anchor to a section that exists — href="#services", "#process", "#about", "#faq", "#contact" — with those exact ids on the matching <section> elements. Never link to other pages, external sites or "#" placeholders: the whole site is this one page and the customer will click every link.
 - Load fonts with ONE Google Fonts <link> (display + body pairing). No other external resources. Photos only from the IMAGE LIBRARY below, via <img src> or CSS url().
 - LAYOUT CONTAINER: every section's content must sit inside its own <div class="wrap"> element. Never put width, max-width, margin or padding rules on the same element as .wrap, and never give a hero/inner wrapper class a width:100% that could fight it. Full-bleed backgrounds go on the <section>; the text goes in .wrap inside it.
 - Fully responsive at 1280px and 390px. Sticky header. No horizontal scroll.
@@ -78,7 +78,7 @@ ART DIRECTION
 Pick ONE strong direction that fits the trade (Premium Dark, Bold Industrial, Modern Local, Warm Boutique, Minimal Editorial, Classic Professional, Friendly Family…) and commit: a deliberate palette (one dominant + one accent, as CSS custom properties), big confident type, generous spacing, consistent radius and subtle shadows/borders. Real visual hierarchy. Use consistent inline SVG icons. Hero photo goes behind a tinted overlay so text is always readable, but keep the photo clearly visible: use a directional gradient (dark on the text side, at most ~15% tint on the photo side), never a uniform dark wash. Decorative badges, floating cards and shapes must never overlap text or each other — place them in normal flow or leave generous clear space.
 
 SECTIONS (all required, in order)
-1. Sticky header: wordmark, nav anchors, primary CTA.  2. Hero: eyebrow, huge headline, supporting paragraph, two CTAs, three qualitative trust chips.  3. Services grid, 6-8 cards with icons (use the "work" and "detail" photos on feature cards or a split band).  4. Value band of 3-4 qualitative benefits.  5. Process, 4-5 numbered steps.  6. About/positioning split section.  7. FAQ, 4 items.  8. Big CTA band + full footer.
+1. Sticky header: wordmark, nav anchors, primary CTA.  2. Hero: eyebrow, huge headline, supporting paragraph, two CTAs, three qualitative trust chips.  3. Services grid (id="services"), 6-8 cards with icons (use the "work" and "detail" photos on feature cards or a split band).  4. Value band of 3-4 qualitative benefits.  5. "How it works" process (id="process"), 4-5 numbered steps.  6. About/positioning split section (id="about").  7. FAQ (id="faq"), 4 items.  8. Big CTA band (id="contact") + full footer. The header nav shows: Services, How it works, About, FAQ, Contact.
 
 ${libraryMenu(library)}
 
@@ -86,7 +86,7 @@ FACT RULES (strict)
 Write finished, ready-to-ship copy in plain confident Irish-English using the real business name. NEVER invent prices, years in business, staff counts, awards, certifications, insurance, named clients, testimonials, star ratings, project counts, statistics or opening hours, and never invent phone numbers, emails or addresses — use the neutral link text "Get a free quote" pointing to #contact. No placeholder/template language ("lorem", "your text here", "sample", "coming soon"). Only use what the owner said; for anything they did not say, write normal category-level descriptive copy for the trade.`;
 }
 
-const GUARD_CSS = `.wrap{box-sizing:border-box!important;width:100%!important;max-width:1200px!important;margin-left:auto!important;margin-right:auto!important;padding-left:clamp(20px,4vw,40px)!important;padding-right:clamp(20px,4vw,40px)!important}img{max-width:100%}`;
+const GUARD_CSS = `html{scroll-behavior:smooth}[id]{scroll-margin-top:96px}.wrap{box-sizing:border-box!important;width:100%!important;max-width:1200px!important;margin-left:auto!important;margin-right:auto!important;padding-left:clamp(20px,4vw,40px)!important;padding-right:clamp(20px,4vw,40px)!important}img{max-width:100%}`;
 
 const BLANK_GIF = "data:image/gif;base64,R0lGODlhAQABAAAAACH5BAEKAAEALAAAAAABAAEAAAICTAEAOw==";
 const escapeRe = (v: string) => v.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
@@ -110,6 +110,66 @@ export function enforceLibrary(html: string, library: LibraryTrade[]): string {
   });
 }
 
+
+const SECTION_HINTS: [string, RegExp][] = [
+  ["contact", /contact|quote|call|book|enquir|get-in|touch|reach|visit|find-us|location/i],
+  ["faq", /faq|question|answers/i],
+  ["process", /how|process|step|works/i],
+  ["about", /about|why|who|story|team|us\b/i],
+  ["services", /service|what-we|offer|work|feature|product|menu|treatment|range|pricing|gallery|project/i],
+];
+
+/** A preview is shown in a sandbox with no navigation, so every link has to be an
+ *  in-page anchor that lands on a real section: a nav item that points nowhere (or at
+ *  another "page" the model imagined) would look broken to the customer. */
+export function fixNavigation(html: string): string {
+  const idsOf = (h: string) => [...h.matchAll(/\sid\s*=\s*["']([^"']+)["']/gi)].map((m) => m[1]);
+  let ids = idsOf(html);
+
+  if (!ids.some((i) => /contact/i.test(i))) {
+    const lower = html.toLowerCase();
+    const tag = (open: string) => {
+      let from = lower.lastIndexOf(open);
+      while (from >= 0) {
+        const end = html.indexOf(">", from);
+        if (end < 0) return false;
+        if (!/\sid\s*=/i.test(html.slice(from, end))) {
+          html = html.slice(0, end) + ' id="contact"' + html.slice(end);
+          return true;
+        }
+        from = lower.lastIndexOf(open, from - 1);
+      }
+      return false;
+    };
+    if (!tag("<section")) tag("<footer");
+    ids = idsOf(html);
+  }
+
+  const target = (hint: string): string => {
+    for (const [key, re] of SECTION_HINTS) {
+      if (!re.test(hint)) continue;
+      const found = ids.find((i) => (key === "process" ? /process|how|step/i : new RegExp(key, "i")).test(i));
+      if (found) return `#${found}`;
+    }
+    const contact = ids.find((i) => /contact/i.test(i));
+    return contact ? `#${contact}` : "#";
+  };
+
+  return html.replace(/<a\b([^>]*)>([\s\S]*?)<\/a\s*>/gi, (whole, attrs: string, inner: string) => {
+    const m = attrs.match(/\shref\s*=\s*(?:"([^"]*)"|'([^']*)'|([^\s>]+))/i);
+    const href = (m?.[1] ?? m?.[2] ?? m?.[3] ?? "").trim();
+    const text = inner.replace(/<[^>]*>/g, " ");
+    let next = href;
+    if (!m) next = target(text);
+    else if (/^(mailto:|tel:)/i.test(href)) next = href;
+    else if (href === "#" || href.toLowerCase() === "#top") next = "#";
+    else if (href.startsWith("#")) next = ids.includes(href.slice(1)) ? href : target(`${href} ${text}`);
+    else next = target(`${href} ${text}`);
+    const cleaned = attrs.replace(/\s(?:target|rel|download)\s*=\s*(?:"[^"]*"|'[^']*'|[^\s>]+)/gi, "").replace(/\shref\s*=\s*(?:"[^"]*"|'[^']*'|[^\s>]+)/i, "");
+    return `<a${cleaned} href="${next.replace(/"/g, "&quot;")}">${inner}</a>`;
+  });
+}
+
 export function finalizeHtml(raw: string, library: LibraryTrade[] = loadLibrary()): string {
   let html = raw.trim().replace(/^```(?:html)?\s*/i, "").replace(/```\s*$/, "").trim();
   const start = html.search(/<!doctype html|<html[\s>]/i);
@@ -127,6 +187,7 @@ export function finalizeHtml(raw: string, library: LibraryTrade[] = loadLibrary(
     .replace(/(href|src)\s*=\s*(["'])\s*javascript:[^"']*\2/gi, '$1=$2#$2')
     .replace(/(["'(])\/library\//g, `$1${siteOrigin()}/library/`);
   html = enforceLibrary(html, library);
+  html = fixNavigation(html);
 
   if (!/<head[\s>]/i.test(html) || !/<body[\s>]/i.test(html) || html.length < 4000) {
     throw new Error("Model output was not a complete page.");

@@ -157,6 +157,34 @@ Web99.ie · (01) 234 3300`,
   };
 }
 
+/* --- 2c. "Keep this for me" — they saved the site instead of paying now --- */
+
+export function savedForLater(name: string, businessName: string, siteUrl: string): Email {
+  const first = name || "there";
+  return {
+    subject: `${businessName} — your website is saved`,
+    html: shell(
+      p(`Hi ${first},`) +
+        p(`No rush — we've kept your website for you. Whenever you're ready, open it, have a look around, and if you love it there's a button at the bottom to take it.`) +
+        button(siteUrl, "Open my website") +
+        p(`It's <strong>€99 once</strong>, and that covers the domain and hosting for the first year. Nothing has been charged and there's no card on file.`) +
+        small(`Want something changed first? Just reply to this email and tell us — that's free before you buy.`) +
+        small(`This link is private to you: <a href="${siteUrl}" style="color:${VIOLET};">${siteUrl}</a>`)
+    ),
+    text: `Hi ${first},
+
+No rush — we've kept your website for you. Whenever you're ready, open it, have a look around, and if you love it there's a button at the bottom to take it.
+
+${siteUrl}
+
+It's €99 once, and that covers the domain and hosting for the first year. Nothing has been charged and there's no card on file.
+
+Want something changed first? Just reply to this email and tell us — that's free before you buy.
+
+Web99.ie · (01) 234 3300`,
+  };
+}
+
 /* --- 3. one nudge, then we leave them alone -------------------------------- */
 
 export function nudge(name: string, businessName: string, previewUrl: string): Email {

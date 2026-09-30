@@ -123,6 +123,29 @@
     color: var(--white);
   }
 
+  .start { overflow: clip; }
+  .buildbar[hidden], .buildbar [hidden], .instant-site [hidden] { display: none !important; }
+  .composer { padding: 12px 14px 12px; border-radius: 18px; }
+  .composer textarea { min-height: 56px; max-height: 220px; font-size: 1.02rem; }
+  .composer__foot { margin-top: 8px; padding-top: 10px; }
+  .composer .btn { padding: 11px 24px; }
+  .chat__head { margin-bottom: 18px; }
+
+  .buildbar { position: sticky; top: 84px; z-index: 40; margin: 0 0 18px; padding: 14px 16px; border: 1px solid var(--lav-line); border-radius: 16px; background: rgba(255, 255, 255, 0.96); backdrop-filter: blur(10px); box-shadow: 0 10px 30px rgba(45, 27, 143, 0.14); }
+  .buildbar__building > span { display: block; margin-bottom: 8px; font-size: 0.95rem; font-weight: 700; color: var(--ink); }
+  .buildbar__building > small { display: block; margin-top: 8px; font-size: 0.82rem; line-height: 1.45; color: var(--muted); }
+  .buildbar__ready { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 10px 16px; }
+  .buildbar__ready strong { font-size: 1.05rem; color: var(--ink); }
+  .buildbar__actions { display: flex; flex-wrap: wrap; gap: 8px; }
+  .buildbar .btn, .instant-site__love-actions .btn { width: auto; padding: 10px 18px; font-size: 0.92rem; }
+  .instant-site__love-actions { display: flex; flex-wrap: wrap; gap: 8px; }
+  .instant-site__love-actions .btn { font-size: 1rem; padding: 14px 24px; }
+  .keep-note { margin: 10px 0 0; font-size: 0.9rem; color: var(--muted); }
+  .keep-form { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 12px; }
+  .keep-form input { flex: 1 1 200px; min-width: 0; padding: 11px 14px; border: 2px solid var(--lav-line); border-radius: 12px; font: inherit; }
+  .keep-form .btn { width: auto; padding: 10px 20px; }
+  @media (max-width: 720px) { .buildbar { top: 66px; padding: 10px 12px; } .buildbar__ready strong { width: 100%; } .buildbar .btn { flex: 1 1 auto; text-align: center; justify-content: center; } }
+
   .instant-site__progress { margin-top: 14px; }
   .instant-site__progress > span { display: block; margin-bottom: 8px; font-size: 0.9rem; font-weight: 600; color: var(--ink); }
   .instant-site__bar { height: 8px; border-radius: 999px; background: var(--lav); overflow: hidden; }
@@ -154,6 +177,22 @@
         <h1 class="h2">Tell us about your business.</h1>
       </div>
 
+      <div class="buildbar" id="buildBar" hidden>
+        <div class="buildbar__building" id="instantSiteProgress">
+          <span id="instantSiteLabel">Building your full website…</span>
+          <div class="instant-site__bar"><i id="instantSiteBar"></i></div>
+          <small>Please wait &mdash; this usually takes about 60 seconds. The quick sketch below is only a peek at your style; your real website is on its way.</small>
+        </div>
+        <div class="buildbar__ready" id="instantSiteOpenRow" hidden>
+          <strong>&#10003; Your website is ready</strong>
+          <span class="buildbar__actions">
+            <a class="btn" id="instantSiteOpen" href="#" target="_blank" rel="noopener">Open full size <span class="btn__arrow" aria-hidden="true">↗</span></a>
+            <button class="btn btn--ghost" type="button" data-keep>Keep this for me</button>
+            <a class="btn" id="buildBarBuy" href="#">Yes, I love it</a>
+          </span>
+        </div>
+      </div>
+
       <div class="chat__thread" id="chatThread" aria-live="polite"></div>
 
       <div class="chat__intro" id="sarahIntro">
@@ -172,7 +211,7 @@
         <textarea
           id="businessStory"
           name="story"
-          rows="5"
+          rows="2"
           placeholder="Type your answer here…"
           autocomplete="off"></textarea>
 
@@ -193,7 +232,7 @@
       </form>
 
       <div class="instant-preview" id="instantPreview" hidden aria-live="polite">
-        <p class="instant-preview__label">Your site, building live —</p>
+        <p class="instant-preview__label" id="instantPreviewLabel">A quick sketch of your style — not your website yet. Your full website is being built now.</p>
         <div class="instant-preview__frame">
           <div class="instant-preview__section is-loading" data-ip-section="hero"><span class="turn__dots"><i></i><i></i><i></i></span></div>
           <div class="instant-preview__section is-loading" data-ip-section="services"><span class="turn__dots"><i></i><i></i><i></i></span></div>
@@ -202,15 +241,6 @@
         </div>
 
         <div class="instant-site" id="instantSite" hidden>
-          <div class="instant-site__progress" id="instantSiteProgress">
-            <span id="instantSiteLabel">Building your full website…</span>
-            <div class="instant-site__bar"><i id="instantSiteBar"></i></div>
-            <small class="instant-site__hint">Please wait &mdash; this usually takes about 60 seconds.</small>
-          </div>
-          <div class="instant-site__open" id="instantSiteOpenRow" hidden>
-            <a class="btn btn--lg" id="instantSiteOpen" href="#" target="_blank" rel="noopener">Open your website in a new tab <span class="btn__arrow" aria-hidden="true">↗</span></a>
-            <span>Full size &mdash; click around it like a live website.</span>
-          </div>
           <div class="instant-site__stage" id="instantSiteStage" hidden>
             <div class="instant-site__chrome">
               <span class="instant-site__dots" aria-hidden="true"><i></i><i></i><i></i></span>
@@ -228,7 +258,10 @@
               <strong>Do you like it?</strong>
               <span>Love it? Get it live &mdash; {{price}} covers the complete website, plus your domain and hosting for the first year.</span>
             </div>
-            <a class="btn btn--lg" id="instantSiteBuy" href="#">Yes, I love it &mdash; get it live</a>
+            <span class="instant-site__love-actions">
+              <a class="btn btn--lg" id="instantSiteBuy" href="#">Yes, I love it &mdash; get it live</a>
+              <button class="btn btn--lg btn--ghost" type="button" data-keep>Keep this for me</button>
+            </span>
           </div>
         </div>
       </div>

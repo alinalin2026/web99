@@ -21,8 +21,9 @@ const nextConfig = {
     return [
       {
         /* The dashboard holds customer contact details and can push code.
-           Nothing here should ever be framed or indexed. */
-        source: "/:path*",
+           Nothing here should ever be framed or indexed. (The customer-site view
+           route is excluded: it sets its own headers, and the chat frames it.) */
+        source: "/:path((?!api/instant-site/view/).*)",
         headers: [
           { key: "X-Frame-Options", value: "DENY" },
           { key: "X-Content-Type-Options", value: "nosniff" },

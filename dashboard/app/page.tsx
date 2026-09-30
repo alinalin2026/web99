@@ -69,6 +69,7 @@ function tabs(active: Tab) {
           {tab.label}
         </Link>
       ))}
+      <Link className="top-pill" href="/funnel">Funnel</Link>
     </nav>
   );
 }

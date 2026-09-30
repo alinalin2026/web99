@@ -1,5 +1,5 @@
 import { NextRequest } from "next/server";
-import { ensureMasterSchema, getOrder, logEvent, sql } from "@/lib/db";
+import { ensureMasterSchema, getOrder, logEvent, scheduleSiteFollowups, sql } from "@/lib/db";
 import { clientIp } from "@/lib/ratelimit";
 import { fixNavigation, generateInstantSite, nextStyle, siteProblems, type VersionOptions } from "@/lib/instant-site";
 import type { SiteContent, SiteDesign } from "@/lib/site-blocks";
@@ -167,6 +167,9 @@ export async function POST(req: NextRequest) {
             const sent = await keepForLater(orderId as string, null, ip);
             if (sent.status === "sent" || sent.status === "throttled") emailed = sent.maskedEmail;
           } catch (err) { console.error("auto-email failed", (err as Error).message); }
+        }
+        if (!regenerate) {
+          try { await scheduleSiteFollowups(orderId as string); } catch (err) { console.error("follow-up scheduling failed", (err as Error).message); }
         }
         out.send("page", { html: result.html, version, remaining: Math.max(0, MAX_VERSIONS - version), emailed });
         out.send("done", {});

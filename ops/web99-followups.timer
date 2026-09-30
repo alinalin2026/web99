@@ -1,0 +1,11 @@
+[Unit]
+Description=Check for due Web99 follow-up emails every 10 minutes
+
+[Timer]
+OnCalendar=*:0/10
+Persistent=false
+RandomizedDelaySec=30
+Unit=web99-followups.service
+
+[Install]
+WantedBy=timers.target

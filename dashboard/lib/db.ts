@@ -1,3 +1,4 @@
+import { SITE_DELAY_MINUTES, SITE_KINDS } from "./followups";
 import postgres from "postgres";
 import { MASTER_MIGRATION_SQL } from "@/db/schema";
 
@@ -291,24 +292,25 @@ export async function saveVersion(
   return version;
 }
 
-export async function scheduleLeadFollowups(orderId: string): Promise<void> {
+/** Nudges for someone who has seen their website and hasn't bought (see lib/followups.ts). Anchored to when the
+    site was first built; does nothing until a site exists, and never schedules the same nudge twice. */
+export async function scheduleSiteFollowups(orderId: string): Promise<void> {
   await ensureMasterSchema();
   const order = await getOrder(orderId);
   if (!order?.email || !order.followup_enabled) return;
-  const rows = [
-    [30, "30m"],
-    [24 * 60, "24h"],
-    [3 * 24 * 60, "3d"],
-  ] as const;
-  for (const [minutes, kind] of rows) {
+  for (const kind of SITE_KINDS) {
     await sql`
       INSERT INTO followups (order_id, due_at, kind)
-      SELECT ${orderId}, now() + (${minutes} * interval '1 minute'), ${kind}
-      WHERE NOT EXISTS (
-        SELECT 1 FROM followups WHERE order_id = ${orderId} AND kind = ${kind}
-      )`;
+      SELECT ${orderId}, built.at + (${SITE_DELAY_MINUTES[kind]} * interval '1 minute'), ${kind}
+      FROM (SELECT min(created_at) AS at FROM order_events WHERE order_id = ${orderId} AND kind = 'instant_site' AND detail ? 'html') built
+      WHERE built.at IS NOT NULL
+        AND NOT EXISTS (SELECT 1 FROM followups WHERE order_id = ${orderId} AND kind = ${kind})`;
   }
 }
+
+/** Kept for the callers that schedule "lead" follow-ups when a chat finishes: the old 30m/24h/3d sequence is
+    retired, so this now schedules the site nudges (a no-op until their site exists). */
+export const scheduleLeadFollowups = scheduleSiteFollowups;
 
 /** Same table/mechanism as scheduleLeadFollowups, but for the other side of
     the funnel: a lead who has actually been sent their preview and gone

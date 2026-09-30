@@ -185,6 +185,107 @@ Web99.ie · (01) 234 3300`,
   };
 }
 
+/* --- 2d. the two follow-ups after they saw their site and didn't buy ------- */
+
+const esc = (s: string) => s.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;");
+
+export function siteFollowup(
+  kind: "site_24h" | "site_3d",
+  args: { businessName: string; siteUrl: string; unsubscribeUrl: string; wantsIt?: boolean }
+): Email {
+  const { siteUrl, unsubscribeUrl } = args;
+  const biz = args.businessName || "your business";
+  const bizHtml = esc(biz);
+  const offer = `It's <strong>€99 once</strong> — the website, your domain and hosting for the first year, and 30 Facebook posts. Nothing has been charged and there's no card on file.`;
+  const offerText = "It's €99 once — the website, your domain and hosting for the first year, and 30 Facebook posts. Nothing has been charged and there's no card on file.";
+  const why = `You're getting this because you built a website preview on web99.ie.`;
+  const foot = (html: boolean) => html
+    ? small(`${why} <a href="${unsubscribeUrl}" style="color:${MUTED};">Stop these emails</a>`)
+    : `${why} Stop these emails: ${unsubscribeUrl}`;
+
+  if (kind === "site_24h" && args.wantsIt) {
+    const subject = `${biz} — you were one step away`;
+    return {
+      subject,
+      html: shell(
+        p(`Hi,`) +
+          p(`You tapped <strong>"Yes, I love it"</strong> on the website for <strong>${bizHtml}</strong> but didn't finish. No problem — it's saved exactly as you left it.`) +
+          p(`If a question or a change got in the way, open it and tell Sarah. She updates the site while you watch, and it's free until you buy.`) +
+          button(siteUrl, "Open my website") +
+          p(offer) +
+          small(`Or just reply to this email and a person will help.`) +
+          foot(true)
+      ),
+      text: `Hi,
+
+You tapped "Yes, I love it" on the website for ${biz} but didn't finish. No problem — it's saved exactly as you left it.
+
+If a question or a change got in the way, open it and tell Sarah. She updates the site while you watch, and it's free until you buy.
+
+${siteUrl}
+
+${offerText}
+
+Or just reply to this email and a person will help.
+
+${foot(false)}`,
+    };
+  }
+
+  if (kind === "site_24h") {
+    const subject = `${biz} — your website is waiting`;
+    return {
+      subject,
+      html: shell(
+        p(`Hi,`) +
+          p(`Yesterday we built a website for <strong>${bizHtml}</strong>. It's saved exactly as you left it.`) +
+          p(`Have another look — and if anything isn't quite right, tell Sarah what you'd change. She updates it while you watch, and it's free until you buy.`) +
+          button(siteUrl, "Open my website") +
+          p(offer) +
+          small(`Questions? Just reply to this email and a person will answer.`) +
+          foot(true)
+      ),
+      text: `Hi,
+
+Yesterday we built a website for ${biz}. It's saved exactly as you left it.
+
+Have another look — and if anything isn't quite right, tell Sarah what you'd change. She updates it while you watch, and it's free until you buy.
+
+${siteUrl}
+
+${offerText}
+
+Questions? Just reply to this email and a person will answer.
+
+${foot(false)}`,
+    };
+  }
+
+  const subject = `Last note about your ${biz} website`;
+  return {
+    subject,
+    html: shell(
+      p(`Hi,`) +
+        p(`This is the last email we'll send about the website for <strong>${bizHtml}</strong>, so we don't clog your inbox.`) +
+        p(`It stays saved at the link below whenever you want it. If it wasn't quite right, tell Sarah what to change — it takes a minute and it's free.`) +
+        button(siteUrl, "Open my website") +
+        p(offer) +
+        foot(true)
+    ),
+    text: `Hi,
+
+This is the last email we'll send about the website for ${biz}, so we don't clog your inbox.
+
+It stays saved at the link below whenever you want it. If it wasn't quite right, tell Sarah what to change — it takes a minute and it's free.
+
+${siteUrl}
+
+${offerText}
+
+${foot(false)}`,
+  };
+}
+
 /* --- 3. one nudge, then we leave them alone -------------------------------- */
 
 export function nudge(name: string, businessName: string, previewUrl: string): Email {
@@ -276,7 +377,7 @@ export function alanCheckIn(): Email {
     Resend's own dashboard only retains sent mail for 30 days, so this table
     is the real record, not a cache of it. orderId is stored when known
     (most calls have one); pass null for ad-hoc sends with no order. */
-export async function send(to: string, email: Email, orderId: string | null = null): Promise<string> {
+export async function send(to: string, email: Email, orderId: string | null = null, extraHeaders: Record<string, string> = {}): Promise<string> {
   const messageId = `<${crypto.randomUUID()}@web99.ie>`;
   const { data, error } = await resend().emails.send({
     from: FROM,
@@ -285,7 +386,7 @@ export async function send(to: string, email: Email, orderId: string | null = nu
     subject: email.subject,
     html: email.html,
     text: email.text,
-    headers: { "Message-ID": messageId },
+    headers: { "Message-ID": messageId, ...extraHeaders },
   });
   if (error) throw new Error(`Resend: ${error.message}`);
   try {

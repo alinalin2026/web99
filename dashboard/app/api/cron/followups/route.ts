@@ -1,28 +1,20 @@
 import { NextRequest, NextResponse } from "next/server";
 import { sendCustomEmail } from "@/lib/custom-email";
 import { ensureMasterSchema, logEvent, sql } from "@/lib/db";
+import { siteFollowup, send } from "@/lib/email";
+import { ACTIVE_WINDOW_HOURS, LEGACY_LEAD_KINDS, SITE_SRC, decideSiteFollowup, isSiteKind } from "@/lib/followups";
+import { unsubscribeUrlFor } from "@/lib/unsubscribe";
 
 export const runtime = "nodejs";
 export const maxDuration = 60;
 
-// Kinds fall into two families, scheduled from two different moments and
-// cancelled by two different conditions — see the validity check in GET().
+// Kinds fall into three families: site nudges (site_24h/site_3d, scheduled from when the site was built),
+// post-preview nudges for previews an operator sent by hand (preview_*), and the retired 30m/24h/3d lead
+// sequence. Each is scheduled from a different moment and cancelled by different conditions — see GET().
 const PREVIEW_KINDS = new Set(["preview_24h", "preview_36h", "preview_48h"]);
 
 function copy(kind: string, businessName: string | null) {
   const business = businessName ? ` for ${businessName}` : "";
-  if (kind === "30m") return {
-    subject: "Your Web99 website chat",
-    body: `Hi,\n\nYou were chatting with Sarah about a website${business}. If you got interrupted, no problem — just reply here with anything you still wanted us to know and we can pick it up from there.\n\nAlan\nWeb99.ie`,
-  };
-  if (kind === "24h") return {
-    subject: "Still want us to put the website together?",
-    body: `Hi,\n\nJust following up on your website chat${business}. We may already have enough to make a first demo. If you'd like us to continue, just reply yes — or send any missing logo/photos/details in this email.\n\nAlan\nWeb99.ie`,
-  };
-  if (kind === "3d") return {
-    subject: "Last follow-up from Web99",
-    body: `Hi,\n\nOne last message about the website${business}. If you'd still like us to make the first version, reply whenever it suits you. If not, no worries — we won't keep chasing you.\n\nAlan\nWeb99.ie`,
-  };
   // Post-preview sequence: same "collecting" lead nurture idea, applied to the
   // other side of the funnel — a lead who has actually SEEN the preview and
   // gone quiet, rather than one who never finished the chat.
@@ -48,19 +40,78 @@ export async function GET(req: NextRequest) {
 
   const due = await sql<{
     id: number; order_id: string; kind: string; email: string; business_name: string | null;
-    state: string; workflow_stage: string; followup_enabled: boolean; has_reply: boolean;
+    state: string; workflow_stage: string; followup_enabled: boolean; has_reply: boolean; due_at: string;
+    paid: boolean; wants_it: boolean; recently_active: boolean; site_reply: boolean;
   }[]>`
-    SELECT f.id, f.order_id, f.kind, o.email, o.business_name, o.state::text, o.workflow_stage, o.followup_enabled,
+    SELECT f.id, f.order_id, f.kind, f.due_at, o.email, o.business_name, o.state::text, o.workflow_stage, o.followup_enabled,
       EXISTS (
         SELECT 1 FROM emails e WHERE e.order_id = f.order_id AND e.direction = 'inbound'
           AND (o.sent_at IS NULL OR e.created_at >= o.sent_at)
-      ) AS has_reply
+      ) AS has_reply,
+      EXISTS (
+        SELECT 1 FROM emails e WHERE e.order_id = f.order_id AND e.direction = 'inbound'
+          AND e.created_at >= (SELECT min(v.created_at) FROM order_events v WHERE v.order_id = f.order_id AND v.kind = 'instant_site')
+      ) AS site_reply,
+      (o.paid_at IS NOT NULL) AS paid,
+      EXISTS (SELECT 1 FROM order_events v WHERE v.order_id = f.order_id AND v.kind = 'wants_it') AS wants_it,
+      EXISTS (SELECT 1 FROM order_events v WHERE v.order_id = f.order_id AND v.kind IN ('workspace_opened', 'preview_chat')
+        AND v.created_at > now() - (${ACTIVE_WINDOW_HOURS} * interval '1 hour')) AS recently_active
     FROM followups f JOIN orders o ON o.id = f.order_id
-    WHERE f.status = 'pending' AND f.due_at <= now() AND o.email IS NOT NULL
+    WHERE f.status = 'pending' AND f.due_at <= now()
     ORDER BY f.due_at ASC LIMIT 50`;
 
   const results: { id: number; ok: boolean; skipped?: string; error?: string }[] = [];
   for (const row of due) {
+    if (LEGACY_LEAD_KINDS.has(row.kind)) {
+      await sql`UPDATE followups SET status = 'cancelled' WHERE id = ${row.id}`;
+      results.push({ id: row.id, ok: true, skipped: "retired sequence" });
+      continue;
+    }
+
+    if (isSiteKind(row.kind)) {
+      const decision = decideSiteFollowup({
+        kind: row.kind, dueAt: row.due_at, email: row.email, followupEnabled: row.followup_enabled, state: row.state,
+        paid: row.paid, hasReply: row.site_reply, recentlyActive: row.recently_active,
+      });
+      if (decision.action === "cancel") {
+        await sql`UPDATE followups SET status = 'cancelled' WHERE id = ${row.id}`;
+        results.push({ id: row.id, ok: true, skipped: decision.reason });
+        continue;
+      }
+      if (decision.action === "wait") { results.push({ id: row.id, ok: true, skipped: `waiting: ${decision.reason}` }); continue; }
+      try {
+        const base = (process.env.APP_URL ?? "https://web99.ie").replace(/\/+$/, "");
+        const unsubscribeUrl = unsubscribeUrlFor(row.order_id);
+        const email = siteFollowup(row.kind, {
+          businessName: row.business_name ?? "",
+          siteUrl: `${base}/start/?site=${row.order_id}&src=${SITE_SRC[row.kind]}`,
+          unsubscribeUrl,
+          wantsIt: row.wants_it,
+        });
+        // Claim the row before sending so two overlapping runs can never send the same nudge twice.
+        const claimed = await sql`UPDATE followups SET status = 'sending' WHERE id = ${row.id} AND status = 'pending' RETURNING id`;
+        if (!claimed.length) { results.push({ id: row.id, ok: true, skipped: "already claimed" }); continue; }
+        try {
+          const messageId = await send(row.email, email, row.order_id, {
+            "List-Unsubscribe": `<${unsubscribeUrl}>`,
+            "List-Unsubscribe-Post": "List-Unsubscribe=One-Click",
+          });
+          await sql`UPDATE followups SET status = 'sent', subject = ${email.subject}, body = ${email.text}, sent_at = now() WHERE id = ${row.id}`;
+          await logEvent(row.order_id, "followup_sent", { message: `${row.kind} follow-up sent`, kind: row.kind, to: row.email, messageId });
+          results.push({ id: row.id, ok: true });
+        } catch (err) {
+          await sql`UPDATE followups SET status = 'failed' WHERE id = ${row.id}`;
+          throw err;
+        }
+      } catch (err) {
+        const message = (err as Error).message;
+        await logEvent(row.order_id, "error", { step: "followup", kind: row.kind, message });
+        results.push({ id: row.id, ok: false, error: message });
+      }
+      continue;
+    }
+
+    if (!row.email) { await sql`UPDATE followups SET status = 'cancelled' WHERE id = ${row.id}`; continue; }
     const isPreviewFollowup = PREVIEW_KINDS.has(row.kind);
     // Pre-preview: only valid while the lead is still mid-chat and hasn't
     // moved on. Post-preview: only valid while the lead is still waiting on

@@ -27,6 +27,8 @@ install_machine_config() {
   install -m 0644 "$tree/ops/web99-worker.service" /etc/systemd/system/web99-worker.service
   install -m 0644 "$tree/ops/web99-backup.service" /etc/systemd/system/web99-backup.service
   install -m 0644 "$tree/ops/web99-backup.timer" /etc/systemd/system/web99-backup.timer
+  install -m 0644 "$tree/ops/web99-followups.service" /etc/systemd/system/web99-followups.service
+  install -m 0644 "$tree/ops/web99-followups.timer" /etc/systemd/system/web99-followups.timer
   install -m 0644 "$tree/ops/web99.nginx.conf" /etc/nginx/sites-available/web99
   ln -sfn /etc/nginx/sites-available/web99 /etc/nginx/sites-enabled/web99
   rm -f /etc/nginx/sites-enabled/web99-main /etc/nginx/sites-enabled/web99-dashboard
@@ -111,10 +113,11 @@ mv "${LIVE_DIR}.new" "$LIVE_DIR"
 
 install_machine_config "$LIVE_DIR" || rollback "machine configuration validation"
 
-systemctl enable web99-dashboard web99-worker web99-backup.timer >/dev/null
+systemctl enable web99-dashboard web99-worker web99-backup.timer web99-followups.timer >/dev/null
 systemctl restart web99-dashboard || rollback "dashboard restart"
 systemctl restart web99-worker || rollback "worker restart"
 systemctl start web99-backup.timer || rollback "backup timer"
+systemctl start web99-followups.timer || rollback "follow-up timer"
 systemctl reload nginx || rollback "nginx reload"
 
 log "waiting for app + database"

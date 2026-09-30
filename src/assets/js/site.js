@@ -1056,7 +1056,7 @@
     var siteParam = params.get("site");
     var resumeId = siteParam && UUID_RE.test(siteParam) ? siteParam : (orderId && UUID_RE.test(orderId) ? orderId : null);
     if (resumeId) {
-      fetch(api + "/api/preview-chat?orderId=" + encodeURIComponent(resumeId), { cache: "no-store" })
+      fetch(api + "/api/preview-chat?orderId=" + encodeURIComponent(resumeId) + (params.get("src") ? "&src=" + encodeURIComponent(params.get("src")) : ""), { cache: "no-store" })
         .then(function (r) { return r.ok ? r.json() : null; })
         .then(function (state) {
           if (state && state.hasSite && !siteReady && !userTurns.length) resumeWorkspace(resumeId, state);

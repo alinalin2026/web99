@@ -40,6 +40,14 @@ export async function GET(req: NextRequest) {
   const order = await getOrder(orderId);
   if (!order) return NextResponse.json({ error: "Unknown order" }, { status: 404 });
   const { latest, versions, looks } = await loadSite(orderId);
+  // Coming back to the workspace (e.g. from a follow-up email) is a funnel step: log it, at most once per half hour.
+  if (latest?.html) {
+    const src = (req.nextUrl.searchParams.get("src") ?? "").toLowerCase().replace(/[^a-z0-9]/g, "").slice(0, 12);
+    try {
+      const recent = await sql`SELECT 1 FROM order_events WHERE order_id = ${orderId} AND kind = 'workspace_opened' AND created_at > now() - interval '30 minutes' LIMIT 1`;
+      if (!recent.length) await logEvent(orderId, "workspace_opened", { src: src || null });
+    } catch (err) { console.error("workspace_opened log failed", (err as Error).message); }
+  }
   const history = await sql<{ role: string; content: string }[]>`
     SELECT detail->>'role' AS role, detail->>'content' AS content FROM order_events
     WHERE order_id = ${orderId} AND kind = 'preview_chat' ORDER BY created_at, id LIMIT 80`;

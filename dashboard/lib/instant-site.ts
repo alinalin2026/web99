@@ -18,8 +18,11 @@
 
 import fs from "node:fs";
 import path from "node:path";
-import iconData from "./icons.json";
-import { paletteById, paletteInstructions, palettes, pickPalette, type Palette } from "./palettes";
+import { iconMenu, inlineIcons } from "./icons";
+export { iconMenu, inlineIcons };
+import { paletteById, paletteMenu, palettes, type Palette } from "./palettes";
+import { designFor, parseSiteContent, type SiteContent, type SiteDesign, type Variants } from "./site-blocks";
+import { renderSite, type RenderPhotos } from "./site-render";
 import { assertNotRefused, createMessage, DEFAULT_MODEL, messageText, tokenBudget, type Effort } from "./anthropic";
 
 const EXPECTED_CHARS = 38000;
@@ -113,14 +116,14 @@ export type StyleKey = keyof typeof STYLES;
 export const STYLE_KEYS = Object.keys(STYLES) as StyleKey[];
 
 export interface VersionOptions {
-  /** Requested direction; when absent on a retry a not-yet-used one is chosen. */
+  /** Requested direction for a new version. */
   style?: StyleKey;
-  /** Directions the customer has already seen, so the new one is clearly different. */
-  seen?: string[];
   /** Palettes already shown, so a new version gets a fresh one. */
   seenPalettes?: string[];
-  /** The palette this version must use (chosen from the style; set by generateInstantSite). */
-  palette?: Palette;
+  /** The previous version's layout choices, so the new layout differs. */
+  avoid?: Variants;
+  /** The words of an earlier version: a new version re-renders these instead of asking the model again. */
+  content?: SiteContent;
 }
 
 export function nextStyle(seen: string[], requested?: string): StyleKey {
@@ -130,61 +133,43 @@ export function nextStyle(seen: string[], requested?: string): StyleKey {
   return pool[Math.floor(Math.random() * pool.length)];
 }
 
-function versionBrief(opts?: VersionOptions): string {
-  if (!opts?.style) return "";
-  return `\n\nTHIS IS A NEW VERSION — the customer saw an earlier design and asked to try another. ${STYLES[opts.style].brief} It must look CLEARLY different from before: a different palette, different fonts, a different hero layout and different section styling. Same business facts and the same fact rules.${opts.seen?.length ? ` Directions already shown: ${opts.seen.join(", ")}.` : ""}`;
+function folderMenu(library: LibraryTrade[]): string {
+  if (!library.length) return "(no photo folders available — set photoFolder to null)";
+  return library.map((t) => `- ${t.key} (${t.label}): ${t.images.map((i) => i.alt).join(" | ")}`).join("\n");
 }
 
-export function instantSiteInstructions(library: LibraryTrade[], opts?: VersionOptions): string {
-  return `You are a senior web designer and conversion copywriter at a Dublin studio. Produce ONE complete, self-contained, production-quality HTML document (inline <style> only) for a small business front page that looks like a professional agency designed it — comparable to a premium Framer/Webflow marketing site.
+export function contentInstructions(library: LibraryTrade[]): string {
+  return `You are a senior conversion copywriter at a Dublin web studio. A small business owner has described their business. Write the WORDS for a professional one-page website, as ONE JSON object — nothing else (no markdown fences, no commentary). The layout, colours and code are handled separately; you only provide copy, an icon per item, a photo folder and a palette.
 
-HARD TECHNICAL RULES
-- Output ONLY the raw HTML document starting with <!doctype html>. No markdown fences, no commentary.
-- NO JavaScript of any kind (no <script>, no event-handler attributes). FAQ uses native <details>/<summary>. Navigation must work without JS: on mobile widths simply hide the text links and keep the logo + one CTA button. EVERY link on the page (header, hero buttons, cards, footer) must be an in-page anchor to a section that exists — href="#services", "#process", "#about", "#faq", "#contact" — with those exact ids on the matching <section> elements. Never link to other pages, external sites or "#" placeholders: the whole site is this one page and the customer will click every link.
-- Load fonts with the ONE Google Fonts <link> given in the palette. No other external resources. Photos only from the IMAGE LIBRARY below, via <img src> or CSS url().
-- LAYOUT CONTAINER: every section's content must sit inside its own <div class="wrap"> element. Never put width, max-width, margin or padding rules on the same element as .wrap, and never give a hero/inner wrapper class a width:100% that could fight it. Full-bleed backgrounds go on the <section>; the text goes in .wrap inside it.
-- Fully responsive at 1280px and 390px. Sticky header. No horizontal scroll.
+JSON SHAPE (all strings plain text, no HTML, no emoji):
+{
+ "brand": { "name": "the real business name", "tagline": "<=8 words describing what they do and where" },
+ "photoFolder": "one key from PHOTO FOLDERS below",
+ "palette": "one id from PALETTES below",
+ "hero": { "eyebrow": "<=5 words, e.g. trade + place", "headline": "<=12 words, benefit-led, specific", "sub": "1-2 sentences (<=35 words)", "primaryCta": "<=4 words", "secondaryCta": "<=4 words", "chips": ["3 short trust points, <=4 words each"] },
+ "services": { "eyebrow": "What we do", "title": "<=9 words", "intro": "1 sentence", "items": [ { "icon": "ICON NAME", "title": "<=4 words", "text": "1-2 sentences (<=28 words)" } x 6 to 8 ] },
+ "values": { "title": "<=7 words", "items": [ { "icon": "ICON NAME", "title": "<=3 words", "text": "1 sentence (<=20 words)" } x 4 ] },
+ "process": { "eyebrow": "How it works", "title": "<=8 words", "intro": "1 sentence", "steps": [ { "title": "<=3 words", "text": "1 sentence (<=20 words)" } x 4 to 5 ] },
+ "about": { "eyebrow": "About us", "title": "<=10 words", "paragraphs": ["2 short paragraphs"], "bullets": ["3 short points"], "cta": "<=4 words" },
+ "faq": { "title": "<=6 words", "items": [ { "q": "a question customers really ask", "a": "1-3 sentence answer" } x 4 to 5 ] },
+ "cta": { "title": "<=10 words", "text": "1 sentence", "button": "<=4 words" },
+ "contact": { "phone": null, "email": null, "address": null, "hours": null },
+ "footer": { "blurb": "1 short sentence" }
+}
 
-ART DIRECTION
-Pick ONE strong direction that fits the trade (Fresh & Light, Modern Local, Warm Boutique, Minimal Editorial, Classic Professional, Friendly Family, Bold Industrial, Premium Dark…) and commit. DEFAULT TO A LIGHT, BRIGHT DESIGN (white or warm backgrounds, dark text, one strong accent) — most small-business customers want to feel welcomed, not spooked; only choose a dark theme where the trade truly suits it (barber, nightlife, luxury, cinema, tattoo). Whatever you pick, the page is PHOTOGRAPHIC: a large real hero photograph and photos on the service cards or split bands — a page with no images is a failure. Commit to the palette below, big confident type, generous spacing, consistent radius and subtle shadows/borders. Real visual hierarchy. HERO LAYOUT: for LIGHT themes prefer a split hero (headline and buttons on the solid page background, the photo in a large rounded frame beside it); otherwise a full-bleed photo with WHITE text over a strong dark gradient on the text side (at most ~15% tint on the photo side, never a uniform dark wash). TEXT CONTRAST IS MANDATORY: any text placed over a photograph must be white on a genuinely dark gradient, and dark text may only sit on a light solid or very light area — never dark text over a dark, tinted or busy photo. Check every text-on-image spot, including hero eyebrow, headline, paragraph, chips and buttons. Decorative badges, floating cards and shapes must never overlap text or each other — place them in normal flow or leave generous clear space.
-
-SECTIONS (all required, in order)
-1. Sticky header: wordmark, nav anchors, primary CTA.  2. Hero: eyebrow, huge headline, supporting paragraph, two CTAs, three qualitative trust chips.  3. Services grid (id="services"), 6-8 cards with icons (use the "work" and "detail" photos on feature cards or a split band).  4. Value band of 3-4 qualitative benefits.  5. "How it works" process (id="process"), 4-5 numbered steps.  6. About/positioning split section (id="about").  7. FAQ (id="faq"), 4 items.  8. Big CTA band (id="contact") + full footer. The header nav shows: Services, How it works, About, FAQ, Contact.
-
-${paletteInstructions(opts?.palette)}
-
-ICONS — never draw SVG yourself. Write <i class="ic" data-icon="NAME"></i> and the real icon is inserted for you. NAME must be one of the names below; choose the icon that actually depicts the thing (wrench for repairs, droplet for water, shield-check for insured — never a plus or a circle as a stand-in). Icons use currentColor and are 1.5em by default; give the element your own class or style to change size or colour (e.g. <i class="ic card-icon" data-icon="wrench"></i> with .card-icon{width:28px;height:28px;color:var(--accent)}). Use the same icon style throughout.
+ICONS — "icon" must be exactly one of these names; choose the one that actually depicts the thing (wrench for repairs, droplet for water, shield-check for insured — never a stand-in):
 ${iconMenu()}
 
-${libraryMenu(library)}
+PALETTES — pick the id that suits the trade. Prefer [light] or [soft]; use [dark] only where the trade truly suits it (barber, nightlife, luxury, cinema, tattoo); [bold] suits energetic trades:
+${paletteMenu()}
+
+PHOTO FOLDERS — pick the ONE folder whose photos genuinely fit this business (the alt text shows what each holds). If none fits, pick a generic-* folder (prefer generic-outdoors or generic-team); use null only if the list is empty:
+${folderMenu(library)}
 
 FACT RULES (strict)
-Write finished, ready-to-ship copy in plain confident Irish-English using the real business name. NEVER invent prices, years in business, staff counts, awards, certifications, insurance, named clients, testimonials, star ratings, project counts, statistics or opening hours, and never invent phone numbers, emails or addresses — use the neutral link text "Get a free quote" pointing to #contact. No placeholder/template language ("lorem", "your text here", "sample", "coming soon"). Only use what the owner said; for anything they did not say, write normal category-level descriptive copy for the trade.${versionBrief(opts)}`;
+Write finished, ready-to-ship copy in plain confident Irish-English using the real business name. NEVER invent prices, years in business, staff counts, awards, certifications, insurance, named clients, testimonials, star ratings, project counts, statistics or opening hours, and never invent phone numbers, emails or addresses. Fill "contact" ONLY with details the owner explicitly gave (otherwise leave null). No placeholder/template language ("lorem", "your text here", "sample", "coming soon"). Only use what the owner said; for anything they did not say, write normal category-level descriptive copy for the trade. Write specific, useful sentences — not filler.`;
 }
 
-/* --- icons ------------------------------------------------------------------
-   The model never draws SVG: it writes <i class="ic" data-icon="wrench"></i> using names from the
-   curated list (icons.json, Lucide, ISC licence) and finalizeHtml() swaps in the real inline SVG. */
-const ICONS = iconData.icons as Record<string, string>;
-const ICON_GROUPS = iconData.groups as Record<string, string[]>;
-
-export function iconMenu(): string {
-  return Object.entries(ICON_GROUPS).map(([g, names]) => `${g}: ${names.join(" ")}`).join("\n");
-}
-
-const iconSvg = (name: string, extra: string) =>
-  `<svg class="ic${extra}" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false">${ICONS[name] ?? ICONS.check}</svg>`;
-
-export function inlineIcons(html: string): string {
-  return html.replace(/<(i|span)\b([^>]*?)\bdata-icon\s*=\s*["']([a-z0-9-]{1,40})["']([^>]*)>\s*<\/\1\s*>/gi, (_w, _t, before: string, name: string, after: string) => {
-    const attrs = `${before} ${after}`;
-    const cls = attrs.match(/\bclass\s*=\s*["']([^"']*)["']/i)?.[1] ?? "";
-    const style = attrs.match(/\bstyle\s*=\s*"([^"]*)"/i)?.[1] ?? attrs.match(/\bstyle\s*=\s*'([^']*)'/i)?.[1];
-    const extra = cls.split(/\s+/).filter((c) => c && c !== "ic" && /^[\w-]+$/.test(c)).map((c) => ` ${c}`).join("");
-    const svg = iconSvg(name, extra);
-    return style ? svg.replace("<svg ", `<svg style="${style.replace(/"/g, "&quot;")}" `) : svg;
-  });
-}
 
 const GUARD_CSS = `:where(.ic){width:1.5em;height:1.5em;flex:none;vertical-align:-0.25em}html{scroll-behavior:smooth}[id]{scroll-margin-top:96px}.wrap{box-sizing:border-box!important;width:100%!important;max-width:1200px!important;margin-left:auto!important;margin-right:auto!important;padding-left:clamp(20px,4vw,40px)!important;padding-right:clamp(20px,4vw,40px)!important}img{max-width:100%}`;
 
@@ -339,10 +324,61 @@ export function finalizeHtml(raw: string, library: LibraryTrade[] = loadLibrary(
   return html;
 }
 
-export interface InstantSiteResult { html: string; ms: number; outputChars: number; palette: string | null }
+export interface InstantSiteResult { html: string; ms: number; outputChars: number; palette: string | null; content: SiteContent; design: SiteDesign }
 
+const CONTENT_CHARS = 7000;
 const RETRY_ONLY_IF_FASTER_THAN_MS = 70_000;
 
+function photosFor(folder: string | null, library: LibraryTrade[]): RenderPhotos {
+  const t = library.find((x) => x.key === folder);
+  const out: RenderPhotos = {};
+  for (const i of t?.images ?? []) if (i.role === "hero" || i.role === "work" || i.role === "detail") out[i.role] = { url: i.url, alt: i.alt };
+  return out;
+}
+
+/** Content + design -> finished, sanitised page. Deterministic: no model involved. */
+export function buildPage(content: SiteContent, design: SiteDesign, library: LibraryTrade[] = loadLibrary()): string {
+  return finalizeHtml(renderSite(content, design, photosFor(content.photoFolder, library)), library);
+}
+
+async function writeContent(brief: string, offered: LibraryTrade[], onProgress: ((pct: number) => void) | undefined, signal: AbortSignal | undefined, started: number) {
+  const effort = (process.env.ANTHROPIC_INSTANT_SITE_EFFORT as Effort | undefined) ?? "low";
+  let bestPct = -1;
+  let lastProblem = "";
+  for (let attempt = 1; attempt <= 2; attempt++) {
+    let streamed = "";
+    const message = await createMessage(
+      {
+        model: process.env.ANTHROPIC_INSTANT_SITE_MODEL ?? process.env.ANTHROPIC_BUILD_MODEL ?? DEFAULT_MODEL,
+        system: contentInstructions(offered),
+        messages: [{ role: "user", content: `WHAT THE OWNER TOLD US ABOUT THEIR BUSINESS (their own words):\n${brief}` }],
+        max_tokens: tokenBudget(9000, effort),
+        effort,
+      },
+      {
+        signal,
+        onText: (delta) => {
+          streamed += delta;
+          const pct = Math.min(94, Math.floor((streamed.length / CONTENT_CHARS) * 100));
+          if (pct > bestPct) { bestPct = pct; onProgress?.(pct); }
+        },
+      }
+    );
+    assertNotRefused(message);
+    const out = messageText(message) || streamed;
+    if (message.stop_reason === "max_tokens") lastProblem = "output hit the length limit and was cut off";
+    else {
+      try { return { content: parseSiteContent(out, { folders: offered.map((t) => t.key) }), chars: out.length }; }
+      catch (err) { lastProblem = (err as Error).message; }
+    }
+    console.error(`instant-site copy attempt ${attempt} rejected: ${lastProblem}`);
+    if (Date.now() - started > RETRY_ONLY_IF_FASTER_THAN_MS) break;
+  }
+  throw new Error(`Generated copy failed checks: ${lastProblem}`);
+}
+
+/** Builds a site. A first build asks the model for the copy; a new version (version.content) only re-renders
+ *  the same copy in a fresh palette and layout, so it is instant and costs nothing. */
 export async function generateInstantSite(
   brief: string,
   onProgress?: (pct: number) => void,
@@ -350,52 +386,23 @@ export async function generateInstantSite(
   version?: VersionOptions
 ): Promise<InstantSiteResult> {
   const started = Date.now();
-  const effort = (process.env.ANTHROPIC_INSTANT_SITE_EFFORT as Effort | undefined) ?? "low";
-  let bestPct = -1;
-  let lastProblems: string[] = [];
-  const offered = pickLibrary(brief, loadLibrary());
-  // A new version is forced onto a fresh palette from the requested style; the first build lets the model choose.
-  const forced = version?.style ? pickPalette(version.style, version.seenPalettes ?? []) : undefined;
-  const versionWithPalette: VersionOptions | undefined = version ? { ...version, palette: forced } : undefined;
-
-  /* One attempt is normally enough. If the result is cut off or fails the quality gate we try
-     once more (only when there's time left before the request is aborted) — a customer should
-     get a good page or an honest "couldn't build it", never a broken one. */
-  for (let attempt = 1; attempt <= 2; attempt++) {
-    let streamed = "";
-    const message = await createMessage(
-      {
-        model: process.env.ANTHROPIC_INSTANT_SITE_MODEL ?? process.env.ANTHROPIC_BUILD_MODEL ?? DEFAULT_MODEL,
-        system: instantSiteInstructions(offered, versionWithPalette),
-        messages: [{ role: "user", content: `WHAT THE OWNER TOLD US ABOUT THEIR BUSINESS (their own words):\n${brief}` }],
-        max_tokens: tokenBudget(30000, effort),
-        effort,
-      },
-      {
-        signal,
-        onText: (delta) => {
-          streamed += delta;
-          const pct = Math.min(96, Math.floor((streamed.length / EXPECTED_CHARS) * 100));
-          if (pct > bestPct) { bestPct = pct; onProgress?.(pct); }
-        },
-      }
-    );
-    assertNotRefused(message);
-
-    const out = messageText(message) || streamed;
-    if (message.stop_reason === "max_tokens") lastProblems = ["output hit the length limit and was cut off"];
-    else if (out.length < 4000) lastProblems = ["model returned too little output"];
-    else {
-      try {
-        const html = finalizeHtml(out);
-        lastProblems = siteProblems(html, { photos: offered.some((t) => t.images.length > 0), palette: forced ?? "any" });
-        if (!lastProblems.length) return { html, ms: Date.now() - started, outputChars: out.length, palette: usedPalette(html)?.id ?? null };
-      } catch (err) {
-        lastProblems = [(err as Error).message];
-      }
-    }
-    console.error(`instant-site attempt ${attempt} rejected: ${lastProblems.join("; ")}`);
-    if (Date.now() - started > RETRY_ONLY_IF_FASTER_THAN_MS) break;
+  const library = loadLibrary();
+  const offered = pickLibrary(brief, library);
+  let content = version?.content;
+  let chars = 0;
+  if (!content) {
+    const written = await writeContent(brief, offered, onProgress, signal, started);
+    content = written.content;
+    chars = written.chars;
   }
-  throw new Error(`Generated page failed quality checks: ${lastProblems.join("; ")}`);
+  // The photo folder must be one the library really has; fall back to the best match for this brief.
+  if (!content.photoFolder || !library.some((t) => t.key === content!.photoFolder)) content = { ...content, photoFolder: offered[0]?.key ?? null };
+
+  const hasPhotos = Object.keys(photosFor(content.photoFolder, library)).length > 0;
+  const design = designFor(content, { style: version?.style, photos: hasPhotos, seenPalettes: version?.seenPalettes, avoid: version?.avoid });
+  onProgress?.(97);
+  const html = buildPage(content, design, library);
+  const problems = siteProblems(html, { photos: hasPhotos, palette: paletteById(design.palette) });
+  if (problems.length) throw new Error(`Generated page failed quality checks: ${problems.join("; ")}`);
+  return { html, ms: Date.now() - started, outputChars: chars, palette: design.palette, content, design };
 }

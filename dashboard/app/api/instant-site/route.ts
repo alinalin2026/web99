@@ -1,7 +1,8 @@
 import { NextRequest } from "next/server";
 import { ensureMasterSchema, getOrder, logEvent, sql } from "@/lib/db";
 import { clientIp } from "@/lib/ratelimit";
-import { fixNavigation, generateInstantSite, nextStyle, siteProblems } from "@/lib/instant-site";
+import { fixNavigation, generateInstantSite, nextStyle, siteProblems, type VersionOptions } from "@/lib/instant-site";
+import type { SiteContent, SiteDesign } from "@/lib/site-blocks";
 
 export const runtime = "nodejs";
 export const maxDuration = 200;
@@ -21,8 +22,8 @@ export const maxDuration = 200;
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 const EMAIL = /[^\s@]+@[^\s@]+\.[^\s@]+/g;
 const MAX_PER_IP_PER_HOUR = 10;
-/* The first design plus this many "try another version" rebuilds — each is a full model call. */
-const MAX_VERSIONS = 4;
+/* The first design plus this many "try another version" re-renders (they reuse the saved copy, so they are free). */
+const MAX_VERSIONS = 8;
 const MAX_ACTIVE = 4;
 
 const running = new Set<string>();
@@ -90,18 +91,22 @@ export async function POST(req: NextRequest) {
   let versions = 0;
   let seenStyles: string[] = [];
   let seenPalettes: string[] = [];
+  let latestContent: SiteContent | null = null;
+  let latestDesign: SiteDesign | null = null;
   try {
     await ensureMasterSchema();
     const order = await getOrder(orderId);
     if (!order) return new Response("Unknown order", { status: 404 });
     brief = ownerBrief(order.conversation);
-    const saved = await sql<{ html: string | null; style: string | null; palette: string | null }[]>`
-      SELECT detail->>'html' AS html, detail->>'style' AS style, detail->>'palette' AS palette FROM order_events
+    const saved = await sql<{ html: string | null; style: string | null; palette: string | null; content: SiteContent | null; design: SiteDesign | null }[]>`
+      SELECT detail->>'html' AS html, detail->>'style' AS style, detail->>'palette' AS palette, detail->'content' AS content, detail->'design' AS design FROM order_events
       WHERE order_id = ${orderId} AND kind = 'instant_site' AND detail ? 'html'
       ORDER BY created_at DESC`;
     versions = saved.length;
     seenStyles = saved.map((r) => r.style).filter((x): x is string => !!x && x !== "default");
     seenPalettes = saved.map((r) => r.palette).filter((x): x is string => !!x);
+    latestContent = saved.find((r) => r.content)?.content ?? null;
+    latestDesign = saved.find((r) => r.design)?.design ?? null;
     // A saved page that would fail today's quality gate is treated as missing and rebuilt.
     const latest = saved[0]?.html ? fixNavigation(saved[0].html) : null;
     cachedHtml = latest && siteProblems(latest).length === 0 ? latest : null;
@@ -128,10 +133,12 @@ export async function POST(req: NextRequest) {
   if (!brief) return new Response("Not enough information yet", { status: 400 });
   if (running.has(orderId)) return new Response("Already generating", { status: 409 });
   const ip = clientIp(req);
-  if (overIpLimit(ip) || running.size >= MAX_ACTIVE) return new Response("Busy, try again shortly", { status: 429 });
+  // A new version of a site whose copy is already saved is a local re-render; only a model call counts against the caps.
+  const needsModel = !(regenerate && latestContent);
+  if (needsModel && (overIpLimit(ip) || running.size >= MAX_ACTIVE)) return new Response("Busy, try again shortly", { status: 429 });
 
   running.add(orderId);
-  byIp.set(ip, [...(byIp.get(ip) ?? []), Date.now()]);
+  if (needsModel) byIp.set(ip, [...(byIp.get(ip) ?? []), Date.now()]);
   const ownerText = brief;
   const style = regenerate ? nextStyle(seenStyles, requestedStyle) : undefined;
 
@@ -144,11 +151,13 @@ export async function POST(req: NextRequest) {
           ownerText,
           (pct) => out.send("progress", { pct }),
           AbortSignal.timeout(170_000),
-          style ? { style, seen: seenStyles, seenPalettes } : undefined
+          regenerate
+            ? ({ style, seenPalettes, avoid: latestDesign?.variants, content: latestContent ?? undefined } satisfies VersionOptions)
+            : undefined
         );
         const version = versions + 1;
         try {
-          await logEvent(orderId as string, "instant_site", { html: result.html, ms: result.ms, outputChars: result.outputChars, style: style ?? "default", palette: result.palette, version });
+          await logEvent(orderId as string, "instant_site", { html: result.html, ms: result.ms, outputChars: result.outputChars, style: style ?? "default", palette: result.palette, content: result.content, design: result.design, version });
         } catch (err) { console.error("instant-site cache write failed", err); }
         out.send("page", { html: result.html, version, remaining: Math.max(0, MAX_VERSIONS - version) });
         out.send("done", {});

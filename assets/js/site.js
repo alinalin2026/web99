@@ -405,7 +405,7 @@
       siteProgress.hidden = false;
       siteBar.style.width = "2%";
       siteLabel.textContent = "Building another version\u2026";
-      addTurn("sarah", "Sure \u2014 let me try another look. Please wait, it usually takes about 60 seconds.");
+      addTurn("sarah", "Sure \u2014 one moment while I give it a fresh look.");
       var payload = { orderId: orderId, regenerate: true };
       if (style) payload.style = style;
       streamSite(payload, function (err) {
@@ -432,7 +432,7 @@
       if (!siteBox || !siteFrame || !orderId) return;
       siteBox.hidden = false;
       if (buildBar) buildBar.hidden = false;
-      addTurn("sarah", "Please wait while we build your website \u2014 it usually takes about 60 seconds. It will appear right below.");
+      addTurn("sarah", "Please wait while we build your website \u2014 it usually takes less than a minute. It will appear right below.");
       siteBar.style.width = "2%";
       siteLabel.textContent = siteStatusText(0);
 

@@ -3,7 +3,7 @@
 
 import assert from "node:assert/strict";
 import { test } from "node:test";
-import { finalizeHtml, siteProblems, pickLibrary, loadLibrary, instantSiteInstructions, nextStyle, STYLE_KEYS, inlineIcons, iconMenu, usedPalette } from "../lib/instant-site.ts";
+import { finalizeHtml, siteProblems, pickLibrary, loadLibrary, contentInstructions, nextStyle, STYLE_KEYS, inlineIcons, iconMenu, usedPalette } from "../lib/instant-site.ts";
 import { palettes } from "../lib/palettes.ts";
 
 const filler = "<p>" + "Content. ".repeat(600) + "</p>";
@@ -132,15 +132,15 @@ test("the real library loads with aliases, and 'plumbing' finds the plumber fold
   assert.ok(pickLibrary("Emergency plumbing and heating", real).some((t) => t.key === "plumber"));
 });
 
-test("a new version's prompt names the requested direction and defaults are light + photographic", () => {
-  const base = instantSiteInstructions(fake);
-  assert.match(base, /DEFAULT TO A LIGHT, BRIGHT DESIGN/);
-  assert.match(base, /no images is a failure/);
-  assert.doesNotMatch(base, /THIS IS A NEW VERSION/);
-  const v = instantSiteInstructions(fake, { style: "darker", seen: ["lighter"] });
-  assert.match(v, /THIS IS A NEW VERSION/);
-  assert.match(v, /DARK premium theme/);
-  assert.match(v, /Directions already shown: lighter/);
+test("the copy prompt asks for JSON only, lists icons, palettes and photo folders, and keeps the fact rules", () => {
+  const p = contentInstructions(fake);
+  assert.match(p, /ONE JSON object/);
+  assert.match(p, /ICONS — "icon" must be exactly one of these names/);
+  assert.match(p, /PALETTES — pick the id/);
+  assert.match(p, /- plumber \(plumber\)/i);
+  assert.match(p, /NEVER invent prices/);
+  assert.match(p, /Fill "contact" ONLY with details the owner explicitly gave/);
+  assert.doesNotMatch(p, /<!doctype|<style>/i, "the model is not asked to write markup any more");
 });
 
 test("nextStyle honours a valid request, otherwise picks one not yet seen", () => {
@@ -169,7 +169,7 @@ test("finalizeHtml inlines icons, and the icon menu lists real names for the pro
   const html = finalizeHtml(page(`<i class="ic" data-icon="shield-check"></i>`));
   assert.match(html, /<svg class="ic"/);
   assert.match(iconMenu(), /Trades & tools: .*wrench/);
-  assert.match(instantSiteInstructions([]), /ICONS — never draw SVG yourself/);
+  assert.match(contentInstructions([]), /ICONS/);
 });
 
 test("palette detection and enforcement", () => {

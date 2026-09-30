@@ -68,10 +68,7 @@ export function paletteRow(p: Palette): string {
   return `${p.id} [${p.mode}] — headings '${p.heading}', body '${p.body}' — fonts <link href="${p.fontsHref}"> — --bg:${p.bg}; --surface:${p.surface}; --ink:${p.ink}; --muted:${p.muted}; --accent:${p.accent}; --accent-ink:${p.accentInk}; --dark:${p.dark}; --dark-ink:${p.darkInk}`;
 }
 
-/** The palette section of the prompt. With `forced`, the model has no choice; otherwise it picks one. */
-export function paletteInstructions(forced?: Palette): string {
-  const rules = `Define the palette's values EXACTLY as CSS custom properties on :root and load its fonts with exactly the <link> given (no other font links). Text on --bg or --surface uses --ink (or --muted for secondary text); text on --accent (buttons, badges) uses --accent-ink; text on --dark bands and the footer uses --dark-ink; never invent other colour pairings for text. You may add ONE soft tint mixed from --accent for backgrounds (text on it uses --ink) and one subtle border colour. Put data-palette="PALETTE-ID" on the <body> tag.`;
-  if (forced) return `COLOUR & FONTS — use THIS palette, no other:\n${paletteRow(forced)}\n${rules}`;
-  const rows = palettes.map(paletteRow).join("\n");
-  return `COLOUR & FONTS — pick exactly ONE of these palettes that suits the trade. Prefer a [light] or [soft] palette; use [dark] only where the trade truly suits it (barber, nightlife, luxury, cinema, tattoo); [bold] suits energetic trades.\n${rows}\n${rules}`;
+/** One line per palette for the content prompt: the model only chooses an id; the renderer applies the colours. */
+export function paletteMenu(): string {
+  return palettes.map((p) => `${p.id} [${p.mode}] — ${p.accent} accent, ${p.heading} headings`).join("\n");
 }

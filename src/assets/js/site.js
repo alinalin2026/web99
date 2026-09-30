@@ -285,7 +285,7 @@
     var siteStage = document.getElementById("instantSiteStage");
     var siteViewport = document.getElementById("instantSiteViewport");
     var siteFrame = document.getElementById("instantSiteFrame");
-    var siteMode = "desktop";
+    var siteMode = window.innerWidth < 720 ? "mobile" : "desktop";
     var loveAnnounced = false;
 
     var fitSiteFrame = function () {
@@ -325,31 +325,15 @@
         siteFrame.src = api + "/api/instant-site/view/" + encodeURIComponent(orderId) + "?frame=1&t=" + Date.now();
         var buyHref = "/buy/" + encodeURIComponent(orderId);
         var buyBtn = document.getElementById("instantSiteBuy");
-        var buyTop = document.getElementById("buildBarBuy");
-        if (buyTop && orderId) buyTop.href = buyHref;
         var love = document.getElementById("instantSiteLove");
         if (buyBtn && love && orderId) { buyBtn.href = buyHref; love.hidden = false; }
         if (!loveAnnounced && orderId) {
           loveAnnounced = true;
-          var loveTurn = addTurn("sarah", "Here it is \u2014 your website! Do you like it? If you love it, tap the button and it\u2019s yours.");
-          var loveCta = el("a", "btn btn--lg", "Yes, I love it \u2014 get it live");
-          loveCta.href = buyHref;
-          loveCta.style.display = "inline-flex";
-          loveCta.style.marginTop = "12px";
-          var keepCta = el("button", "btn btn--lg btn--ghost", "Keep this for me");
-          keepCta.type = "button";
-          keepCta.setAttribute("data-keep", "");
-          keepCta.style.marginTop = "12px";
-          keepCta.style.marginLeft = "8px";
-          var loveBody = loveTurn.querySelector(".turn__body");
-          if (loveBody) { loveBody.appendChild(loveCta); loveBody.appendChild(keepCta); }
+          var loveTurn = addTurn("sarah", "Here it is \u2014 your website! Do you like it? Click around \u2014 and if you love it, tap the button at the bottom.");
         }
-        var openRow = document.getElementById("instantSiteOpenRow");
         var openLink = document.getElementById("instantSiteOpen");
-        if (openRow && openLink && orderId) {
-          openLink.href = api + "/api/instant-site/view/" + encodeURIComponent(orderId);
-          openRow.hidden = false;
-        }
+        if (openLink && orderId) openLink.href = api + "/api/instant-site/view/" + encodeURIComponent(orderId);
+        if (buildBar) buildBar.hidden = true;
         siteProgress.hidden = true;
         siteStage.hidden = false;
         var frame = instantPreview.querySelector(".instant-preview__frame");
@@ -357,6 +341,7 @@
         var label = instantPreview.querySelector(".instant-preview__label");
         if (label) label.textContent = "Your website preview — built from what you told us. Click around it like a real website.";
         fitSiteFrame();
+        setTimeout(function () { siteStage.scrollIntoView({ block: "start", behavior: reduced ? "auto" : "smooth" }); }, 150);
       } else if (eventName === "error") {
         siteBox.hidden = true;
         if (buildBar) buildBar.hidden = true;

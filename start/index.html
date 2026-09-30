@@ -321,29 +321,21 @@
   .buildbar { position: sticky; top: 84px; z-index: 40; margin: 0 0 18px; padding: 14px 16px; border: 1px solid var(--lav-line); border-radius: 16px; background: rgba(255, 255, 255, 0.96); backdrop-filter: blur(10px); box-shadow: 0 10px 30px rgba(45, 27, 143, 0.14); }
   .buildbar__building > span { display: block; margin-bottom: 8px; font-size: 0.95rem; font-weight: 700; color: var(--ink); }
   .buildbar__building > small { display: block; margin-top: 8px; font-size: 0.82rem; line-height: 1.45; color: var(--muted); }
-  .buildbar__ready { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 10px 16px; }
-  .buildbar__ready strong { font-size: 1.05rem; color: var(--ink); }
-  .buildbar__actions { display: flex; flex-wrap: wrap; gap: 8px; }
-  .buildbar .btn, .instant-site__love-actions .btn { width: auto; padding: 10px 18px; font-size: 0.92rem; }
-  .instant-site__love-actions { display: flex; flex-wrap: wrap; gap: 8px; }
-  .instant-site__love-actions .btn { font-size: 1rem; padding: 14px 24px; }
+  .instant-site__stage { scroll-margin-top: 84px; }
+  .instant-site__open { font-size: 0.8rem; font-weight: 700; color: var(--violet-deep); text-decoration: none; margin-left: auto; margin-right: 10px; white-space: nowrap; }
+  .instant-site__love { position: sticky; bottom: 10px; z-index: 5; display: flex; gap: 8px; justify-content: center; margin-top: 12px; padding: 8px; border-radius: 999px; background: rgba(255, 255, 255, 0.96); border: 1px solid var(--lav-line); box-shadow: 0 8px 24px rgba(45, 27, 143, 0.2); }
+  .instant-site__love .btn { width: auto; flex: 0 1 auto; padding: 8px 16px; font-size: 0.8rem; }
   .keep-note { margin: 10px 0 0; font-size: 0.9rem; color: var(--muted); }
   .keep-form { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 12px; }
   .keep-form input { flex: 1 1 200px; min-width: 0; padding: 11px 14px; border: 2px solid var(--lav-line); border-radius: 12px; font: inherit; }
   .keep-form .btn { width: auto; padding: 10px 20px; }
-  @media (max-width: 720px) { .buildbar { top: 66px; padding: 10px 12px; } .buildbar__ready strong { width: 100%; } .buildbar .btn { flex: 1 1 auto; text-align: center; justify-content: center; } }
+  @media (max-width: 720px) { .instant-site__toggle, .instant-site__dots { display: none !important; } .instant-site__open { margin: 0 auto; } .buildbar { top: 66px; padding: 10px 12px; } }
 
   .instant-site__progress { margin-top: 14px; }
   .instant-site__progress > span { display: block; margin-bottom: 8px; font-size: 0.9rem; font-weight: 600; color: var(--ink); }
   .instant-site__bar { height: 8px; border-radius: 999px; background: var(--lav); overflow: hidden; }
   .instant-site__bar i { display: block; height: 100%; width: 0; border-radius: 999px; background: linear-gradient(90deg, var(--violet), var(--violet-deep)); transition: width 0.6s ease; }
-  .instant-site__open { display: flex; flex-wrap: wrap; align-items: center; gap: 10px 16px; margin: 0 0 14px; }
-  .instant-site__open span { font-size: 0.88rem; color: var(--muted); }
   .instant-site__hint { display: block; margin-top: 8px; font-size: 0.85rem; color: var(--muted); }
-  .instant-site__love { position: sticky; bottom: 12px; z-index: 5; display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 12px 18px; margin-top: 14px; padding: 14px 16px; border: 1px solid var(--lav-line); border-radius: 16px; background: var(--white); box-shadow: 0 10px 30px rgba(45, 27, 143, 0.18); }
-  .instant-site__love div { flex: 1 1 220px; }
-  .instant-site__love strong { display: block; font-size: 1.05rem; color: var(--ink); }
-  .instant-site__love span { font-size: 0.88rem; color: var(--muted); }
   .instant-site__stage { border: 1px solid var(--lav-line); border-radius: 14px; overflow: hidden; background: var(--white); box-shadow: 0 10px 30px rgba(45, 27, 143, 0.10); }
   .instant-site__chrome { display: flex; align-items: center; justify-content: space-between; padding: 10px 14px; background: var(--lav); border-bottom: 1px solid var(--lav-line); }
   .instant-site__dots { display: inline-flex; gap: 6px; }
@@ -384,14 +376,6 @@
           <span id="instantSiteLabel">Building your full website…</span>
           <div class="instant-site__bar"><i id="instantSiteBar"></i></div>
           <small>Please wait &mdash; this usually takes about 60 seconds. The quick sketch below is only a peek at your style; your real website is on its way.</small>
-        </div>
-        <div class="buildbar__ready" id="instantSiteOpenRow" hidden>
-          <strong>&#10003; Your website is ready</strong>
-          <span class="buildbar__actions">
-            <a class="btn" id="instantSiteOpen" href="#" target="_blank" rel="noopener">Open full size <span class="btn__arrow" aria-hidden="true">↗</span></a>
-            <button class="btn btn--ghost" type="button" data-keep>Keep this for me</button>
-            <a class="btn" id="buildBarBuy" href="#">Yes, I love it</a>
-          </span>
         </div>
       </div>
 
@@ -446,6 +430,7 @@
           <div class="instant-site__stage" id="instantSiteStage" hidden>
             <div class="instant-site__chrome">
               <span class="instant-site__dots" aria-hidden="true"><i></i><i></i><i></i></span>
+              <a class="instant-site__open" id="instantSiteOpen" href="#" target="_blank" rel="noopener">Open full size ↗</a>
               <span class="instant-site__toggle">
                 <button type="button" data-mode="desktop" aria-pressed="true">Desktop</button>
                 <button type="button" data-mode="mobile" aria-pressed="false">Mobile</button>
@@ -456,14 +441,8 @@
             </div>
           </div>
           <div class="instant-site__love" id="instantSiteLove" hidden>
-            <div>
-              <strong>Do you like it?</strong>
-              <span>Love it? Get it live &mdash; €99 covers the complete website, plus your domain and hosting for the first year.</span>
-            </div>
-            <span class="instant-site__love-actions">
-              <a class="btn btn--lg" id="instantSiteBuy" href="#">Yes, I love it &mdash; get it live</a>
-              <button class="btn btn--lg btn--ghost" type="button" data-keep>Keep this for me</button>
-            </span>
+            <a class="btn" id="instantSiteBuy" href="#">Yes, I love it &mdash; €99</a>
+            <button class="btn btn--ghost" type="button" data-keep>Keep this for me</button>
           </div>
         </div>
       </div>
@@ -524,7 +503,7 @@
 </footer>
 
 
-    <script src="/assets/js/site.js?v=3c2eb0ff" defer></script>
+    <script src="/assets/js/site.js?v=2509dad6" defer></script>
     <script src="/assets/js/tracking.js?v=20260817a" defer></script>
   </body>
 </html>

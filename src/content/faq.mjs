@@ -67,8 +67,8 @@ export const faqs = [
     home: true,
     q: "Can you sell things on my website?",
     a: [
-      "No — we don't build online shops, honestly and plainly. If taking card payments on your site is the main thing you need, we're not the right fit.",
-      "What every site does have: a WhatsApp button and an enquiry form that reaches your email instantly, so customers can order or ask the way most Irish small businesses actually take orders — by message.",
+      "Yes, we can — but an online shop is a custom job, so it gets its own custom quote rather than being part of the €99 website. Tell Sarah what you want to sell and someone from our team will come back to you by email.",
+      "Every €99 site already has a WhatsApp button and an enquiry form that reaches you instantly, so customers can order or ask by message — the way most Irish small businesses take orders.",
     
     ],
   },

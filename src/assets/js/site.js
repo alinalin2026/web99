@@ -460,6 +460,8 @@
         askForEmail("Happy to keep it for you. What email should I send the link to?");
       } else if (res.status === "invalid_email") {
         askForEmail("That email doesn\u2019t look quite right \u2014 could you check it?");
+      } else if (res.status === "rate_limited") {
+        addTurn("sarah", "That\u2019s a few too many tries in a row \u2014 please wait a little while and try again.");
       } else if (res.status === "no_site") {
         addTurn("sarah", "Your website is still being built \u2014 give it a moment, then tap Keep this for me again.");
       } else {

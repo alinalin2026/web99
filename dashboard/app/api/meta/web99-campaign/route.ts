@@ -52,7 +52,7 @@ export async function POST(req: NextRequest) {
           name: "A2 | €99 Package | Blue",
           imageHash: blue.hash,
           primaryText:
-            "A business website for €99 — with first-year hosting and domain, business email, Facebook page setup and 3 months of content included. Tell Sarah what your business does and we’ll build the first draft.",
+            "A business website for €99 — with first-year hosting and domain and 3 months of Facebook posts included. Tell Sarah what your business does and we’ll build the first draft.",
           headline: "The €99 Website Package",
           description: "Website, domain, hosting, email and more.",
         },

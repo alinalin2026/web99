@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getOrder } from "@/lib/db";
+import { clientIp } from "@/lib/ratelimit";
 import { keepForLater, maskEmail, type KeepResult } from "@/lib/keep";
 
 export const runtime = "nodejs";
@@ -50,6 +51,8 @@ function resultPage(id: string, r: KeepResult): Response {
       return page(`<h1>Saved — check your inbox</h1><p>We've emailed a link to <strong>${esc(r.maskedEmail)}</strong>. Open it whenever you're ready — it can take a minute to arrive, and it's worth a look in spam.</p>${backLink(id)}`);
     case "throttled":
       return page(`<h1>Already on its way</h1><p>We sent your link to <strong>${esc(r.maskedEmail)}</strong> a moment ago. Check your inbox (and spam).</p>${backLink(id)}`);
+    case "rate_limited":
+      return page(`<h1>Too many tries</h1><p>Please wait a little while and try again.</p>${backLink(id)}`, 429);
     case "need_email":
       return page(askForm(id));
     case "invalid_email":
@@ -63,7 +66,7 @@ function resultPage(id: string, r: KeepResult): Response {
   }
 }
 
-const HTTP: Record<KeepResult["status"], number> = { sent: 200, throttled: 200, need_email: 200, invalid_email: 400, no_site: 409, not_found: 404, failed: 502 };
+const HTTP: Record<KeepResult["status"], number> = { rate_limited: 429, sent: 200, throttled: 200, need_email: 200, invalid_email: 400, no_site: 409, not_found: 404, failed: 502 };
 
 export async function GET(_req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
   const { id } = await params;
@@ -87,7 +90,7 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
     if (isJson) email = ((await req.json()) as { email?: unknown })?.email as string | null;
     else email = String((await req.formData()).get("email") ?? "");
   } catch { /* no body: treat as no email */ }
-  const result = await keepForLater(id, typeof email === "string" ? email : null).catch((err): KeepResult => {
+  const result = await keepForLater(id, typeof email === "string" ? email : null, clientIp(req)).catch((err): KeepResult => {
     console.error("keep-for-later failed", err);
     return { status: "failed" };
   });

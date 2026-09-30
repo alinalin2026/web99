@@ -9,6 +9,8 @@ import {
 import { corsPreflight, withCors } from "@/lib/cors";
 import { resolveMetaPixelId } from "@/lib/meta-sales";
 import { sendMetaConversion } from "@/lib/meta-conversions";
+import { clientIp as callerIp, createLimiter } from "@/lib/ratelimit";
+import { alertTeamOfCustomRequest } from "@/lib/team-alerts";
 import { saveUploadedFile, AttachmentError, MAX_FILES_PER_MESSAGE } from "@/lib/attachments";
 import { sendCustomEmail } from "@/lib/custom-email";
 
@@ -76,6 +78,14 @@ function emailCapturedCopy() {
   };
 }
 
+/* Public and it spends model credit on every call: cap messages, brand-new conversations and
+   uploaded files per caller, and the length of any one conversation. */
+const messageLimit = createLimiter(90, 3_600_000);
+const newOrderLimit = createLimiter(8, 3_600_000);
+const uploadLimit = createLimiter(30, 3_600_000);
+const MAX_USER_TURNS = 100;
+const tooMany = (req: NextRequest) => withCors(req, NextResponse.json({ error: "You've sent a lot of messages in a short time — please wait a few minutes and try again." }, { status: 429 }));
+
 export async function OPTIONS(req: NextRequest) { return corsPreflight(req); }
 export async function GET(req: NextRequest) {
   let metaPixelId: string | null = null;
@@ -112,16 +122,25 @@ export async function POST(req: NextRequest) {
   if (!message && incomingFiles.length === 0) return withCors(req, NextResponse.json({ error: "Empty message" }, { status: 400 }));
   if (message.length > 4000) return withCors(req, NextResponse.json({ error: "Message too long" }, { status: 400 }));
 
+  const ip = callerIp(req);
+  if (!messageLimit.allow(ip)) return tooMany(req);
+  if (incomingFiles.length && !uploadLimit.allow(ip, incomingFiles.length)) return tooMany(req);
+
   const browserHistory = safeHistory(body.history); const attribution = safeAttribution(body.attribution);
   let order: Order | null = null; let persistenceAvailable = true;
   try {
     await ensureMasterSchema();
     order = body.orderId ? await getOrder(body.orderId) : null;
     if (!order) {
+      if (!newOrderLimit.allow(ip)) return tooMany(req);
       const [created] = await sql<{ id: string }[]>`INSERT INTO orders (state, conversation, workflow_stage) VALUES ('collecting', '[]'::jsonb, 'new') RETURNING id`;
       order = await getOrder(created.id);
     }
   } catch (err) { persistenceAvailable = false; console.error("chat persistence unavailable", err); }
+
+  if (order && order.conversation.filter((t) => t.role === "user").length >= MAX_USER_TURNS) {
+    return withCors(req, NextResponse.json({ orderId: order.id, reply: "We've covered a lot here — I have everything I need. Someone from the team will be in touch by email if there's anything else.", quickReplies: [], missing: [], readyToBuild: false }));
+  }
 
   if (order && order.state !== "collecting") {
     return withCors(req, NextResponse.json({ orderId: order.id, reply: "You're all set — your preview is right below the chat. Ready to make it real?", quickReplies: [], missing: [], readyToBuild: true }));
@@ -268,6 +287,9 @@ export async function POST(req: NextRequest) {
             await safeLog(orderId, "error", { step: "email_captured_confirmation", message: (err as Error).message });
           }
         }
+
+        try { await alertTeamOfCustomRequest(fresh); }
+        catch (err) { await safeLog(orderId, "error", { step: "custom_request_alert", message: (err as Error).message }); }
 
         const qualification = await syncQualification(fresh);
         if (qualification === "needs_customer") await sql`UPDATE orders SET workflow_stage='needs_customer' WHERE id=${orderId}`;

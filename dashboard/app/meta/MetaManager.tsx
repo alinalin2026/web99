@@ -253,7 +253,7 @@ export default function MetaManager() {
               name="primaryText"
               required
               rows={5}
-              defaultValue={"Get your business online for €99. We build your website first and send you the live link within 24 hours. You only pay after we build it and you like it. Dublin based. Includes domain + hosting for 1 year, business email, Facebook page and 3 months of content."}
+              defaultValue={"Get your business online for €99. We build your website first and send you the live link within 24 hours. You only pay after we build it and you like it. Dublin based. Includes domain + hosting for 1 year and 3 months of Facebook posts."}
               style={fieldStyle}
             />
           </label>

@@ -3,7 +3,7 @@
 
 import assert from "node:assert/strict";
 import { test } from "node:test";
-import { finalizeHtml } from "../lib/instant-site.ts";
+import { finalizeHtml, siteProblems } from "../lib/instant-site.ts";
 
 const filler = "<p>" + "Content. ".repeat(600) + "</p>";
 const page = (body, head = "") =>
@@ -93,4 +93,20 @@ test("mailto and tel links are left alone", () => {
   const html = finalizeHtml(page(`<a href="tel:+353123">Call</a><a href="mailto:a@b.ie">Mail</a><section id="contact">c</section>`));
   assert.match(html, /href="tel:\+353123"/);
   assert.match(html, /href="mailto:a@b\.ie"/);
+});
+
+const sections = (n) => Array.from({ length: n }, (_, i) => `<section id="s${i}"><div class="wrap"><h2>Section ${i}</h2><p>${"Real copy about the business. ".repeat(20)}</p></div></section>`).join("");
+const good = `<!doctype html><html><head><title>t</title><style>${"a{color:red}".repeat(60)}</style></head><body><header><nav><ul><li><a href="#s1">One</a></li></ul></nav></header><h1>Hello</h1>${sections(6)}<footer>f</footer></body></html>`;
+
+test("siteProblems: a complete page passes", () => {
+  assert.deepEqual(siteProblems(good), []);
+});
+
+test("siteProblems: cut-off, unbalanced, thin and placeholder pages are all refused", () => {
+  assert.ok(siteProblems(good.slice(0, Math.floor(good.length * 0.7))).length > 0, "truncated");
+  assert.match(siteProblems(good.replace("</footer>", "")).join(), /footer/);
+  assert.match(siteProblems(good.replace(/<\/div>/, "")).join(), /unbalanced <div>/);
+  assert.match(siteProblems(good.replace(/<section[\s\S]*<\/section>/, "<section>x</section>")).join(), /fewer than 5 sections|too little text/);
+  assert.match(siteProblems(good.replace("Real copy", "Lorem ipsum")).join(), /placeholder/);
+  assert.match(siteProblems(good.replace("<h1>Hello</h1>", "")).join(), /headline/);
 });

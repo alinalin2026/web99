@@ -39,7 +39,8 @@ export async function GET(
   }
 
   const viaCheckout = Boolean(process.env.STRIPE_SECRET_KEY);
-  await logEvent(id, "wants_it", { via: viaCheckout ? "checkout" : "payment_link" });
+  const already = await sql`SELECT 1 FROM order_events WHERE order_id = ${id} AND kind = 'wants_it' LIMIT 1`;
+  if (!already.length) await logEvent(id, "wants_it", { via: viaCheckout ? "checkout" : "payment_link" });
 
   // No Stripe API keys on the server yet: send them to the live Payment Link instead.
   if (!viaCheckout) return NextResponse.redirect(paymentLinkFor(id, order.email), { status: 303 });
@@ -54,7 +55,7 @@ export async function GET(
           product_data: {
             name: `Website for ${order.business_name ?? "your business"}`,
             description:
-              "Complete website, domain and hosting for the first year, business email, and a Facebook page with three months of posts.",
+              "Complete website, domain and hosting for the first year, and three months of Facebook posts.",
           },
         },
         quantity: 1,

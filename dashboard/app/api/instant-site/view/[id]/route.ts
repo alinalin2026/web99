@@ -1,6 +1,6 @@
 import { NextRequest } from "next/server";
 import { sql } from "@/lib/db";
-import { fixNavigation, siteOrigin } from "@/lib/instant-site";
+import { fixNavigation, siteOrigin, siteProblems } from "@/lib/instant-site";
 import { withPreviewBar } from "@/lib/preview-bar";
 
 export const runtime = "nodejs";
@@ -51,5 +51,6 @@ export async function GET(req: NextRequest, { params }: { params: Promise<{ id: 
   const framed = req.nextUrl.searchParams.get("frame") === "1";
   const clean = framed || req.nextUrl.searchParams.get("clean") === "1";
   const page = fixNavigation(html);
+  if (siteProblems(page).length) return missing();
   return new Response(clean ? page : withPreviewBar(page, id), { headers: headers(framed) });
 }

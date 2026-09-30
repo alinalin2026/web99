@@ -54,7 +54,6 @@ export const config = {
     { item: "Enquiry form with instant email alerts", value: 100 },
     { item: "WhatsApp contact button", value: 40 },
     { item: "3 months of written content", value: 250 },
-    { item: "Facebook page, set up and scheduled", value: 120 },
   ],
 
   /* --- Contact ---------------------------------------------------------- */

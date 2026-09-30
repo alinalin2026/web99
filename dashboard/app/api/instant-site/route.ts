@@ -1,6 +1,7 @@
 import { NextRequest } from "next/server";
 import { ensureMasterSchema, getOrder, logEvent, sql } from "@/lib/db";
-import { generateInstantSite } from "@/lib/instant-site";
+import { clientIp } from "@/lib/ratelimit";
+import { fixNavigation, generateInstantSite, siteProblems } from "@/lib/instant-site";
 
 export const runtime = "nodejs";
 export const maxDuration = 200;
@@ -25,10 +26,6 @@ const MAX_ACTIVE = 4;
 const running = new Set<string>();
 const byIp = new Map<string, number[]>();
 
-function clientIp(req: NextRequest): string {
-  const f = req.headers.get("x-forwarded-for");
-  return (f ? f.split(",")[0]?.trim() : req.headers.get("x-real-ip")) || "unknown";
-}
 
 function overIpLimit(ip: string): boolean {
   const now = Date.now();
@@ -92,7 +89,9 @@ export async function POST(req: NextRequest) {
       SELECT detail->>'html' AS html FROM order_events
       WHERE order_id = ${orderId} AND kind = 'instant_site' AND detail ? 'html'
       ORDER BY created_at DESC LIMIT 1`;
-    cachedHtml = cached[0]?.html ?? null;
+    // A saved page that would fail today's quality gate is treated as missing and rebuilt.
+    const saved = cached[0]?.html ? fixNavigation(cached[0].html) : null;
+    cachedHtml = saved && siteProblems(saved).length === 0 ? saved : null;
   } catch (err) {
     console.error("instant-site lookup failed", err);
     return new Response("Temporarily unavailable", { status: 503 });

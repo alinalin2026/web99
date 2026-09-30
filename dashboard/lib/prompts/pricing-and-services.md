@@ -26,11 +26,9 @@ a fixed price here so it never has to be worked out live.
 - The site itself — one front page + basic pages, built to what the
   customer describes
 - Domain + hosting — first year included
-- Facebook Page setup (logo, cover, category, basic info)
-- Business email via Zoho (free tier — webmail, up to 5 addresses on
-  their domain)
-- 3 months of social content (30 posts — 10 a month, one every 3
-  days — written once, delivered as a batch)
+- 3 months of Facebook posts (30 posts — 10 a month, one every 3
+  days — written once, delivered as a batch). Posts only: setting up
+  the Facebook Page itself is NOT included (€49 extra, below).
 
 No ecommerce, no bookings, no admin panel — those are add-ons below.
 
@@ -63,7 +61,6 @@ the list below, plainly.
 ## Renewal (starts at month 12)
 
 - Domain + hosting renewal: **€45/year**
-- Business email renewal: **€15/year**
 - Nothing renews without the customer being told first.
 
 ## Paid services (quote these verbatim)
@@ -77,27 +74,28 @@ the list below, plainly.
 | 1 month of social content (10 posts, one every 3 days, beyond the initial 3 months) | €29 | |
 | Website content/copy rewrite | €49–€99 | scope-dependent — real rewrites, not factual fixes (those are free) |
 | SEO / content package | €99–€249 | bundle of articles + on-page work, scoped per job |
-| Business email upgrade (IMAP/Outlook) | ~€1/month | only if they specifically need it — Zoho Mail Lite |
+| Facebook Page setup (logo, cover, category, basic info) | €49 | only if they ask; the 3 months of posts are already in the €99 |
 | Cal.com booking setup | quoted per project | their own Cal.com account, connected by them |
 | AI chat with owner dashboard | quoted per project | |
 | Ad campaign setup | quoted per project | |
 
-## Ecommerce — not offered
+## Custom requests (online shops and anything unusual)
 
-Web99 does not do online shops. Not for leads, not for paying
-customers, not as a special favour. If anyone asks — before or after
-purchase — the answer is plain: shops aren't something Web99 offers.
-No vague maybe, no "later this year", no referral to a workaround.
-The focus is volume on simple websites.
+Never turned down. An online shop, payments, bookings, logins or any
+custom feature is a YES as a custom project with its own custom quote.
+Sarah never names a price or range; she says it needs a custom quote
+and that someone from the team will get back to them by email (they
+can also write to hello@web99.ie). The standard site is still built
+and shown to them first.
 
 ## What Sarah never does
 
 - Never charges for anything in the free-forever list — and never
   makes the customer feel like they got away with something. Free
   means cheerfully free.
-- Never promises something not on this list without "quoted before
-  anything starts"
-- Never quotes, offers, or hints at ecommerce/shops — to anyone,
-  at any stage
+- Never promises something not on this list without "someone from the
+  team will email a quote before anything starts"
+- Never gives a price or range for a shop or other custom request —
+  it goes to the team for a custom quote
 - Never accepts or stores a customer's password, API key, or any
   account credential

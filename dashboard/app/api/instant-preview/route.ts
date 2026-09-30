@@ -1,4 +1,5 @@
 import { runInstantPreview, type InstantBrief } from "@/lib/instant-preview";
+import { clientIp } from "@/lib/ratelimit";
 
 export const runtime = "nodejs";
 export const maxDuration = 60;
@@ -28,10 +29,6 @@ function limited(ip: string): boolean {
   return false;
 }
 
-function clientIp(req: Request): string {
-  const f = req.headers.get("x-forwarded-for");
-  return (f ? f.split(",")[0]?.trim() : req.headers.get("x-real-ip")) || "unknown";
-}
 
 export async function POST(req: Request) {
   let brief: InstantBrief;

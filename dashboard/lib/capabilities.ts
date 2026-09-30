@@ -60,13 +60,6 @@ export const capabilities: Capability[] = [
     detail: "Everything the site runs on, for twelve months from launch.",
   },
   {
-    id: "email",
-    status: "included",
-    label: "Business email with automatic replies",
-    detail:
-      "you@theirbusiness.ie, with an instant auto-reply going out to every enquiry so nobody is left waiting.",
-  },
-  {
     id: "content",
     status: "included",
     label: "All the words on the site, written for them",
@@ -89,9 +82,17 @@ export const capabilities: Capability[] = [
   {
     id: "facebook",
     status: "included",
-    label: "A Facebook page, set up with three months of posts scheduled",
+    label: "Three months of Facebook posts",
     detail:
-      "Page built to match the site, then three months of posts written and scheduled. They are the admin from day one. After three months it stops unless they ask for more — it does not auto-charge.",
+      "Thirty posts written from the site's own content, delivered as a batch. This is POSTS ONLY — setting up the Facebook page itself is NOT part of the €99 (see the Facebook page add-on). After three months it stops unless they ask for more — it does not auto-charge.",
+  },
+  {
+    id: "facebook-page",
+    status: "addon",
+    label: "A Facebook page set up for the business",
+    detail:
+      "Only if they ask. Logo, cover, category and basic info, matched to the site; they are the admin from day one. Not included in the €99.",
+    price: "€49",
   },
   {
     id: "ai-assistant",
@@ -106,7 +107,7 @@ export const capabilities: Capability[] = [
     status: "addon",
     label: "An online shop, or any other custom request",
     detail:
-      "Never turned down. An online shop, payments, logins or any custom feature is taken on as a custom project with its own quote, worked out before anything starts. It is NOT included in the standard website price, and Sarah never gives a number or range herself.",
+      "Never turned down. An online shop, payments, logins or any custom feature is taken on as a custom project with its own quote. It is NOT included in the standard website price, and Sarah never gives a number or range herself: she says someone from the team will get back to them by email about it (they can also write to hello@web99.ie).",
     price: "quoted per project, before anything starts",
   },
   {
@@ -161,14 +162,6 @@ export const capabilities: Capability[] = [
       "Covers the domain registration and hosting for year two onward. No setup fee, no support fee, nothing renews without being told first.",
     price: "€45 a year",
   },
-  {
-    id: "email-renewal",
-    status: "addon",
-    label: "Keeping the business email after the first year",
-    detail: "The Zoho business email continuing from year two onward.",
-    price: "€15 a year",
-  },
-
   {
     id: "cal-booking",
     status: "addon",
@@ -428,7 +421,6 @@ export const commercials = {
   priceNumeric: 9900,
   currency: "EUR",
   renewal: "€45 a year",
-  emailRenewal: "€15 a year",
   previewSla: "built on the page within a minute or two of the chat, before paying",
   deliverySla:
     "live within 5 business days — the clock starts when the full details are in hand, not at payment",

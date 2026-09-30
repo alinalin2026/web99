@@ -227,7 +227,7 @@ export function paid(
       p(`Hi ${first},`) +
         p(`Payment received, thank you. ${businessName} is online.`) +
         button(liveUrl, "Your website") +
-        p(`Your domain is being registered in <strong>your</strong> name now — not ours — and we'll email you when it's pointing at the site. Your business email is being set up at the same time.`) +
+        p(`Your domain is being registered in <strong>your</strong> name now — not ours — and we'll email you when it's pointing at the site.`) +
         p(`You've <strong>three free changes</strong> whenever you want them. Hours, phone number, photos, wording — just reply and tell us.`) +
         p(`One thing to decide, whenever you're ready:`) +
         button(chooseUrl, "Stay with us, or take it elsewhere") +
@@ -239,7 +239,7 @@ Payment received, thank you. ${businessName} is online.
 
 ${liveUrl}
 
-Your domain is being registered in your name now — not ours — and we'll email you when it's pointing at the site. Your business email is being set up at the same time.
+Your domain is being registered in your name now — not ours — and we'll email you when it's pointing at the site.
 
 You've three free changes whenever you want them. Hours, phone number, photos, wording — just reply and tell us.
 

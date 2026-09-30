@@ -118,3 +118,13 @@ test("cleanFragment strips active content from model output", () => {
   assert.ok(!/script|onclick|onerror|javascript:|<img/i.test(out), out);
   assert.ok(out.includes("<h1>Hi</h1>") && out.includes("<p>ok</p>"));
 });
+
+test("the offer never mentions business email, and Facebook is posts-only with a €49 page", async () => {
+  const { sarahSystemPrompt } = await import("../lib/prompts/sarah.ts");
+  const p = sarahSystemPrompt({ step: "describe", confirms: 0, facts: {}, brief: null });
+  assert.doesNotMatch(p, /business email for 1 year|email is €15|Zoho/i);
+  assert.match(p, /Facebook PAGE is not included/);
+  assert.match(p, /€49/);
+  assert.match(p, /someone from the team will get back to them by email/);
+  assert.doesNotMatch(p, /aren't something Web99 offers/i);
+});

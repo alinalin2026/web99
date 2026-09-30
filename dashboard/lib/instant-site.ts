@@ -170,6 +170,29 @@ export function fixNavigation(html: string): string {
   });
 }
 
+/** Reasons a generated page must NOT be shown to a customer. Empty = fine. A page can be
+ *  perfectly sanitised and still be broken (cut off mid-section, unclosed tags, placeholder
+ *  text, no content) — this is the last gate before it is saved or served. */
+export function siteProblems(html: string): string[] {
+  const problems: string[] = [];
+  const count = (re: RegExp) => (html.match(re) ?? []).length;
+  if (!/<\/html\s*>\s*$/i.test(html.trim())) problems.push("page is cut off (no closing </html>)");
+  if (!/<\/body\s*>/i.test(html)) problems.push("no closing </body>");
+  for (const tag of ["section", "div", "header", "footer", "nav", "main", "ul", "details"]) {
+    const open = count(new RegExp(`<${tag}[\\s>]`, "gi"));
+    const close = count(new RegExp(`</${tag}\\s*>`, "gi"));
+    if (open !== close) problems.push(`unbalanced <${tag}> (${open} open, ${close} closed)`);
+  }
+  if (count(/<section[\s>]/gi) < 5) problems.push("fewer than 5 sections");
+  if (!/<h1[\s>]/i.test(html)) problems.push("no main headline");
+  if (!/<footer[\s>]/i.test(html)) problems.push("no footer");
+  if (!/<style[\s>][\s\S]{500,}?<\/style>/i.test(html)) problems.push("no styling");
+  const text = html.replace(/<style[\s\S]*?<\/style>/gi, " ").replace(/<[^>]+>/g, " ").replace(/\s+/g, " ");
+  if (text.length < 1500) problems.push("too little text");
+  if (/lorem ipsum|your text here|\{\{|\bundefined\b|\bNaN\b|\bTODO\b|\[(?:business|company|your|insert)[^\]]*\]/i.test(text)) problems.push("placeholder text on the page");
+  return problems;
+}
+
 export function finalizeHtml(raw: string, library: LibraryTrade[] = loadLibrary()): string {
   let html = raw.trim().replace(/^```(?:html)?\s*/i, "").replace(/```\s*$/, "").trim();
   const start = html.search(/<!doctype html|<html[\s>]/i);
@@ -203,6 +226,8 @@ export function finalizeHtml(raw: string, library: LibraryTrade[] = loadLibrary(
 
 export interface InstantSiteResult { html: string; ms: number; outputChars: number }
 
+const RETRY_ONLY_IF_FASTER_THAN_MS = 70_000;
+
 export async function generateInstantSite(
   brief: string,
   onProgress?: (pct: number) => void,
@@ -210,29 +235,47 @@ export async function generateInstantSite(
 ): Promise<InstantSiteResult> {
   const started = Date.now();
   const effort = (process.env.ANTHROPIC_INSTANT_SITE_EFFORT as Effort | undefined) ?? "low";
-  let streamed = "";
-  let lastPct = -1;
+  let bestPct = -1;
+  let lastProblems: string[] = [];
 
-  const message = await createMessage(
-    {
-      model: process.env.ANTHROPIC_INSTANT_SITE_MODEL ?? process.env.ANTHROPIC_BUILD_MODEL ?? DEFAULT_MODEL,
-      system: instantSiteInstructions(loadLibrary()),
-      messages: [{ role: "user", content: `WHAT THE OWNER TOLD US ABOUT THEIR BUSINESS (their own words):\n${brief}` }],
-      max_tokens: tokenBudget(30000, effort),
-      effort,
-    },
-    {
-      signal,
-      onText: (delta) => {
-        streamed += delta;
-        const pct = Math.min(96, Math.floor((streamed.length / EXPECTED_CHARS) * 100));
-        if (pct !== lastPct) { lastPct = pct; onProgress?.(pct); }
+  /* One attempt is normally enough. If the result is cut off or fails the quality gate we try
+     once more (only when there's time left before the request is aborted) — a customer should
+     get a good page or an honest "couldn't build it", never a broken one. */
+  for (let attempt = 1; attempt <= 2; attempt++) {
+    let streamed = "";
+    const message = await createMessage(
+      {
+        model: process.env.ANTHROPIC_INSTANT_SITE_MODEL ?? process.env.ANTHROPIC_BUILD_MODEL ?? DEFAULT_MODEL,
+        system: instantSiteInstructions(loadLibrary()),
+        messages: [{ role: "user", content: `WHAT THE OWNER TOLD US ABOUT THEIR BUSINESS (their own words):\n${brief}` }],
+        max_tokens: tokenBudget(30000, effort),
+        effort,
       },
-    }
-  );
-  assertNotRefused(message);
+      {
+        signal,
+        onText: (delta) => {
+          streamed += delta;
+          const pct = Math.min(96, Math.floor((streamed.length / EXPECTED_CHARS) * 100));
+          if (pct > bestPct) { bestPct = pct; onProgress?.(pct); }
+        },
+      }
+    );
+    assertNotRefused(message);
 
-  const out = messageText(message) || streamed;
-  if (out.length < 4000) throw new Error("Model returned too little output.");
-  return { html: finalizeHtml(out), ms: Date.now() - started, outputChars: out.length };
+    const out = messageText(message) || streamed;
+    if (message.stop_reason === "max_tokens") lastProblems = ["output hit the length limit and was cut off"];
+    else if (out.length < 4000) lastProblems = ["model returned too little output"];
+    else {
+      try {
+        const html = finalizeHtml(out);
+        lastProblems = siteProblems(html);
+        if (!lastProblems.length) return { html, ms: Date.now() - started, outputChars: out.length };
+      } catch (err) {
+        lastProblems = [(err as Error).message];
+      }
+    }
+    console.error(`instant-site attempt ${attempt} rejected: ${lastProblems.join("; ")}`);
+    if (Date.now() - started > RETRY_ONLY_IF_FASTER_THAN_MS) break;
+  }
+  throw new Error(`Generated page failed quality checks: ${lastProblems.join("; ")}`);
 }

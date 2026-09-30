@@ -12,10 +12,10 @@ import {
 } from "./db";
 import { pushSite } from "./github";
 import {
-  buildWebsiteWithOpenAI,
-  OPENAI_BUILD_MODEL,
+  buildWebsiteWithClaude,
+  BUILD_MODEL,
   OPENAI_IMAGE_MODEL,
-} from "./openai-builder";
+} from "./site-builder";
 
 /* ===========================================================================
    THE PIPELINE
@@ -30,7 +30,7 @@ import {
                              |
                  clicks "Build + publish preview"
                              v
-              GPT-5.6 builds site + GPT Image 2 visuals
+              Claude builds site + GPT Image 2 visuals
                              |
                      pushed to <slug>.web99.ie
                              v
@@ -87,7 +87,7 @@ export async function analyse(orderId: string): Promise<void> {
   return makePlan(orderId);
 }
 
-/* --- step two: OpenAI builds the complete site ---------------------------- */
+/* --- step two: Claude builds the complete site ---------------------------- */
 
 export async function generate(orderId: string, steer?: string): Promise<void> {
   const order = await getOrder(orderId);
@@ -97,7 +97,7 @@ export async function generate(orderId: string, steer?: string): Promise<void> {
   await setState(orderId, "generating");
 
   try {
-    const result = await buildWebsiteWithOpenAI(
+    const result = await buildWebsiteWithClaude(
       order.analysis as Record<string, unknown>,
       steer
     );
@@ -122,8 +122,8 @@ export async function generate(orderId: string, steer?: string): Promise<void> {
 
     await logEvent(orderId, "model_call", {
       step: "website_build",
-      provider: "openai",
-      model: OPENAI_BUILD_MODEL,
+      provider: "anthropic",
+      model: BUILD_MODEL,
       imageModel: OPENAI_IMAGE_MODEL,
       files: Object.keys(result.files),
       images: (result.imageRequests ?? []).map((i) => i.id),
@@ -142,7 +142,7 @@ export async function generate(orderId: string, steer?: string): Promise<void> {
 
 /**
  * The operator has approved Claude's plan. From this point the requested job is
- * explicit: OpenAI builds the complete site, generates its visual assets, then
+ * explicit: Claude builds the complete site, generates its visual assets, then
  * the result is pushed to the preview subdomain in one flow.
  */
 export async function buildAndPublish(

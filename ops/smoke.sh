@@ -10,8 +10,9 @@ pass() { echo "[smoke] OK: $*"; }
 LOCAL_HEALTH="$(curl -fsS --max-time 10 http://127.0.0.1:3000/control/api/health)" || fail "local health endpoint"
 echo "$LOCAL_HEALTH" | grep -q '"ok":true' || fail "local health says not ok"
 echo "$LOCAL_HEALTH" | grep -q '"database":"ok"' || fail "database health"
-echo "$LOCAL_HEALTH" | grep -q '"openaiConfigured":true' || fail "OpenAI key is not configured"
-pass "Next app + PostgreSQL + OpenAI configuration"
+echo "$LOCAL_HEALTH" | grep -q '"anthropicConfigured":true' || fail "ANTHROPIC_API_KEY is not configured"
+echo "$LOCAL_HEALTH" | grep -q '"imagesConfigured":true' || echo "[smoke] WARN: OPENAI_API_KEY is not set — logo/photo generation (images only) will fail" >&2
+pass "Next app + PostgreSQL + Anthropic configuration"
 
 PUBLIC_HEALTH="$(curl -fsS --max-time 15 "$BASE_URL/api/health")" || fail "public health endpoint"
 echo "$PUBLIC_HEALTH" | grep -q '"ok":true' || fail "public health says not ok"
@@ -43,7 +44,7 @@ case "$CONTROL_CODE" in
   *) fail "operator control route returned $CONTROL_CODE" ;;
 esac
 
-# Prove the public /api alias reaches the chat route without spending OpenAI
+# Prove the public /api alias reaches the chat route without spending an Anthropic
 # money. A GET should be rejected by the route/method, but must not be a 404.
 CHAT_CODE="$(curl -sS -o /dev/null --max-time 15 -w '%{http_code}' "$BASE_URL/api/chat")"
 case "$CHAT_CODE" in
@@ -58,7 +59,7 @@ echo "$OPS_HTML" | grep -q '<title>Web99 Ops</title>' || fail "Ops console retur
 pass "Ops console"
 
 # The Ops API must exist but reject unauthenticated callers. This proves routing
-# and auth without spending an OpenAI request during deployment.
+# and auth without spending an Anthropic request during deployment.
 OPS_CODE="$(curl -sS -o /dev/null --max-time 15 -w '%{http_code}' "$BASE_URL/api/ops-agent")"
 [[ "$OPS_CODE" == "401" ]] || fail "Ops API should reject anonymous access with 401, got $OPS_CODE"
 pass "Ops API authentication gate"

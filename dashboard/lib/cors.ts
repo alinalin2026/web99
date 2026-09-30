@@ -23,7 +23,7 @@ import { NextRequest, NextResponse } from "next/server";
    header — CORS can't do that, it only constrains browsers acting on behalf
    of a page from an origin the server didn't approve — but it does stop the
    more common case of some other website's page quietly calling this (real
-   OpenAI-cost-incurring) endpoint on a visitor's behalf.
+   Anthropic-cost-incurring) endpoint on a visitor's behalf.
    =========================================================================== */
 
 function allowedOrigins(): string[] {

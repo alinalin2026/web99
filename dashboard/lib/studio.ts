@@ -150,7 +150,7 @@ export async function prepareStudio(orderId: string): Promise<StudioResult> {
       message: `${order.business_name ?? "Website"} creative direction and ${prompts.length} visual asset${prompts.length === 1 ? "" : "s"} are ready`,
       images: prompts.length,
       visualStyle: result.visualStyle ?? "Auto",
-      provider: "openai",
+      provider: "anthropic",
       model: MODELS.studio,
     });
     return { ...result, imagePrompts: prompts };

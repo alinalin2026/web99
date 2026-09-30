@@ -1,4 +1,6 @@
+import type Anthropic from "@anthropic-ai/sdk";
 import { json, MODELS } from "./ai";
+import { assertNotRefused, createMessage, DEFAULT_MODEL, messageText, tokenBudget } from "./anthropic";
 import { analystPrompt } from "./prompts/analyst";
 import { generatorPrompt, previewBanner, previewCloser } from "./prompts/generator";
 import {
@@ -9,29 +11,10 @@ import { generateAllProjectAssets, prepareStudio } from "./studio";
 import { pushSite } from "./github";
 import { validate } from "./pipeline";
 
-const RESPONSES_URL = "https://api.openai.com/v1/responses";
-const OPENAI_BUILD_MODEL = process.env.OPENAI_BUILD_MODEL ?? process.env.OPENAI_REASONING_MODEL ?? "gpt-5.1";
-const OPENAI_AGENT_MODEL = process.env.OPENAI_AGENT_MODEL ?? process.env.OPENAI_REASONING_MODEL ?? OPENAI_BUILD_MODEL;
+const BUILD_MODEL = process.env.ANTHROPIC_BUILD_MODEL ?? process.env.ANTHROPIC_REASONING_MODEL ?? DEFAULT_MODEL;
+const AGENT_MODEL = process.env.ANTHROPIC_AGENT_MODEL ?? process.env.ANTHROPIC_REASONING_MODEL ?? BUILD_MODEL;
 const PREVIEW_DOMAIN = process.env.PREVIEW_DOMAIN ?? "web99.ie";
 const QA_CHUNK_CHARS = 30000;
-
-function openAIKey(): string {
-  const value = process.env.OPENAI_API_KEY?.trim();
-  if (!value) throw new Error("OPENAI_API_KEY is required.");
-  if (value.startsWith("sk-ant-")) throw new Error("OPENAI_API_KEY contains an Anthropic key. Replace it with an OpenAI API key.");
-  return value;
-}
-
-function outputText(data: any): string {
-  if (typeof data?.output_text === "string") return data.output_text.trim();
-  const parts: string[] = [];
-  for (const item of data?.output ?? []) {
-    for (const block of item?.content ?? []) {
-      if (block?.type === "output_text" && typeof block.text === "string") parts.push(block.text);
-    }
-  }
-  return parts.join("").trim();
-}
 
 function parseJson<T>(raw: string): T {
   try { return JSON.parse(raw) as T; }
@@ -39,34 +22,27 @@ function parseJson<T>(raw: string): T {
     const start = raw.indexOf("{");
     const end = raw.lastIndexOf("}");
     if (start >= 0 && end > start) return JSON.parse(raw.slice(start, end + 1)) as T;
-    throw new Error(`OpenAI returned unusable JSON: ${raw.slice(0, 250)}`);
+    throw new Error(`Claude returned unusable JSON: ${raw.slice(0, 250)}`);
   }
 }
 
-async function openAIResponse(
+async function claudeResponse(
   instructions: string,
   input: string,
-  model = OPENAI_BUILD_MODEL,
+  model = BUILD_MODEL,
   maxOutputTokens = 50000
 ): Promise<string> {
-  const response = await fetch(RESPONSES_URL, {
-    method: "POST",
-    headers: { Authorization: `Bearer ${openAIKey()}`, "Content-Type": "application/json" },
-    body: JSON.stringify({
-      model,
-      reasoning: { effort: "medium" },
-      instructions,
-      input,
-      max_output_tokens: maxOutputTokens,
-    }),
+  const message = await createMessage({
+    model,
+    system: instructions,
+    messages: [{ role: "user", content: input }],
+    max_tokens: tokenBudget(maxOutputTokens, "medium"),
+    effort: "medium",
   });
-  const raw = await response.text();
-  let data: any = {};
-  try { data = raw ? JSON.parse(raw) : {}; }
-  catch { throw new Error(`OpenAI returned invalid JSON (HTTP ${response.status}).`); }
-  if (!response.ok) throw new Error(`OpenAI API ${response.status}: ${data?.error?.message ?? raw.slice(0, 500)}`);
-  const text = outputText(data);
-  if (!text) throw new Error("OpenAI returned no text.");
+  assertNotRefused(message);
+  if (message.stop_reason === "max_tokens") throw new Error("Claude ran out of output budget before finishing the file.");
+  const text = messageText(message);
+  if (!text) throw new Error("Claude returned no text.");
   return text;
 }
 
@@ -100,7 +76,7 @@ type MaskedFiles = {
 /**
  * Generated images are stored as data URLs inside the demo HTML. Those strings
  * can be several megabytes and are useless to a text/code model. Replace them
- * with stable markers before any OpenAI source/revision call, then restore them
+ * with stable markers before any source/revision call, then restore them
  * after the model returns the edited code.
  */
 function maskEmbeddedImages(files: Record<string, string>): MaskedFiles {
@@ -168,18 +144,18 @@ function uniqueIssues(issues: any[]): any[] {
   });
 }
 
-async function buildWithOpenAI(order: Order, assets: ProjectAsset[], steer?: string): Promise<Record<string, string>> {
-  const instructions = `${generatorPrompt()}\n\nWEB99 OPENAI BUILD AGENT\nYou are the final frontend build agent. The operator has already approved the strategy, copy and images. Build a polished, mobile-first production demo. DO NOT request or invent new images. Use only the supplied asset placeholders exactly as listed. Return JSON with {"files":{"index.html":"..."},"notes":"..."}. Every useful supplied asset should be used intentionally, but do not force an asset where it hurts the design. Keep all business facts inside the supplied brief/analysis/copy. The website must be self-contained and ready for the Web99 deployment function.`;
+async function buildWithClaude(order: Order, assets: ProjectAsset[], steer?: string): Promise<Record<string, string>> {
+  const instructions = `${generatorPrompt()}\n\nWEB99 CLAUDE BUILD AGENT\nYou are the final frontend build agent. The operator has already approved the strategy, copy and images. Build a polished, mobile-first production demo. DO NOT request or invent new images. Use only the supplied asset placeholders exactly as listed. Return JSON with {"files":{"index.html":"..."},"notes":"..."}. Every useful supplied asset should be used intentionally, but do not force an asset where it hurts the design. Keep all business facts inside the supplied brief/analysis/copy. The website must be self-contained and ready for the Web99 deployment function.`;
   const input = `PLAN\n${order.plan_text ?? JSON.stringify(order.analysis ?? {}, null, 2)}\n\n` +
     `FINAL COPY\n${order.studio_copy ?? ""}\n\nASSETS\n${JSON.stringify(assetManifest(assets), null, 2)}\n\n` +
     `CONFIRMED BUSINESS DATA\n${JSON.stringify(order.brief ?? {}, null, 2)}` +
     (steer?.trim() ? `\n\nOPERATOR CHANGE\n${steer.trim()}` : "");
-  const result = parseJson<{ files: Record<string, string>; notes?: string }>(await openAIResponse(instructions, input));
-  if (!result.files?.["index.html"]) throw new Error("OpenAI build agent returned no index.html.");
+  const result = parseJson<{ files: Record<string, string>; notes?: string }>(await claudeResponse(instructions, input));
+  if (!result.files?.["index.html"]) throw new Error("Claude build agent returned no index.html.");
   return injectAssets(result.files, assets);
 }
 
-async function reviseWithOpenAI(
+async function reviseWithClaude(
   order: Order,
   files: Record<string, string>,
   instruction: string
@@ -190,18 +166,18 @@ async function reviseWithOpenAI(
   const fileNames = entries.map(([path]) => path);
 
   for (const [path, content] of entries) {
-    const instructions = `You are the Web99 OpenAI frontend revision agent. You are editing ONE source file at a time so the request stays small. Apply the requested change to this file only when relevant; otherwise return it unchanged. Preserve all {{W99_EMBEDDED_IMAGE_N}} markers exactly unless the requested change intentionally removes that image. Keep the site mobile-first and truthful. Never invent business facts. Return ONLY JSON: {"content": string, "changed": boolean}.`;
+    const instructions = `You are the Web99 frontend revision agent. You are editing ONE source file at a time so the request stays small. Apply the requested change to this file only when relevant; otherwise return it unchanged. Preserve all {{W99_EMBEDDED_IMAGE_N}} markers exactly unless the requested change intentionally removes that image. Keep the site mobile-first and truthful. Never invent business facts. Return ONLY JSON: {"content": string, "changed": boolean}.`;
     const input = `REQUESTED CHANGE\n${instruction}\n\n` +
       `CONFIRMED DATA\n${JSON.stringify(order.brief ?? {}, null, 2)}\n\n` +
       `ALL FILE NAMES\n${JSON.stringify(fileNames)}\n\nCURRENT FILE\n${path}\n\n${content}`;
     const result = parseJson<{ content?: string; changed?: boolean }>(
-      await openAIResponse(instructions, input, OPENAI_BUILD_MODEL, 35000)
+      await claudeResponse(instructions, input, BUILD_MODEL, 35000)
     );
     revised[path] = typeof result.content === "string" ? result.content : content;
   }
 
   const restored = restoreEmbeddedImages(revised, masked.replacements);
-  if (!restored["index.html"]) throw new Error("OpenAI revision agent returned no index.html.");
+  if (!restored["index.html"]) throw new Error("Claude revision agent returned no index.html.");
   return restored;
 }
 
@@ -226,7 +202,7 @@ export async function makeMasterPlan(orderId: string, steer?: string): Promise<v
         workflow_stage = 'plan_ready', failure_reason = NULL WHERE id = ${orderId}`;
     await logEvent(orderId, "plan_ready", {
       message: `${order.business_name ?? "Website"} plan is ready to approve`,
-      provider: "openai",
+      provider: "anthropic",
       model: MODELS.analyst,
     });
   } catch (err) {
@@ -261,7 +237,7 @@ async function sourceQa(order: Order, files: Record<string, string>): Promise<Re
     const chunk = chunks[i];
     try {
       const result = await json<Record<string, any>>(
-        `You are Web99's final OpenAI QA reviewer. Review ONE bounded source chunk before the site reaches the operator. Check problems visible in this chunk: mobile hierarchy/layout risks, CTA clarity, overflow risks, spelling, truthful use of supplied business facts, SEO/accessibility issues and unresolved placeholders. Do not complain that a tag/section is missing merely because you are seeing only one chunk of a larger file. Return {"score":0-100,"pass":boolean,"issues":[{"severity":"critical|major|minor","problem":string,"fix":string}],"summary":string}.`,
+        `You are Web99's final QA reviewer. Review ONE bounded source chunk before the site reaches the operator. Check problems visible in this chunk: mobile hierarchy/layout risks, CTA clarity, overflow risks, spelling, truthful use of supplied business facts, SEO/accessibility issues and unresolved placeholders. Do not complain that a tag/section is missing merely because you are seeing only one chunk of a larger file. Return {"score":0-100,"pass":boolean,"issues":[{"severity":"critical|major|minor","problem":string,"fix":string}],"summary":string}.`,
         `CHUNK ${i + 1} OF ${chunks.length}: ${chunk.label}\n\n` +
           `BUSINESS DATA\n${JSON.stringify(order.brief ?? {}, null, 2)}\n\nSOURCE\n${chunk.source}`,
         MODELS.qa,
@@ -297,12 +273,22 @@ async function sourceQa(order: Order, files: Record<string, string>): Promise<Re
     issues,
     summary: results.map((r) => r.summary).filter(Boolean).slice(0, 6).join(" "),
     staticProblems,
-    provider: "openai-chunked",
+    provider: "anthropic-chunked",
     model: MODELS.qa,
     calls: chunks.length,
     qaErrors,
     maskedImageChars: masked.removedChars,
   };
+}
+
+function imageBlock(imageUrl: string): Anthropic.ImageBlockParam {
+  const data = /^data:image\/(png|jpe?g|gif|webp);base64,([\s\S]+)$/i.exec(imageUrl);
+  if (data) {
+    const kind = data[1].toLowerCase().replace("jpg", "jpeg");
+    return { type: "image", source: { type: "base64", media_type: `image/${kind}` as "image/png", data: data[2] } };
+  }
+  if (/^https?:\/\//i.test(imageUrl)) return { type: "image", source: { type: "url", url: imageUrl } };
+  throw new Error("Visual QA screenshot was neither an image data URL nor an http(s) URL.");
 }
 
 async function visualQa(order: Order, files: Record<string, string>): Promise<Record<string, any> | null> {
@@ -335,26 +321,21 @@ async function visualQa(order: Order, files: Record<string, string>): Promise<Re
       .slice(0, 4);
     if (!images.length) throw new Error("Visual QA service returned no screenshots.");
 
-    const response = await fetch(RESPONSES_URL, {
-      method: "POST",
-      headers: { Authorization: `Bearer ${openAIKey()}`, "Content-Type": "application/json" },
-      body: JSON.stringify({
-        model: MODELS.qa,
-        instructions: "You are Web99's visual QA reviewer. Inspect the supplied mobile/desktop screenshots. Focus on mobile usability, clipping/overflow, hierarchy, CTA visibility, legibility, spacing, image crops, broken-looking layout and obvious visual defects. Return ONLY JSON: {\"score\":0-100,\"pass\":boolean,\"issues\":[{\"severity\":\"critical|major|minor\",\"problem\":string,\"fix\":string}],\"summary\":string}.",
-        input: [{
-          role: "user",
-          content: [
-            { type: "input_text", text: `BUSINESS DATA\n${JSON.stringify(order.brief ?? {}, null, 2)}\n\nReview ${images.map((x: any) => x.label).join(", ")}.` },
-            ...images.map((shot: any) => ({ type: "input_image", image_url: shot.imageUrl })),
-          ],
-        }],
-        max_output_tokens: 5000,
-      }),
+    const message = await createMessage({
+      model: MODELS.qa,
+      system: "You are Web99's visual QA reviewer. Inspect the supplied mobile/desktop screenshots. Focus on mobile usability, clipping/overflow, hierarchy, CTA visibility, legibility, spacing, image crops, broken-looking layout and obvious visual defects. Return ONLY JSON: {\"score\":0-100,\"pass\":boolean,\"issues\":[{\"severity\":\"critical|major|minor\",\"problem\":string,\"fix\":string}],\"summary\":string}.",
+      messages: [{
+        role: "user",
+        content: [
+          ...images.map((shot: any) => imageBlock(shot.imageUrl)),
+          { type: "text", text: `BUSINESS DATA\n${JSON.stringify(order.brief ?? {}, null, 2)}\n\nReview ${images.map((x: any) => x.label).join(", ")}.` },
+        ],
+      }],
+      max_tokens: tokenBudget(5000, "medium"),
+      effort: "medium",
     });
-    const responseRaw = await response.text();
-    const responseData = responseRaw ? JSON.parse(responseRaw) : {};
-    if (!response.ok) throw new Error(responseData?.error?.message ?? `OpenAI visual QA HTTP ${response.status}`);
-    return { ...parseJson<Record<string, any>>(outputText(responseData)), provider: "openai-vision", views: images.map((x: any) => x.label) };
+    assertNotRefused(message);
+    return { ...parseJson<Record<string, any>>(messageText(message)), provider: "anthropic-vision", views: images.map((x: any) => x.label) };
   } catch (err) {
     return { available: false, pass: true, error: (err as Error).message };
   }
@@ -394,7 +375,7 @@ function compactRepairReport(report: Record<string, any>) {
 }
 
 async function repairFromQa(order: Order, files: Record<string, string>, report: Record<string, any>): Promise<Record<string, string>> {
-  return reviseWithOpenAI(
+  return reviseWithClaude(
     order,
     files,
     `Automated QA found these issues. Fix every critical/major issue and every static validation problem without inventing business facts.\n\n${JSON.stringify(compactRepairReport(report), null, 2)}`
@@ -427,7 +408,7 @@ export async function finaliseMasterBuild(
 ): Promise<void> {
   const order = await getOrder(orderId);
   if (!order) throw new Error(`No order ${orderId}`);
-  await setWorkflow(orderId, "qa", { message: `OpenAI QA is checking ${order.business_name ?? "the site"}` });
+  await setWorkflow(orderId, "qa", { message: `Claude QA is checking ${order.business_name ?? "the site"}` });
 
   let finalFiles = files;
   let qaReport = await qa(order, finalFiles);
@@ -465,12 +446,12 @@ export async function startMasterBuild(orderId: string, who = "operator", steer?
   const assets = await listAssets(orderId);
   const missing = assets.filter((a) => a.status !== "ready");
   if (missing.length) throw new Error(`${missing.length} image asset${missing.length === 1 ? " is" : "s are"} not generated yet.`);
-  await setState(orderId, "generating", { source: "openai_master_build" });
-  await setWorkflow(orderId, "building", { message: `OpenAI build agent started ${order.business_name ?? "website"}` });
+  await setState(orderId, "generating", { source: "claude_master_build" });
+  await setWorkflow(orderId, "building", { message: `Claude build agent started ${order.business_name ?? "website"}` });
 
   try {
-    const files = await buildWithOpenAI(order, assets, steer);
-    await finaliseMasterBuild(orderId, files, `openai:${OPENAI_BUILD_MODEL}`, "OpenAI Agent build");
+    const files = await buildWithClaude(order, assets, steer);
+    await finaliseMasterBuild(orderId, files, `anthropic:${BUILD_MODEL}`, "Claude Agent build");
   } catch (err) {
     const message = (err as Error).message;
     await sql`UPDATE orders SET state = 'failed', workflow_stage = 'failed', failure_reason = ${message} WHERE id = ${orderId}`;
@@ -483,11 +464,11 @@ export async function fixAndRedeploy(orderId: string, instruction: string, who =
   const order = await getOrder(orderId);
   if (!order?.generated) throw new Error("Build the site before requesting changes.");
   if (!instruction.trim()) throw new Error("Tell the Web99 Agent what to change.");
-  await setWorkflow(orderId, "building", { message: `OpenAI Agent is applying changes to ${order.business_name ?? "website"}` });
+  await setWorkflow(orderId, "building", { message: `Claude Agent is applying changes to ${order.business_name ?? "website"}` });
   try {
-    const files = await reviseWithOpenAI(order, order.generated, instruction);
-    await finaliseMasterBuild(orderId, files, `openai:${OPENAI_BUILD_MODEL}`, instruction.trim().slice(0, 180));
-    await logEvent(orderId, "revision", { message: "Changes applied by OpenAI Agent", by: who });
+    const files = await reviseWithClaude(order, order.generated, instruction);
+    await finaliseMasterBuild(orderId, files, `anthropic:${BUILD_MODEL}`, instruction.trim().slice(0, 180));
+    await logEvent(orderId, "revision", { message: "Changes applied by Claude Agent", by: who });
   } catch (err) {
     const message = (err as Error).message;
     await sql`UPDATE orders SET workflow_stage = 'failed', failure_reason = ${message} WHERE id = ${orderId}`;
@@ -508,13 +489,13 @@ async function chooseNextAction(order: Order, assets: ProjectAsset[]): Promise<A
   };
 
   try {
-    const response = await fetch(RESPONSES_URL, {
-      method: "POST",
-      headers: { Authorization: `Bearer ${openAIKey()}`, "Content-Type": "application/json" },
-      body: JSON.stringify({
-        model: OPENAI_AGENT_MODEL,
-        instructions: "You are the Web99 workflow controller. Choose exactly one backend tool that advances this project by one logical step. Never send the customer a preview automatically. Respect the current project state; do not skip required plan/copy/image/build stages.",
-        input: JSON.stringify({
+    const noArgs = { type: "object" as const, properties: {}, additionalProperties: false };
+    const message = await createMessage({
+      model: AGENT_MODEL,
+      system: "You are the Web99 workflow controller. Choose exactly one backend tool that advances this project by one logical step. Never send the customer a preview automatically. Respect the current project state; do not skip required plan/copy/image/build stages.",
+      messages: [{
+        role: "user",
+        content: JSON.stringify({
           state: order.state,
           workflowStage: order.workflow_stage,
           hasPlan: Boolean(order.plan_text),
@@ -524,21 +505,22 @@ async function chooseNextAction(order: Order, assets: ProjectAsset[]): Promise<A
           hasPreview: Boolean(order.preview_url),
           autopilot: order.autopilot,
         }),
-        tools: [
-          { type: "function", name: "make_plan", description: "Create the editable 500-600 word website strategy plan from the Sarah chat and structured brief.", parameters: { type: "object", properties: {}, additionalProperties: false }, strict: true },
-          { type: "function", name: "prepare_studio", description: "Turn an approved plan into finished website copy and editable image prompts.", parameters: { type: "object", properties: {}, additionalProperties: false }, strict: true },
-          { type: "function", name: "generate_images", description: "Generate all pending approved image assets through the OpenAI image API.", parameters: { type: "object", properties: {}, additionalProperties: false }, strict: true },
-          { type: "function", name: "build_site", description: "Build, QA, auto-repair and deploy the website using the approved copy and generated assets.", parameters: { type: "object", properties: {}, additionalProperties: false }, strict: true },
-          { type: "function", name: "nothing_to_do", description: "Use only when the demo is already built/deployed and no production step remains.", parameters: { type: "object", properties: {}, additionalProperties: false }, strict: true },
-        ],
-        tool_choice: "required",
-        max_output_tokens: 600,
-      }),
+      }],
+      tools: [
+        { name: "make_plan", description: "Create the editable 500-600 word website strategy plan from the Sarah chat and structured brief.", input_schema: noArgs },
+        { name: "prepare_studio", description: "Turn an approved plan into finished website copy and editable image prompts.", input_schema: noArgs },
+        { name: "generate_images", description: "Generate all pending approved image assets through the image API.", input_schema: noArgs },
+        { name: "build_site", description: "Build, QA, auto-repair and deploy the website using the approved copy and generated assets.", input_schema: noArgs },
+        { name: "nothing_to_do", description: "Use only when the demo is already built/deployed and no production step remains.", input_schema: noArgs },
+      ],
+      // Forcing a tool call is incompatible with thinking; Fable/Mythos can't turn it off, so they get auto and the deterministic fallback below.
+      ...(/^claude-(fable|mythos)/.test(AGENT_MODEL)
+        ? { tool_choice: { type: "auto" as const } }
+        : { tool_choice: { type: "any" as const }, thinking: { type: "disabled" as const } }),
+      max_tokens: 600,
+      effort: "low",
     });
-    const raw = await response.text();
-    const data = raw ? JSON.parse(raw) : {};
-    if (!response.ok) throw new Error(data?.error?.message ?? `HTTP ${response.status}`);
-    const call = (data?.output ?? []).find((item: any) => item?.type === "function_call");
+    const call = message.content.find((block): block is Anthropic.ToolUseBlock => block.type === "tool_use");
     const action = call?.name as AgentAction | undefined;
     if (new Set<AgentAction>(["make_plan", "prepare_studio", "generate_images", "build_site", "nothing_to_do"]).has(action as AgentAction)) return action as AgentAction;
     return deterministic();

@@ -1,19 +1,18 @@
-/* OpenAI wrapper for Sarah, extraction, planning, Studio and QA.
-   One provider, two cost tiers: a fast model for intake/extraction and a
-   stronger reasoning model for strategy, copy, QA and orchestration. */
+/* Claude wrapper for Sarah, extraction, planning, Studio and QA.
+   Two cost tiers via env: Sarah/extraction are customer-facing and must follow a
+   long rigid prompt and emit strict JSON; strategy, copy and QA use the reasoning
+   model. All default to Claude Sonnet 5 — move any role up (e.g. claude-opus-5)
+   with its ANTHROPIC_*_MODEL variable. */
+import { assertNotRefused, createMessage, DEFAULT_MODEL, messageText, normalizeTurns, tokenBudget, type Effort } from "./anthropic";
 
-const RESPONSES_URL = "https://api.openai.com/v1/responses";
+export type { Effort };
 
-/* Sarah and the brief extractor are customer-facing and must follow a long
-   rigid prompt and emit strict JSON, so they get their own settings instead of
-   sharing OPENAI_FAST_MODEL — that one is a cost knob and was set to gpt-5-nano,
-   which drifted off-script and returned truncated JSON. */
 export const MODELS = {
-  sarah: process.env.OPENAI_SARAH_MODEL ?? "gpt-5-mini",
-  extract: process.env.OPENAI_EXTRACT_MODEL ?? "gpt-5-mini",
-  analyst: process.env.OPENAI_REASONING_MODEL ?? "gpt-5.1",
-  studio: process.env.OPENAI_STUDIO_MODEL ?? process.env.OPENAI_REASONING_MODEL ?? "gpt-5.1",
-  qa: process.env.OPENAI_QA_MODEL ?? process.env.OPENAI_REASONING_MODEL ?? "gpt-5.1",
+  sarah: process.env.ANTHROPIC_SARAH_MODEL ?? DEFAULT_MODEL,
+  extract: process.env.ANTHROPIC_EXTRACT_MODEL ?? DEFAULT_MODEL,
+  analyst: process.env.ANTHROPIC_REASONING_MODEL ?? DEFAULT_MODEL,
+  studio: process.env.ANTHROPIC_STUDIO_MODEL ?? process.env.ANTHROPIC_REASONING_MODEL ?? DEFAULT_MODEL,
+  qa: process.env.ANTHROPIC_QA_MODEL ?? process.env.ANTHROPIC_REASONING_MODEL ?? DEFAULT_MODEL,
 } as const;
 
 export interface Turn {
@@ -21,102 +20,42 @@ export interface Turn {
   content: string;
 }
 
-function apiKey(): string {
-  const value = process.env.OPENAI_API_KEY?.trim();
-  if (!value) throw new Error("OPENAI_API_KEY is not set.");
-  if (value.startsWith("sk-ant-")) throw new Error("OPENAI_API_KEY contains an Anthropic key. Replace it with an OpenAI API key.");
-  return value;
-}
-
-function outputText(data: any): string {
-  if (typeof data?.output_text === "string" && data.output_text.trim()) return data.output_text.trim();
-  const parts: string[] = [];
-  for (const item of data?.output ?? []) {
-    for (const block of item?.content ?? []) {
-      if (block?.type === "output_text" && typeof block.text === "string") parts.push(block.text);
-    }
-  }
-  return parts.join("").trim();
-}
-
-async function requestCompletion(
-  system: string,
-  turns: Turn[],
-  model: string,
-  maxTokens: number,
-  retry = false,
-  reasoningEffort?: "minimal" | "low" | "medium" | "high"
-): Promise<{ data: any; raw: string; status: number }> {
-  const response = await fetch(RESPONSES_URL, {
-    method: "POST",
-    headers: {
-      Authorization: `Bearer ${apiKey()}`,
-      "Content-Type": "application/json",
-    },
-    body: JSON.stringify({
-      model,
-      instructions: retry
-        ? `${system}\n\nIMPORTANT: Produce the requested final answer directly. Do not spend the entire output budget on internal reasoning.`
-        : system,
-      input: turns.map((turn) => ({ role: turn.role, content: turn.content })),
-      max_output_tokens: maxTokens,
-      ...(reasoningEffort ? { reasoning: { effort: reasoningEffort } } : {}),
-    }),
-  });
-
-  const raw = await response.text();
-  let data: any = {};
-  try { data = raw ? JSON.parse(raw) : {}; }
-  catch { throw new Error(`OpenAI returned invalid JSON (HTTP ${response.status}): ${raw.slice(0, 300)}`); }
-
-  if (!response.ok) {
-    const message = data?.error?.message ?? raw.slice(0, 500) ?? "Unknown OpenAI API error";
-    throw new Error(`OpenAI API ${response.status}: ${message}`);
-  }
-
-  return { data, raw, status: response.status };
-}
+const DEFAULT_EFFORT = (process.env.ANTHROPIC_DEFAULT_EFFORT as Effort | undefined) ?? "medium";
+const SARAH_EFFORT = (process.env.ANTHROPIC_SARAH_EFFORT as Effort | undefined) ?? "low";
 
 async function complete(
   system: string,
   turns: Turn[],
   model: string,
   maxTokens: number,
-  _temperature?: number,
-  reasoningEffort?: "minimal" | "low" | "medium" | "high"
+  effort: Effort = DEFAULT_EFFORT
 ): Promise<string> {
-  const first = await requestCompletion(system, turns, model, maxTokens, false, reasoningEffort);
-  const firstText = outputText(first.data);
-  const firstStatus = String(first.data?.status ?? "");
-  const reason = String(first.data?.incomplete_details?.reason ?? "");
-  const refusal = (first.data?.output ?? [])
-    .flatMap((item: any) => item?.content ?? [])
-    .find((block: any) => block?.type === "refusal")?.refusal;
-  if (refusal) throw new Error(`OpenAI refused the request: ${String(refusal).slice(0, 500)}`);
+  const messages = normalizeTurns(turns);
+  const request = async (budget: number, instructions: string, level: Effort) => {
+    const message = await createMessage({ model, system: instructions, messages, max_tokens: budget, effort: level });
+    assertNotRefused(message);
+    return { text: messageText(message), truncated: message.stop_reason === "max_tokens" };
+  };
 
-  // "incomplete" means max_output_tokens ran out. Any text that came back is
-  // cut off mid-sentence (or mid-JSON), so it must not be returned as if it
-  // were a real answer — retry once with a larger budget instead.
-  if (firstText && firstStatus !== "incomplete") return firstText;
+  const first = await request(tokenBudget(maxTokens, effort), system, effort);
+  // "max_tokens" means the budget ran out — any text is cut off mid-sentence (or
+  // mid-JSON) and must not be returned as if it were a real answer.
+  if (first.text && !first.truncated) return first.text;
 
-  const retryTokens = Math.min(Math.max(maxTokens + 4000, Math.ceil(maxTokens * 1.5)), 30000);
-  const second = await requestCompletion(system, turns, model, retryTokens, true, reasoningEffort === undefined ? undefined : "minimal");
-  const secondText = outputText(second.data);
-  if (secondText && String(second.data?.status ?? "") !== "incomplete") return secondText;
-
-  const secondStatus = String(second.data?.status ?? "");
-  const secondReason = String(second.data?.incomplete_details?.reason ?? "");
-  throw new Error(
-    `OpenAI returned ${secondText || firstText ? "truncated text" : "no text"} after automatic retry (status ${secondStatus || firstStatus || "unknown"}${secondReason || reason ? `; reason ${secondReason || reason}` : ""}).`
+  const retryBudget = Math.min(Math.ceil(tokenBudget(maxTokens, effort) * 1.5) + 4000, 60000);
+  const second = await request(
+    retryBudget,
+    `${system}\n\nIMPORTANT: Produce the requested final answer directly. Do not spend the entire output budget on reasoning.`,
+    "low"
   );
-}
+  if (second.text && !second.truncated) return second.text;
 
-type Effort = "minimal" | "low" | "medium" | "high";
-const SARAH_EFFORT = (process.env.OPENAI_SARAH_EFFORT as Effort | undefined) ?? "minimal";
+  throw new Error(`Claude returned ${second.text || first.text ? "truncated text" : "no text"} after automatic retry.`);
+}
 
 export async function chat(system: string, turns: Turn[], model: string = MODELS.sarah, effort: Effort = SARAH_EFFORT): Promise<string> {
   // Sarah is a customer-facing intake assistant: keep latency and cost low.
-  return complete(system, turns, model, 900, undefined, effort);
+  return complete(system, turns, model, 900, effort);
 }
 
 export async function text(
@@ -124,10 +63,10 @@ export async function text(
   user: string,
   model: string,
   maxTokens = 12000,
-  temperature = 0.35,
-  reasoningEffort?: "minimal" | "low" | "medium" | "high"
+  _temperature?: number,
+  effort?: Effort
 ): Promise<string> {
-  return complete(system, [{ role: "user", content: user }], model, maxTokens, temperature, reasoningEffort);
+  return complete(system, [{ role: "user", content: user }], model, maxTokens, effort);
 }
 
 export async function json<T = unknown>(
@@ -135,7 +74,7 @@ export async function json<T = unknown>(
   user: string,
   model: string,
   maxTokens = 16000,
-  reasoningEffort?: "minimal" | "low" | "medium" | "high"
+  effort?: Effort
 ): Promise<T> {
   const jsonSystem = `${system}\n\nIMPORTANT: Return ONLY one valid JSON object. Do not use markdown fences, commentary, or any text before or after the JSON.`;
   const parse = (raw: string): T | null => {
@@ -148,13 +87,13 @@ export async function json<T = unknown>(
     return null;
   };
 
-  const raw = await complete(jsonSystem, [{ role: "user", content: user }], model, maxTokens, undefined, reasoningEffort);
+  const raw = await complete(jsonSystem, [{ role: "user", content: user }], model, maxTokens, effort);
   const parsed = parse(raw);
   if (parsed !== null) return parsed;
 
   // One more attempt with a bigger budget before giving up: a cut-off or
   // fenced reply is far more often a budget problem than a model problem.
-  const retry = await complete(jsonSystem, [{ role: "user", content: user }], model, Math.min(maxTokens * 2, 30000), undefined, reasoningEffort);
+  const retry = await complete(jsonSystem, [{ role: "user", content: user }], model, Math.min(maxTokens * 2, 30000), effort);
   const reparsed = parse(retry);
   if (reparsed !== null) return reparsed;
   throw new Error(`Model did not return usable JSON (${retry.length} chars). First 200: ${retry.slice(0, 200)}`);

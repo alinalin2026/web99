@@ -9,7 +9,7 @@ The goal is boring reliability with the fewest moving parts.
 - **One Next.js dashboard/API process** on `127.0.0.1:3000`
 - **One background worker**
 - **One PostgreSQL database** used for orders, durable jobs, generated sites and versions
-- **OpenAI API** for Sarah, planning, copy, images, build and QA
+- **Anthropic API (Claude)** for Sarah, planning, copy, build and QA; **OpenAI image API** for logos and photos only
 
 No Redis. No Vercel in the runtime path. No GitHub in a customer build. No separate per-customer process.
 
@@ -60,7 +60,7 @@ The browser only queues work in PostgreSQL. The worker claims one job at a time 
 
 If the worker/server is restarted while a job is running, the new worker automatically requeues interrupted work. A customer build therefore does not depend on keeping a browser open.
 
-One worker is intentional for the first phase: it is easier to reason about, avoids accidental duplicate OpenAI/image spend, and queues bursts safely. Add a second worker only when real volume requires it.
+One worker is intentional for the first phase: it is easier to reason about, avoids accidental duplicate Anthropic/image spend, and queues bursts safely. Add a second worker only when real volume requires it.
 
 ## Health
 

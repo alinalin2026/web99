@@ -1,8 +1,9 @@
 import { execFile } from "node:child_process";
 import { promisify } from "node:util";
+import type Anthropic from "@anthropic-ai/sdk";
+import { assertNotRefused, createMessage, DEFAULT_MODEL, messageText, normalizeTurns, tokenBudget } from "./anthropic";
 
 const execFileAsync = promisify(execFile);
-const RESPONSES_URL = "https://api.openai.com/v1/responses";
 const HELPER = process.env.WEB99_OPS_HELPER ?? "/usr/local/libexec/web99-ops-tool";
 
 export interface OpsTurn {
@@ -36,20 +37,16 @@ Operating rules:
 - Keep replies concise and practical. State what you found, what you did, and the next useful check.
 - This console is only for Web99 server operations. Decline unrelated requests.`;
 
-const TOOLS = [
+const TOOLS: Anthropic.Tool[] = [
   {
-    type: "function",
     name: "get_status",
     description: "Read current Web99 release, service states and local app/database health. Read-only and usually the first diagnostic tool.",
-    strict: true,
-    parameters: { type: "object", properties: {}, required: [], additionalProperties: false },
+    input_schema: { type: "object", properties: {}, required: [], additionalProperties: false },
   },
   {
-    type: "function",
     name: "get_logs",
     description: "Read recent logs for the dashboard, worker or nginx. Read-only.",
-    strict: true,
-    parameters: {
+    input_schema: {
       type: "object",
       properties: {
         service: { type: "string", enum: ["dashboard", "worker", "nginx"] },
@@ -60,25 +57,19 @@ const TOOLS = [
     },
   },
   {
-    type: "function",
     name: "test_nginx",
     description: "Validate the active Nginx configuration without changing it.",
-    strict: true,
-    parameters: { type: "object", properties: {}, required: [], additionalProperties: false },
+    input_schema: { type: "object", properties: {}, required: [], additionalProperties: false },
   },
   {
-    type: "function",
     name: "reload_nginx",
     description: "Validate Nginx and reload it if valid. Use only when a reload is actually needed.",
-    strict: true,
-    parameters: { type: "object", properties: {}, required: [], additionalProperties: false },
+    input_schema: { type: "object", properties: {}, required: [], additionalProperties: false },
   },
   {
-    type: "function",
     name: "restart_service",
     description: "Restart the Web99 worker, schedule a dashboard restart, or do both. Dashboard restart is delayed so the current reply can complete.",
-    strict: true,
-    parameters: {
+    input_schema: {
       type: "object",
       properties: { target: { type: "string", enum: ["dashboard", "worker", "all"] } },
       required: ["target"],
@@ -86,39 +77,29 @@ const TOOLS = [
     },
   },
   {
-    type: "function",
     name: "backup_database",
     description: "Create and verify a PostgreSQL backup using Web99's tracked backup script.",
-    strict: true,
-    parameters: { type: "object", properties: {}, required: [], additionalProperties: false },
+    input_schema: { type: "object", properties: {}, required: [], additionalProperties: false },
   },
   {
-    type: "function",
     name: "start_deploy",
     description: "Start the tracked Web99 production deployment as an independent systemd job. It continues even if the dashboard restarts.",
-    strict: true,
-    parameters: { type: "object", properties: {}, required: [], additionalProperties: false },
+    input_schema: { type: "object", properties: {}, required: [], additionalProperties: false },
   },
   {
-    type: "function",
     name: "get_deploy_status",
     description: "Read status and recent logs for the most recent Ops Agent deployment started since boot.",
-    strict: true,
-    parameters: { type: "object", properties: {}, required: [], additionalProperties: false },
+    input_schema: { type: "object", properties: {}, required: [], additionalProperties: false },
   },
   {
-    type: "function",
     name: "restore_tracked_config",
     description: "Restore Nginx and systemd unit files from the tracked /srv/web99/app/ops configuration, validate Nginx, and reload it. Does not restart the dashboard.",
-    strict: true,
-    parameters: { type: "object", properties: {}, required: [], additionalProperties: false },
+    input_schema: { type: "object", properties: {}, required: [], additionalProperties: false },
   },
   {
-    type: "function",
     name: "check_url",
     description: "GET one path on https://web99.ie, follow redirects, and return final status/URL plus a small body preview. The host is fixed to web99.ie.",
-    strict: true,
-    parameters: {
+    input_schema: {
       type: "object",
       properties: { path: { type: "string", minLength: 1, maxLength: 300 } },
       required: ["path"],
@@ -126,32 +107,26 @@ const TOOLS = [
     },
   },
   {
-    type: "function",
     name: "release_status",
     description: "Inspect /srv/web99/current and list newest immutable releases. Read-only.",
-    strict: true,
-    parameters: { type: "object", properties: {}, required: [], additionalProperties: false },
+    input_schema: { type: "object", properties: {}, required: [], additionalProperties: false },
   },
   {
-    type: "function",
     name: "repair_current_release",
     description: "Emergency repair: point /srv/web99/current to the newest completed release, restart worker, reload Nginx and schedule dashboard restart. Use only after proving current is broken/missing.",
-    strict: true,
-    parameters: { type: "object", properties: {}, required: [], additionalProperties: false },
+    input_schema: { type: "object", properties: {}, required: [], additionalProperties: false },
   },
   {
-    type: "function",
     name: "show_config",
     description: "Read one safe production config file: tracked live Nginx, dashboard systemd unit, or worker systemd unit. Never exposes the env/secrets file.",
-    strict: true,
-    parameters: {
+    input_schema: {
       type: "object",
       properties: { target: { type: "string", enum: ["nginx", "dashboard-service", "worker-service"] } },
       required: ["target"],
       additionalProperties: false,
     },
   },
-] as const;
+];
 
 const MUTATING_TOOLS = new Set([
   "reload_nginx",
@@ -166,29 +141,11 @@ function mutationAllowed(message: string): boolean {
   return /\b(fix|repair|restart|deploy|reload|restore|backup|recover|apply|enable|disable)\b|\bback\s+up\b/i.test(message);
 }
 
-function apiKey(): string {
-  const key = process.env.OPENAI_API_KEY?.trim();
-  if (!key) throw new Error("OPENAI_API_KEY is not configured.");
-  return key;
-}
-
 function model(): string {
-  return process.env.OPENAI_OPS_MODEL
-    ?? process.env.OPENAI_AGENT_MODEL
-    ?? process.env.OPENAI_REASONING_MODEL
-    ?? "gpt-5.1";
-}
-
-function outputText(data: any): string {
-  if (typeof data?.output_text === "string" && data.output_text.trim()) return data.output_text.trim();
-  const parts: string[] = [];
-  for (const item of data?.output ?? []) {
-    if (item?.type !== "message") continue;
-    for (const block of item?.content ?? []) {
-      if (block?.type === "output_text" && typeof block.text === "string") parts.push(block.text);
-    }
-  }
-  return parts.join("").trim();
+  return process.env.ANTHROPIC_OPS_MODEL
+    ?? process.env.ANTHROPIC_AGENT_MODEL
+    ?? process.env.ANTHROPIC_REASONING_MODEL
+    ?? DEFAULT_MODEL;
 }
 
 function clip(value: string, max = 12000): string {
@@ -247,31 +204,22 @@ async function executeTool(
   }
 }
 
-async function responseRequest(input: any[]): Promise<any> {
-  const response = await fetch(RESPONSES_URL, {
-    method: "POST",
-    headers: {
-      Authorization: `Bearer ${apiKey()}`,
-      "Content-Type": "application/json",
-    },
-    body: JSON.stringify({
+async function claudeRequest(messages: Anthropic.MessageParam[]): Promise<Anthropic.Message> {
+  const message = await createMessage(
+    {
       model: model(),
-      instructions: SYSTEM,
-      input,
+      system: SYSTEM,
+      messages,
       tools: TOOLS,
-      tool_choice: "auto",
-      max_output_tokens: 2600,
-      store: false,
-    }),
-    signal: AbortSignal.timeout(90_000),
-  });
-
-  const raw = await response.text();
-  let data: any;
-  try { data = raw ? JSON.parse(raw) : {}; }
-  catch { throw new Error(`OpenAI returned invalid JSON (HTTP ${response.status}): ${raw.slice(0, 300)}`); }
-  if (!response.ok) throw new Error(`OpenAI API ${response.status}: ${data?.error?.message ?? raw.slice(0, 500)}`);
-  return data;
+      tool_choice: { type: "auto" },
+      max_tokens: tokenBudget(2600, "medium"),
+      effort: "medium",
+    },
+    // No server-side fallback: this agent can invoke the privileged helper, so a silent model swap mid-loop is not wanted.
+    { signal: AbortSignal.timeout(90_000), fallbacks: false }
+  );
+  assertNotRefused(message);
+  return message;
 }
 
 export async function runOpsAgent(message: string, history: OpsTurn[] = []): Promise<{ message: string; actions: OpsAction[] }> {
@@ -280,52 +228,41 @@ export async function runOpsAgent(message: string, history: OpsTurn[] = []): Pro
     .filter((turn) => turn && (turn.role === "user" || turn.role === "assistant") && typeof turn.content === "string")
     .map((turn) => ({ role: turn.role, content: turn.content.slice(0, 4000) }));
 
-  const input: any[] = [
+  const messages: Anthropic.MessageParam[] = normalizeTurns([
     ...safeHistory,
-    { role: "user", content: message.slice(0, 5000) },
-  ];
+    { role: "user" as const, content: message.slice(0, 5000) },
+  ]);
   const actions: OpsAction[] = [];
   const canMutate = mutationAllowed(message);
 
   for (let round = 0; round < 8; round++) {
-    const response = await responseRequest(input);
-    const calls = (response?.output ?? []).filter((item: any) => item?.type === "function_call");
+    const response = await claudeRequest(messages);
+    const calls = response.content.filter((block): block is Anthropic.ToolUseBlock => block.type === "tool_use");
 
     if (!calls.length) {
-      const text = outputText(response);
+      const text = messageText(response);
       return {
         message: text || "I finished the tool run but did not receive a final text response.",
         actions,
       };
     }
 
-    // Carry the model output forward manually. This keeps Responses API storage
-    // disabled while preserving function calls/reasoning needed for the next turn.
-    input.push(...(response.output ?? []));
+    // Echo the assistant turn back exactly as received (thinking blocks included) — the API requires it.
+    messages.push({ role: "assistant", content: response.content });
 
+    const results: Anthropic.ToolResultBlockParam[] = [];
     for (const call of calls) {
-      let args: Record<string, unknown> = {};
-      try { args = call.arguments ? JSON.parse(call.arguments) : {}; }
-      catch {
-        const bad = { ok: false, output: "The model produced invalid JSON tool arguments." };
-        input.push({ type: "function_call_output", call_id: call.call_id, output: JSON.stringify(bad) });
-        actions.push({ name: call.name, arguments: {}, ok: false, summary: bad.output });
-        continue;
-      }
-
-      const result = await executeTool(call.name, args as Record<string, any>, canMutate);
+      const args = (call.input ?? {}) as Record<string, any>;
+      const result = await executeTool(call.name, args, canMutate);
       actions.push({
         name: call.name,
         arguments: args,
         ok: result.ok,
         summary: clip(result.output, 700),
       });
-      input.push({
-        type: "function_call_output",
-        call_id: call.call_id,
-        output: JSON.stringify(result),
-      });
+      results.push({ type: "tool_result", tool_use_id: call.id, content: JSON.stringify(result), is_error: !result.ok });
     }
+    messages.push({ role: "user", content: results });
   }
 
   throw new Error("Ops Agent exceeded its maximum tool-call rounds.");

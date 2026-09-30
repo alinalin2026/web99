@@ -67,7 +67,7 @@ export default function Actions({
         <>
           <p style={{ margin: "0 0 14px" }}>
             <strong>Read the plan below.</strong> When you're happy with it, this button
-            hands that approved plan to OpenAI. GPT-5.6 builds the complete website,
+            hands that approved plan to Claude. Claude builds the complete website,
             GPT Image 2 makes the logo/visuals, and the finished preview is pushed to its
             Web99 subdomain.
           </p>
@@ -108,7 +108,7 @@ export default function Actions({
 
       {state === "generating" && (
         <p className="muted" style={{ margin: 0 }}>
-          OpenAI is building the website and its visual assets. This can take a little while.
+          Claude is building the website and its visual assets. This can take a little while.
         </p>
       )}
 

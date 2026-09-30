@@ -18,8 +18,8 @@
 
 import fs from "node:fs";
 import path from "node:path";
+import { assertNotRefused, createMessage, DEFAULT_MODEL, messageText, tokenBudget, type Effort } from "./anthropic";
 
-const RESPONSES_URL = "https://api.openai.com/v1/responses";
 const EXPECTED_CHARS = 38000;
 const ROLES = ["hero", "work", "detail"] as const;
 
@@ -147,59 +147,31 @@ export async function generateInstantSite(
   onProgress?: (pct: number) => void,
   signal?: AbortSignal
 ): Promise<InstantSiteResult> {
-  const key = process.env.OPENAI_API_KEY?.trim();
-  if (!key) throw new Error("OPENAI_API_KEY is not set.");
   const started = Date.now();
-
-  const res = await fetch(RESPONSES_URL, {
-    method: "POST",
-    headers: { Authorization: `Bearer ${key}`, "Content-Type": "application/json" },
-    signal,
-    body: JSON.stringify({
-      model: process.env.OPENAI_INSTANT_SITE_MODEL ?? process.env.OPENAI_BUILD_MODEL ?? "gpt-5.6",
-      reasoning: { effort: process.env.OPENAI_INSTANT_SITE_EFFORT ?? "low" },
-      instructions: instantSiteInstructions(loadLibrary()),
-      input: `WHAT THE OWNER TOLD US ABOUT THEIR BUSINESS (their own words):\n${brief}`,
-      max_output_tokens: 30000,
-      stream: true,
-    }),
-  });
-  if (!res.ok || !res.body) {
-    const detail = await res.text().catch(() => "");
-    throw new Error(`OpenAI ${res.status}: ${detail.slice(0, 300)}`);
-  }
-
-  const reader = res.body.getReader();
-  const decoder = new TextDecoder();
-  let buffer = "";
-  let out = "";
+  const effort = (process.env.ANTHROPIC_INSTANT_SITE_EFFORT as Effort | undefined) ?? "low";
+  let streamed = "";
   let lastPct = -1;
 
-  for (;;) {
-    const { done, value } = await reader.read();
-    if (done) break;
-    buffer += decoder.decode(value, { stream: true });
-    let idx: number;
-    while ((idx = buffer.indexOf("\n\n")) >= 0) {
-      const block = buffer.slice(0, idx);
-      buffer = buffer.slice(idx + 2);
-      for (const line of block.split("\n")) {
-        if (!line.startsWith("data:")) continue;
-        const payload = line.slice(5).trim();
-        if (!payload || payload === "[DONE]") continue;
-        let ev: any;
-        try { ev = JSON.parse(payload); } catch { continue; }
-        if (ev.type === "response.output_text.delta" && typeof ev.delta === "string") {
-          out += ev.delta;
-          const pct = Math.min(96, Math.floor((out.length / EXPECTED_CHARS) * 100));
-          if (pct !== lastPct) { lastPct = pct; onProgress?.(pct); }
-        } else if (ev.type === "response.failed" || ev.type === "error") {
-          throw new Error(ev.response?.error?.message ?? ev.message ?? "Generation failed.");
-        }
-      }
+  const message = await createMessage(
+    {
+      model: process.env.ANTHROPIC_INSTANT_SITE_MODEL ?? process.env.ANTHROPIC_BUILD_MODEL ?? DEFAULT_MODEL,
+      system: instantSiteInstructions(loadLibrary()),
+      messages: [{ role: "user", content: `WHAT THE OWNER TOLD US ABOUT THEIR BUSINESS (their own words):\n${brief}` }],
+      max_tokens: tokenBudget(30000, effort),
+      effort,
+    },
+    {
+      signal,
+      onText: (delta) => {
+        streamed += delta;
+        const pct = Math.min(96, Math.floor((streamed.length / EXPECTED_CHARS) * 100));
+        if (pct !== lastPct) { lastPct = pct; onProgress?.(pct); }
+      },
     }
-  }
+  );
+  assertNotRefused(message);
 
+  const out = messageText(message) || streamed;
   if (out.length < 4000) throw new Error("Model returned too little output.");
   return { html: finalizeHtml(out), ms: Date.now() - started, outputChars: out.length };
 }

@@ -42,8 +42,10 @@ operator reads/edits it before anything else runs. `autopilot`
 click. Every build gets two automatic QA passes (source + optional
 visual) with an auto-repair loop before an operator ever sees it.
 
-Model stack is unified on **OpenAI's Responses API** (`lib/ai.ts`) —
-fast/reasoning/build/image tiers via env vars, not a Claude+GPT split.
+All text is **Claude** via the Anthropic SDK (`lib/anthropic.ts`, wrapped
+by `lib/ai.ts`) — per-role models via `ANTHROPIC_*_MODEL` env vars. The one
+exception is image generation (logos/photos), which stays on OpenAI's image
+API because Anthropic has no image model.
 
 **`dashboard/lib/capabilities.ts` is the single source of truth for
 every promise made to a customer.** Every capability has a status:

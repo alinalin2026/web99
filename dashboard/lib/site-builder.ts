@@ -1,9 +1,11 @@
+import { assertNotRefused, createMessage, DEFAULT_MODEL, messageText, tokenBudget } from "./anthropic";
 import { generatorPrompt } from "./prompts/generator";
 
-const RESPONSES_URL = "https://api.openai.com/v1/responses";
+/* Claude writes the site; Anthropic has no image model, so the generated
+   visuals still come from OpenAI's image API (OPENAI_API_KEY is used for that only). */
 const IMAGES_URL = "https://api.openai.com/v1/images/generations";
 
-export const OPENAI_BUILD_MODEL = process.env.OPENAI_BUILD_MODEL ?? "gpt-5.6";
+export const BUILD_MODEL = process.env.ANTHROPIC_BUILD_MODEL ?? DEFAULT_MODEL;
 export const OPENAI_IMAGE_MODEL = process.env.OPENAI_IMAGE_MODEL ?? "gpt-image-2";
 
 interface ImageRequest {
@@ -13,7 +15,7 @@ interface ImageRequest {
   size?: "1024x1024" | "1536x1024" | "1024x1536";
 }
 
-export interface OpenAIWebsiteBuild {
+export interface WebsiteBuild {
   files: Record<string, string>;
   imageRequests?: ImageRequest[];
   domainSuggestions?: string[];
@@ -31,21 +33,6 @@ function key(): string {
   return value;
 }
 
-function outputText(data: any): string {
-  if (typeof data?.output_text === "string" && data.output_text.trim()) {
-    return data.output_text.trim();
-  }
-  const parts: string[] = [];
-  for (const item of data?.output ?? []) {
-    for (const block of item?.content ?? []) {
-      if (block?.type === "output_text" && typeof block.text === "string") {
-        parts.push(block.text);
-      }
-    }
-  }
-  return parts.join("").trim();
-}
-
 function parseJson<T>(raw: string): T {
   try {
     return JSON.parse(raw) as T;
@@ -53,7 +40,7 @@ function parseJson<T>(raw: string): T {
     const start = raw.indexOf("{");
     const end = raw.lastIndexOf("}");
     if (start !== -1 && end > start) return JSON.parse(raw.slice(start, end + 1)) as T;
-    throw new Error(`OpenAI builder returned unusable JSON. First 300 chars: ${raw.slice(0, 300)}`);
+    throw new Error(`Claude builder returned unusable JSON. First 300 chars: ${raw.slice(0, 300)}`);
   }
 }
 
@@ -96,46 +83,29 @@ async function generateImage(request: ImageRequest): Promise<string> {
   return `data:image/${outputFormat};base64,${b64}`;
 }
 
-export async function buildWebsiteWithOpenAI(
+export async function buildWebsiteWithClaude(
   plan: Record<string, unknown>,
   steer?: string
-): Promise<OpenAIWebsiteBuild> {
-  const instructions = `${generatorPrompt()}\n\nOPENAI BUILD STAGE\nYou are the final builder. Produce a polished complete website, not a wireframe. You may request up to 3 generated visual assets using imageRequests. Prefer one original logo mark and one or two tasteful decorative trade-relevant images. Never use generated people or premises in a way that implies they are the real business.\n\nFor every generated asset, put a placeholder exactly like {{W99_IMAGE:asset-id}} wherever its data URL belongs in HTML or CSS, and add one matching imageRequests entry. Every placeholder must have exactly one matching request. Do not invent remote image URLs.`;
+): Promise<WebsiteBuild> {
+  const instructions = `${generatorPrompt()}\n\nBUILD STAGE\nYou are the final builder. Produce a polished complete website, not a wireframe. You may request up to 3 generated visual assets using imageRequests. Prefer one original logo mark and one or two tasteful decorative trade-relevant images. Never use generated people or premises in a way that implies they are the real business.\n\nFor every generated asset, put a placeholder exactly like {{W99_IMAGE:asset-id}} wherever its data URL belongs in HTML or CSS, and add one matching imageRequests entry. Every placeholder must have exactly one matching request. Do not invent remote image URLs.`;
 
-  const input = `Here is the Claude-approved build plan:\n\n${JSON.stringify(plan, null, 2)}${
+  const input = `Here is the approved build plan:\n\n${JSON.stringify(plan, null, 2)}${
     steer?.trim() ? `\n\nOperator note before building:\n${steer.trim()}` : ""
   }`;
 
-  const response = await fetch(RESPONSES_URL, {
-    method: "POST",
-    headers: {
-      Authorization: `Bearer ${key()}`,
-      "Content-Type": "application/json",
-    },
-    body: JSON.stringify({
-      model: OPENAI_BUILD_MODEL,
-      reasoning: { effort: "medium" },
-      instructions,
-      input,
-      max_output_tokens: 50000,
-    }),
+  const message = await createMessage({
+    model: BUILD_MODEL,
+    system: instructions,
+    messages: [{ role: "user", content: input }],
+    max_tokens: tokenBudget(50000, "medium"),
+    effort: "medium",
   });
-
-  const raw = await response.text();
-  let data: any;
-  try {
-    data = raw ? JSON.parse(raw) : {};
-  } catch {
-    throw new Error(`OpenAI Responses API returned invalid JSON (HTTP ${response.status}).`);
-  }
-  if (!response.ok) {
-    throw new Error(`OpenAI Responses API ${response.status}: ${data?.error?.message ?? raw.slice(0, 700)}`);
-  }
-
-  const text = outputText(data);
-  if (!text) throw new Error("OpenAI builder returned no text output.");
-  const result = parseJson<OpenAIWebsiteBuild>(text);
-  if (!result.files?.["index.html"]) throw new Error("OpenAI builder returned no index.html.");
+  assertNotRefused(message);
+  if (message.stop_reason === "max_tokens") throw new Error("Claude ran out of output budget before finishing the site.");
+  const text = messageText(message);
+  if (!text) throw new Error("Claude builder returned no text output.");
+  const result = parseJson<WebsiteBuild>(text);
+  if (!result.files?.["index.html"]) throw new Error("Claude builder returned no index.html.");
 
   const requests = (result.imageRequests ?? []).slice(0, 3);
   const images = new Map<string, string>();

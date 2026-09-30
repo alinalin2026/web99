@@ -24,7 +24,8 @@ export async function GET() {
       ok: true,
       service: "web99",
       database: "ok",
-      openaiConfigured: Boolean(process.env.OPENAI_API_KEY?.trim()),
+      anthropicConfigured: Boolean(process.env.ANTHROPIC_API_KEY?.trim()),
+      imagesConfigured: Boolean(process.env.OPENAI_API_KEY?.trim()),
       queue: {
         queued: Number(db?.queued ?? 0),
         running: Number(db?.running ?? 0),

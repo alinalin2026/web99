@@ -11,7 +11,7 @@ export const maxDuration = 60;
    No auth, no order row — this is the free pre-payment preview. It is called by
    the /start page on the same origin (Nginx maps /api/ to this app). */
 
-/* Unauthenticated and it spends OpenAI tokens, so cap it per IP. In-memory is
+/* Unauthenticated and it spends Anthropic tokens, so cap it per IP. In-memory is
    enough on the single AWS box: it only has to stop a runaway page or a bored
    script, not be exact. */
 const WINDOW_MS = 15 * 60 * 1000;

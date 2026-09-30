@@ -1,4 +1,4 @@
-/* Sarah's reply parsing and conversation flow — everything that can be checked without OpenAI.
+/* Sarah's reply parsing and conversation flow — everything that can be checked without a model call.
    Run: npm test  (from dashboard/) */
 
 import assert from "node:assert/strict";

@@ -9,7 +9,6 @@ const execFileAsync = promisify(execFile);
 const PORT = Number(process.env.WEB99_OPS_PORT || 3011);
 const HOST = '127.0.0.1';
 const HELPER = process.env.WEB99_OPS_HELPER || '/usr/local/libexec/web99-ops-tool';
-const OPENAI_URL = 'https://api.openai.com/v1/responses';
 const COOKIE = 'w99ops';
 const JOB_DIR = process.env.WEB99_OPS_JOB_DIR || '/srv/web99/ops-jobs';
 
@@ -27,17 +26,17 @@ Rules:
 - Keep replies short: what you found, what you did, what is true now.`;
 
 const TOOLS = [
-  { type:'function', name:'get_status', description:'Read Web99 service states and local health.', strict:true, parameters:{type:'object',properties:{},required:[],additionalProperties:false}},
-  { type:'function', name:'get_logs', description:'Read recent dashboard, worker or nginx logs.', strict:true, parameters:{type:'object',properties:{service:{type:'string',enum:['dashboard','worker','nginx']},lines:{type:'integer',minimum:10,maximum:250}},required:['service','lines'],additionalProperties:false}},
-  { type:'function', name:'check_url', description:'Check one https://web99.ie path and follow redirects.', strict:true, parameters:{type:'object',properties:{path:{type:'string',minLength:1,maxLength:300}},required:['path'],additionalProperties:false}},
-  { type:'function', name:'test_nginx', description:'Validate active Nginx configuration.', strict:true, parameters:{type:'object',properties:{},required:[],additionalProperties:false}},
-  { type:'function', name:'reload_nginx', description:'Validate and reload Nginx.', strict:true, parameters:{type:'object',properties:{},required:[],additionalProperties:false}},
-  { type:'function', name:'restart_service', description:'Restart Web99 dashboard, worker, or both.', strict:true, parameters:{type:'object',properties:{target:{type:'string',enum:['dashboard','worker','all']}},required:['target'],additionalProperties:false}},
-  { type:'function', name:'backup_database', description:'Create and verify a PostgreSQL backup.', strict:true, parameters:{type:'object',properties:{},required:[],additionalProperties:false}},
-  { type:'function', name:'start_deploy', description:'Start the tracked Web99 deploy in an independent systemd job.', strict:true, parameters:{type:'object',properties:{},required:[],additionalProperties:false}},
-  { type:'function', name:'get_deploy_status', description:'Read the most recent Ops deployment status and logs.', strict:true, parameters:{type:'object',properties:{},required:[],additionalProperties:false}},
-  { type:'function', name:'restore_tracked_config', description:'Restore tracked Web99 Nginx/systemd config and reload Nginx.', strict:true, parameters:{type:'object',properties:{},required:[],additionalProperties:false}},
-  { type:'function', name:'show_config', description:'Read safe Nginx/dashboard/worker config without secrets.', strict:true, parameters:{type:'object',properties:{target:{type:'string',enum:['nginx','dashboard-service','worker-service']}},required:['target'],additionalProperties:false}}
+  { name:'get_status', description:'Read Web99 service states and local health.', input_schema:{type:'object',properties:{},required:[],additionalProperties:false}},
+  { name:'get_logs', description:'Read recent dashboard, worker or nginx logs.', input_schema:{type:'object',properties:{service:{type:'string',enum:['dashboard','worker','nginx']},lines:{type:'integer',minimum:10,maximum:250}},required:['service','lines'],additionalProperties:false}},
+  { name:'check_url', description:'Check one https://web99.ie path and follow redirects.', input_schema:{type:'object',properties:{path:{type:'string',minLength:1,maxLength:300}},required:['path'],additionalProperties:false}},
+  { name:'test_nginx', description:'Validate active Nginx configuration.', input_schema:{type:'object',properties:{},required:[],additionalProperties:false}},
+  { name:'reload_nginx', description:'Validate and reload Nginx.', input_schema:{type:'object',properties:{},required:[],additionalProperties:false}},
+  { name:'restart_service', description:'Restart Web99 dashboard, worker, or both.', input_schema:{type:'object',properties:{target:{type:'string',enum:['dashboard','worker','all']}},required:['target'],additionalProperties:false}},
+  { name:'backup_database', description:'Create and verify a PostgreSQL backup.', input_schema:{type:'object',properties:{},required:[],additionalProperties:false}},
+  { name:'start_deploy', description:'Start the tracked Web99 deploy in an independent systemd job.', input_schema:{type:'object',properties:{},required:[],additionalProperties:false}},
+  { name:'get_deploy_status', description:'Read the most recent Ops deployment status and logs.', input_schema:{type:'object',properties:{},required:[],additionalProperties:false}},
+  { name:'restore_tracked_config', description:'Restore tracked Web99 Nginx/systemd config and reload Nginx.', input_schema:{type:'object',properties:{},required:[],additionalProperties:false}},
+  { name:'show_config', description:'Read safe Nginx/dashboard/worker config without secrets.', input_schema:{type:'object',properties:{target:{type:'string',enum:['nginx','dashboard-service','worker-service']}},required:['target'],additionalProperties:false}}
 ];
 
 const MUTATING = new Set(['reload_nginx','restart_service','backup_database','start_deploy','restore_tracked_config']);
@@ -92,31 +91,39 @@ async function execute(name,args,canMutate){
     default: return {ok:false,output:`Unknown tool: ${name}`};
   }
 }
-function outputText(data){
-  if(typeof data?.output_text==='string'&&data.output_text.trim()) return data.output_text.trim();
-  const out=[];
-  for(const item of data?.output||[]) if(item?.type==='message') for(const block of item.content||[]) if(block?.type==='output_text'&&block.text) out.push(block.text);
-  return out.join('').trim();
+let claudeClient;
+async function claude(){
+  if(claudeClient) return claudeClient;
+  const apiKey=(process.env.ANTHROPIC_API_KEY||'').trim(); if(!apiKey) throw new Error('ANTHROPIC_API_KEY is not configured');
+  // Loaded lazily from the dashboard's install so this console still boots (login, jobs) if the SDK is missing.
+  let mod; try{ mod=await import(new URL('../dashboard/node_modules/@anthropic-ai/sdk/index.mjs',import.meta.url).href); }
+  catch{ throw new Error('The Anthropic SDK is not installed in dashboard/node_modules — run a deploy first'); }
+  claudeClient=new mod.default({apiKey}); return claudeClient;
 }
-async function openai(input){
-  const key=(process.env.OPENAI_API_KEY||'').trim(); if(!key) throw new Error('OPENAI_API_KEY is not configured');
-  const r=await fetch(OPENAI_URL,{method:'POST',headers:{authorization:`Bearer ${key}`,'content-type':'application/json'},body:JSON.stringify({model:process.env.OPENAI_OPS_MODEL||process.env.OPENAI_AGENT_MODEL||'gpt-5.1',instructions:SYSTEM,input,tools:TOOLS,tool_choice:'auto',max_output_tokens:2200,store:false}),signal:AbortSignal.timeout(90000)});
-  const raw=await r.text(); let data; try{data=raw?JSON.parse(raw):{};}catch{throw new Error(`OpenAI invalid JSON (${r.status})`);} if(!r.ok) throw new Error(data?.error?.message||`OpenAI HTTP ${r.status}`); return data;
+const EFFORT_MODELS=/^claude-(opus-5|fable-5|mythos-5|sonnet-5|opus-4-[5-8]|sonnet-4-6)/;
+async function ask(messages){
+  const c=await claude();
+  const model=process.env.ANTHROPIC_OPS_MODEL||process.env.ANTHROPIC_AGENT_MODEL||'claude-sonnet-5';
+  const r=await c.messages.create({model,system:SYSTEM,messages,tools:TOOLS,tool_choice:{type:'auto'},max_tokens:8200,...(EFFORT_MODELS.test(model)?{output_config:{effort:'medium'}}:{})},{signal:AbortSignal.timeout(90000)});
+  if(r.stop_reason==='refusal') throw new Error('Claude declined the request');
+  return r;
 }
 async function runAgent(message){
-  const input=[{role:'user',content:message.slice(0,5000)}];
+  const messages=[{role:'user',content:message.slice(0,5000)}];
   const actions=[]; const canMutate=mutationAllowed(message);
   for(let round=0;round<7;round++){
-    const response=await openai(input);
-    const calls=(response.output||[]).filter(x=>x?.type==='function_call');
-    if(!calls.length) return {message:outputText(response)||'Done.',actions};
-    input.push(...(response.output||[]));
+    const response=await ask(messages);
+    const calls=response.content.filter(x=>x?.type==='tool_use');
+    if(!calls.length) return {message:response.content.filter(x=>x?.type==='text').map(x=>x.text).join('').trim()||'Done.',actions};
+    // Echo the assistant turn back exactly as received (thinking blocks included) — the API requires it.
+    messages.push({role:'assistant',content:response.content});
+    const results=[];
     for(const call of calls){
-      let args={}; try{args=call.arguments?JSON.parse(call.arguments):{};}catch{}
-      const result=await execute(call.name,args,canMutate);
+      const result=await execute(call.name,call.input||{},canMutate);
       actions.push({name:call.name,ok:result.ok,summary:clip(result.output,900)});
-      input.push({type:'function_call_output',call_id:call.call_id,output:JSON.stringify(result)});
+      results.push({type:'tool_result',tool_use_id:call.id,content:JSON.stringify(result),is_error:!result.ok});
     }
+    messages.push({role:'user',content:results});
   }
   throw new Error('Ops Agent exceeded tool-call limit');
 }

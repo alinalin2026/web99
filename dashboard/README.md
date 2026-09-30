@@ -41,7 +41,7 @@ decides the one next step, a background worker executes it, and the operator
 screen just shows where things are and can steer or approve at any point.
 
 ```
- Sarah (OpenAI, /start/)
+ Sarah (Claude, /start/)
         │
         ▼
   collecting ──► ready (qualified lead)
@@ -52,7 +52,7 @@ screen just shows where things are and can steer or approve at any point.
   ┌─────────────────────────── background worker, one job at a time ──────────────────────────┐
   │                                                                                              │
   │  make_plan ──► prepare_studio ──► generate_images ──► build_site ──► automatic QA + repair   │
-  │  (OpenAI writes  (turns the plan    (gpt-image-2,      (OpenAI writes            │           │
+  │  (Claude writes  (turns the plan    (gpt-image-2,      (Claude writes            │           │
   │   the strategy    into final copy    one call per        the whole site,         ▼           │
   │   plan; operator   + image prompts)  asset)              file by file)     deployed, state='live'
   │   reads/edits it)                                                                             │
@@ -69,22 +69,22 @@ order) decides how much of the rest happens without another click —
 `assisted` and `full` chain straight through image generation and the build;
 `manual` stops after each step for a human to say go.
 
-Every build gets **two rounds of QA for free**: `sourceQa()` (an OpenAI pass
+Every build gets **two rounds of QA for free**: `sourceQa()` (a Claude pass
 over the generated code, chunked so large sites don't blow the context
 window, plus the same static `validate()` checks the old pipeline used —
 missing doctype, wrong `<h1>` count, external script/image refs, invented
 claims like fake "years of experience" or testimonials) and, if
 `VISUAL_QA_URL` is configured, a screenshot-based visual pass. If either
 finds a critical/major issue, `repairFromQa()` sends the flagged files back
-through OpenAI once with the QA report attached, then re-checks — this is
+through Claude once with the QA report attached, then re-checks — this is
 automatic and happens before the operator ever sees the build.
 
 | `state` | Means |
 |---|---|
 | `collecting` | Sarah is still talking to them |
 | `ready` | qualified lead — has a plan once `plan_text` is set |
-| `analysing` | OpenAI is writing the plan |
-| `generating` | OpenAI is building/repairing the site |
+| `analysing` | Claude is writing the plan |
+| `generating` | Claude is building/repairing the site |
 | `live` | deployed — `generated`, `preview_url` and `qa_report` are all set |
 | `sent` | preview link emailed to the customer |
 | `won` / `lost` | they paid / they didn't |
@@ -147,21 +147,28 @@ marketing site. If you change price, SLA or what's included, update both.
 
 ## What each model tier is for
 
-One provider now — OpenAI's Responses API for everything, `lib/ai.ts`. Two
-cost tiers, picked per call:
+Claude for all text, through the Anthropic SDK: `lib/anthropic.ts` is the one
+place it is called (client, effort, refusals, streaming), and `lib/ai.ts` is
+the chat/text/json wrapper on top. Every role defaults to `claude-sonnet-5`;
+each can be moved independently, so cost and latency are per-role choices:
 
 | Env var | Used for |
 |---|---|
-| `OPENAI_SARAH_MODEL` (`gpt-5-mini`), `OPENAI_SARAH_EFFORT` (`minimal`) | Sarah's chat. Deliberately NOT `OPENAI_FAST_MODEL`: `gpt-5-nano` there made her drift off-script and return truncated JSON |
-| `OPENAI_EXTRACT_MODEL` (`gpt-5-mini`) | extracting the lead brief from the chat |
-| `OPENAI_FAST_MODEL` (`gpt-5-mini`) | anything else cheap |
-| `OPENAI_REASONING_MODEL` (`gpt-5.1`) | the strategy plan, Studio copy, QA, `chooseNextAction`'s controller |
-| `OPENAI_BUILD_MODEL` | writing the site's actual code |
-| `OPENAI_IMAGE_MODEL` (`gpt-image-2`) | logos and photos |
+| `ANTHROPIC_SARAH_MODEL`, `ANTHROPIC_SARAH_EFFORT` (`low`) | Sarah's chat replies |
+| `ANTHROPIC_EXTRACT_MODEL` | extracting the lead brief from the chat, and the "is she finished?" classifier |
+| `ANTHROPIC_REASONING_MODEL` | the strategy plan; fallback for Studio, QA and agent below |
+| `ANTHROPIC_STUDIO_MODEL`, `ANTHROPIC_QA_MODEL`, `ANTHROPIC_AGENT_MODEL` | Studio copy, QA (source + vision), `chooseNextAction`'s controller |
+| `ANTHROPIC_BUILD_MODEL` | writing the site's actual code |
+| `ANTHROPIC_INSTANT_SITE_MODEL`, `ANTHROPIC_INSTANT_SITE_EFFORT` (`low`) | the free full-page preview on `/start` |
+| `ANTHROPIC_OPS_MODEL` | the Ops Agent (dashboard and standalone console) |
+| `ANTHROPIC_DEFAULT_EFFORT` (`medium`) | roles that don't pass their own effort |
+| `ANTHROPIC_FALLBACKS` (`off` to disable) | server-side refusal fallback; only applies to opus-5/fable-5 (not the Sonnet default) |
+| `OPENAI_API_KEY`, `OPENAI_IMAGE_MODEL` (`gpt-image-2`) | logos and photos only — Anthropic has no image model |
 
-`OPENAI_STUDIO_MODEL`, `OPENAI_QA_MODEL` and `OPENAI_AGENT_MODEL` each fall
-back to `OPENAI_REASONING_MODEL` if unset, so one env var can move the whole
-system to a new default model.
+Effort is only sent to models that support it (opus-5, fable-5, sonnet-5,
+opus/sonnet 4.5+), so pointing a role at `claude-haiku-4-5` works. Thinking is
+on by default on Sonnet 5 and Opus 5 and shares `max_tokens` with the answer, so
+`tokenBudget()` adds headroom to every call.
 
 ## The Ops Agent — a chat console for the server itself
 
@@ -309,7 +316,7 @@ returned as if it were an answer.
 After the customer's third message the page (`assets/js/site.js`) fires two things:
 
 1. **`POST /api/instant-preview`** — four small unstyled sections (hero,
-   services, trust, contact), one OpenAI call each in parallel
+   services, trust, contact), one Claude call each in parallel
    (`lib/instant-preview.ts`), that fill the wait.
 2. **`POST /api/instant-site`** — one strong-model call writes a full art-directed
    front page from the owner's own chat messages (`lib/instant-site.ts`). It renders at the
@@ -323,6 +330,6 @@ single closest trade; `enforceLibrary()` then guarantees only that trade's real 
 used (mismatched or invented URLs are remapped or blanked). To add a trade: add the
 folder and a manifest entry.
 
-`/api/instant-preview` is unauthenticated and spends OpenAI tokens, so it is
+`/api/instant-preview` is unauthenticated and spends Anthropic tokens, so it is
 rate-limited per IP in memory (12 runs / 15 min) and is on the middleware
 public list. Model output is cleaned server-side (`cleanFragment`, `finalizeHtml`).

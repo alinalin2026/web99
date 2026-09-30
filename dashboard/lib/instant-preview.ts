@@ -2,7 +2,7 @@
    INSTANT PREVIEW (the four-section teaser)
    ---------------------------------------------------------------------------
    Fills the wait on /start while the full-page site (instant-site.ts) is being
-   written: hero / services / trust / contact, each its own small OpenAI call,
+   written: hero / services / trust / contact, each its own small Claude call,
    all in parallel, streamed to the browser as they finish. Never touches an
    order row and never throws — a failed section is swapped for a plain
    fallback so one bad call can't blank the preview.

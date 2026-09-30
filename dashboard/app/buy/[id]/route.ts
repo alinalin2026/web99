@@ -3,6 +3,7 @@ import Stripe from "stripe";
 import { getOrder, sql, logEvent } from "@/lib/db";
 import { commercials } from "@/lib/capabilities";
 import { sendMetaConversion } from "@/lib/meta-conversions";
+import { paymentLinkFor } from "@/lib/payment";
 
 export const runtime = "nodejs";
 
@@ -36,6 +37,12 @@ export async function GET(
   if (order.state === "won") {
     return NextResponse.redirect(`${process.env.APP_URL}/choose/${id}`);
   }
+
+  const viaCheckout = Boolean(process.env.STRIPE_SECRET_KEY);
+  await logEvent(id, "wants_it", { via: viaCheckout ? "checkout" : "payment_link" });
+
+  // No Stripe API keys on the server yet: send them to the live Payment Link instead.
+  if (!viaCheckout) return NextResponse.redirect(paymentLinkFor(id, order.email), { status: 303 });
 
   const session = await stripe().checkout.sessions.create({
     mode: "payment",

@@ -284,6 +284,7 @@
     var siteViewport = document.getElementById("instantSiteViewport");
     var siteFrame = document.getElementById("instantSiteFrame");
     var siteMode = "desktop";
+    var loveAnnounced = false;
 
     var fitSiteFrame = function () {
       if (!siteFrame || !siteViewport) return;
@@ -320,6 +321,20 @@
       } else if (eventName === "page" && data && typeof data.html === "string") {
         siteFrame.onload = function () { fitSiteFrame(); siteFrame.style.visibility = "hidden"; void siteFrame.offsetHeight; siteFrame.style.visibility = ""; };
         siteFrame.srcdoc = data.html;
+        var buyHref = "/buy/" + encodeURIComponent(orderId);
+        var buyBtn = document.getElementById("instantSiteBuy");
+        var love = document.getElementById("instantSiteLove");
+        if (buyBtn && love && orderId) { buyBtn.href = buyHref; love.hidden = false; }
+        if (!loveAnnounced && orderId) {
+          loveAnnounced = true;
+          var loveTurn = addTurn("sarah", "Here it is \u2014 your website! Do you like it? If you love it, tap the button and it\u2019s yours.");
+          var loveCta = el("a", "btn btn--lg", "Yes, I love it \u2014 get it live");
+          loveCta.href = buyHref;
+          loveCta.style.display = "inline-flex";
+          loveCta.style.marginTop = "12px";
+          var loveBody = loveTurn.querySelector(".turn__body");
+          if (loveBody) loveBody.appendChild(loveCta);
+        }
         var openRow = document.getElementById("instantSiteOpenRow");
         var openLink = document.getElementById("instantSiteOpen");
         if (openRow && openLink && orderId) {
@@ -341,6 +356,7 @@
     var startInstantSite = function () {
       if (!siteBox || !siteFrame || !orderId) return;
       siteBox.hidden = false;
+      addTurn("sarah", "Please wait while we build your website \u2014 it usually takes about 60 seconds. It will appear right below.");
       siteBar.style.width = "2%";
       siteLabel.textContent = siteStatusText(0);
 

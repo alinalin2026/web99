@@ -49,6 +49,13 @@ export function ActionButton({
   );
 }
 
+export function MarkPaidButton({ id, businessName }: { id: string; businessName: string }) {
+  return (
+    <ActionButton id={id} action="markPaid" label="Mark as paid" busyLabel="Saving…" className="btn btn--ghost"
+      confirmText={`Mark ${businessName} as paid?`} />
+  );
+}
+
 export function AutopilotSelect({ id, value }: { id: string; value: string }) {
   const router = useRouter();
   const [mode, setMode] = useState(value || "assisted");

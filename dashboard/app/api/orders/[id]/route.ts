@@ -12,6 +12,7 @@ import { generateAllProjectAssets, prepareStudio } from "@/lib/studio";
 import { siteReady, send } from "@/lib/email";
 import { sendCustomEmail } from "@/lib/custom-email";
 import { requireOperator } from "@/lib/auth";
+import { commercials } from "@/lib/capabilities";
 
 export const runtime = "nodejs";
 export const maxDuration = 800;
@@ -190,6 +191,16 @@ export async function POST(
       case "reject": {
         await setState(id, "lost", { by: body.who ?? "operator", reason: body.reason ?? "" });
         await setWorkflow(id, "complete", { message: `${order.business_name ?? "Lead"} closed` });
+        return NextResponse.json({ ok: true });
+      }
+
+      // Payments made through the Payment Link don't reach us without the Stripe webhook, so mark them here.
+      case "markPaid": {
+        if (order.state === "won") throw new Error("Already marked as paid.");
+        const cents = Number.isInteger(body.amountCents) && body.amountCents > 0 ? body.amountCents : commercials.priceNumeric;
+        await sql`UPDATE orders SET paid_at = now() WHERE id = ${id}`;
+        await setState(id, "won", { manual: true, by: body.who ?? "operator" });
+        await logEvent(id, "state_change", { step: "paid", amount: cents, manual: true });
         return NextResponse.json({ ok: true });
       }
 

@@ -2,16 +2,16 @@ import Link from "next/link";
 import { ensureMasterSchema, listOrders, qualificationFor, type Order } from "@/lib/db";
 import { euro, loadFunnel, type FunnelInfo } from "@/lib/funnel";
 import { siteOrigin } from "@/lib/instant-site";
-import { LeadControls } from "./MasterActions";
+import { LeadControls, MarkPaidButton } from "./MasterActions";
 import { EmailComposer, type EmailOrderOption } from "./EmailComposer";
 
 export const dynamic = "force-dynamic";
 
 type Tab = "leads" | "orders" | "email";
-type Stage = "paid" | "built" | "can_build" | "chatting" | "lost";
+type Stage = "paid" | "wants" | "built" | "can_build" | "chatting" | "lost";
 
 const STAGE_LABEL: Record<Stage, string> = {
-  paid: "Paid", built: "Site built", can_build: "Can build", chatting: "Chatting", lost: "Lost",
+  paid: "Paid", wants: "Wants it", built: "Site built", can_build: "Can build", chatting: "Chatting", lost: "Lost",
 };
 
 function ago(iso: string | Date): string {
@@ -34,6 +34,7 @@ function hasPaid(o: Order) { return Boolean(o.paid_at) || o.state === "won"; }
 function stageOf(o: Order, f: FunnelInfo | undefined): Stage {
   if (hasPaid(o)) return "paid";
   if (o.state === "lost") return "lost";
+  if (f?.wantsIt) return "wants";
   if (f?.siteBuiltAt || f?.previewId || o.generated || o.state === "live" || o.state === "sent") return "built";
   const q = qualificationFor(o);
   return q === "lead" || q === "can_build" ? "can_build" : "chatting";
@@ -42,7 +43,7 @@ function stageOf(o: Order, f: FunnelInfo | undefined): Stage {
 /* Every page that shows the site the customer was given, one place to build the links. */
 function siteLinks(o: Order, f: FunnelInfo | undefined): { label: string; href: string }[] {
   const links: { label: string; href: string }[] = [];
-  if (f?.siteBuiltAt) links.push({ label: "View website", href: `/api/instant-site/view/${o.id}` });
+  if (f?.siteBuiltAt) links.push({ label: "View website", href: `/api/instant-site/view/${o.id}?clean=1` });
   if (f?.previewId) links.push({ label: f.previewCategory ? `Chosen design (${f.previewCategory})` : "Chosen design", href: `/p/${f.previewId}` });
   if (o.slug && o.generated) links.push({ label: "Built site", href: `/preview/${o.slug}` });
   return links;
@@ -158,10 +159,10 @@ function LeadsTab({ orders, funnel, group }: { orders: Order[]; funnel: Map<stri
   const stages = new Map(orders.map((o) => [o.id, stageOf(o, funnel.get(o.id))]));
   const count = (s: Stage) => orders.filter((o) => stages.get(o.id) === s).length;
   const paid = orders.filter((o) => stages.get(o.id) === "paid");
-  const builtOrPaid = count("built") + paid.length;
+  const builtOrBeyond = count("built") + count("wants") + paid.length;
 
   const groups: [string, string][] = [
-    ["all", "All"], ["chatting", "Chatting"], ["can_build", "Can build"], ["built", "Site built"], ["paid", "Paid"],
+    ["all", "All"], ["chatting", "Chatting"], ["can_build", "Can build"], ["built", "Site built"], ["wants", "Wants it"], ["paid", "Paid"],
   ];
   const filtered = group === "all" ? orders : orders.filter((o) => stages.get(o.id) === group);
 
@@ -169,9 +170,9 @@ function LeadsTab({ orders, funnel, group }: { orders: Order[]; funnel: Map<stri
     <section>
       <Metrics items={[
         { value: orders.length, label: "Leads" },
-        { value: builtOrPaid, label: "Sites built" },
+        { value: builtOrBeyond, label: "Sites built" },
+        { value: count("wants"), label: "Wants it" },
         { value: paid.length, label: "Paid" },
-        { value: revenue(paid, funnel), label: "Revenue" },
       ]} />
       <div className="filter-pills">
         {groups.map(([key, label]) => <Link key={key} className={group === key ? "active" : ""} href={`/?tab=leads&group=${key}`}>{label}{key !== "all" ? ` · ${count(key as Stage)}` : ""}</Link>)}
@@ -195,10 +196,12 @@ function LeadsTab({ orders, funnel, group }: { orders: Order[]; funnel: Map<stri
             <div className="chips">
               <Contact order={o} />
               {f?.siteBuiltAt && <span className="chip chip--blue">Site built {ago(f.siteBuiltAt)} ago</span>}
+              {stage === "wants" && <span className="chip chip--amber">Pressed “Yes, I love it”</span>}
               {hasPaid(o) && <span className="chip chip--violet">Paid{f?.paidCents != null ? ` ${euro(f.paidCents)}` : ""}</span>}
             </div>
             {lastCustomer && <p className="chat-snippet">“{lastCustomer.slice(0, 180)}{lastCustomer.length > 180 ? "…" : ""}”</p>}
             <SiteButtons links={siteLinks(o, f)} />
+            {(stage === "wants" || stage === "built") && <div className="button-row"><MarkPaidButton id={o.id} businessName={name(o)} /></div>}
             <details className="mini-details">
               <summary>Details & chat</summary>
               <div className="chat-log">{(o.conversation ?? []).slice(-8).map((t, i) => (
@@ -235,14 +238,18 @@ function OrdersTab({ orders, funnel }: { orders: Order[]; funnel: Map<string, Fu
   const paid = orders
     .filter(hasPaid)
     .sort((a, b) => +new Date(b.paid_at ?? b.updated_at) - +new Date(a.paid_at ?? a.updated_at));
-  const waiting = orders.filter((o) => !hasPaid(o) && o.state !== "lost" && stageOf(o, funnel.get(o.id)) === "built");
+  const waiting = orders
+    .filter((o) => ["built", "wants"].includes(stageOf(o, funnel.get(o.id))))
+    .sort((a, b) => Number(!!funnel.get(b.id)?.wantsIt) - Number(!!funnel.get(a.id)?.wantsIt));
+  const wantsCount = waiting.filter((o) => funnel.get(o.id)?.wantsIt).length;
 
   return (
     <section>
       <Metrics items={[
         { value: paid.length, label: "Paid orders" },
         { value: revenue(paid, funnel), label: "Revenue" },
-        { value: waiting.length, label: "Built, not paid" },
+        { value: wantsCount, label: "Wants it" },
+        { value: waiting.length, label: "Not paid yet" },
       ]} />
 
       <div className="section-title"><h1>Paid</h1><span>{paid.length}</span></div>
@@ -272,14 +279,15 @@ function OrdersTab({ orders, funnel }: { orders: Order[]; funnel: Map<string, Fu
         );
       })}
 
-      <div className="section-title" style={{ marginTop: 26 }}><h1>Built, not paid</h1><span>{waiting.length}</span></div>
-      <p className="section-copy">They have seen their site but haven't paid yet — the ones worth a nudge.</p>
+      <div className="section-title" style={{ marginTop: 26 }}><h1>Not paid yet</h1><span>{waiting.length}</span></div>
+      <p className="section-copy">They have seen their site but haven't paid yet. “Wants it” means they pressed “Yes, I love it” — follow those up first.</p>
       {waiting.length === 0 ? <Empty text="Everyone with a site has paid." /> : waiting.map((o) => {
         const f = funnel.get(o.id);
         return (
           <article className="lead-card panel" key={o.id}>
             <div className="card-top">
               <div className="grow">
+                {f?.wantsIt && <div className="qual q-wants">Wants it</div>}
                 <h2>{name(o)}</h2>
                 <p>{[o.trade, o.location].filter(Boolean).join(" · ") || "—"}</p>
               </div>
@@ -287,6 +295,10 @@ function OrdersTab({ orders, funnel }: { orders: Order[]; funnel: Map<string, Fu
             </div>
             <div className="chips"><Contact order={o} /></div>
             <SiteButtons links={siteLinks(o, f)} />
+            <div className="button-row">
+              <MarkPaidButton id={o.id} businessName={name(o)} />
+              {o.email && <a className="btn btn--ghost" href={`mailto:${o.email}`}>Email</a>}
+            </div>
           </article>
         );
       })}

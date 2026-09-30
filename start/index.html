@@ -316,6 +316,11 @@
   .instant-site__bar i { display: block; height: 100%; width: 0; border-radius: 999px; background: linear-gradient(90deg, var(--violet), var(--violet-deep)); transition: width 0.6s ease; }
   .instant-site__open { display: flex; flex-wrap: wrap; align-items: center; gap: 10px 16px; margin: 0 0 14px; }
   .instant-site__open span { font-size: 0.88rem; color: var(--muted); }
+  .instant-site__hint { display: block; margin-top: 8px; font-size: 0.85rem; color: var(--muted); }
+  .instant-site__love { position: sticky; bottom: 12px; z-index: 5; display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 12px 18px; margin-top: 14px; padding: 14px 16px; border: 1px solid var(--lav-line); border-radius: 16px; background: var(--white); box-shadow: 0 10px 30px rgba(45, 27, 143, 0.18); }
+  .instant-site__love div { flex: 1 1 220px; }
+  .instant-site__love strong { display: block; font-size: 1.05rem; color: var(--ink); }
+  .instant-site__love span { font-size: 0.88rem; color: var(--muted); }
   .instant-site__stage { border: 1px solid var(--lav-line); border-radius: 14px; overflow: hidden; background: var(--white); box-shadow: 0 10px 30px rgba(45, 27, 143, 0.10); }
   .instant-site__chrome { display: flex; align-items: center; justify-content: space-between; padding: 10px 14px; background: var(--lav); border-bottom: 1px solid var(--lav-line); }
   .instant-site__dots { display: inline-flex; gap: 6px; }
@@ -402,6 +407,7 @@
           <div class="instant-site__progress" id="instantSiteProgress">
             <span id="instantSiteLabel">Building your full website…</span>
             <div class="instant-site__bar"><i id="instantSiteBar"></i></div>
+            <small class="instant-site__hint">Please wait &mdash; this usually takes about 60 seconds.</small>
           </div>
           <div class="instant-site__open" id="instantSiteOpenRow" hidden>
             <a class="btn btn--lg" id="instantSiteOpen" href="#" target="_blank" rel="noopener">Open your website in a new tab <span class="btn__arrow" aria-hidden="true">↗</span></a>
@@ -418,6 +424,13 @@
             <div class="instant-site__viewport" id="instantSiteViewport">
               <iframe id="instantSiteFrame" title="Your website preview" sandbox="" referrerpolicy="no-referrer"></iframe>
             </div>
+          </div>
+          <div class="instant-site__love" id="instantSiteLove" hidden>
+            <div>
+              <strong>Do you like it?</strong>
+              <span>Love it? Get it live &mdash; €99 covers the complete website, plus your domain and hosting for the first year.</span>
+            </div>
+            <a class="btn btn--lg" id="instantSiteBuy" href="#">Yes, I love it &mdash; get it live</a>
           </div>
         </div>
       </div>
@@ -478,7 +491,7 @@
 </footer>
 
 
-    <script src="/assets/js/site.js?v=e1e0b221" defer></script>
+    <script src="/assets/js/site.js?v=8ffae4b5" defer></script>
     <script src="/assets/js/tracking.js?v=20260817a" defer></script>
   </body>
 </html>

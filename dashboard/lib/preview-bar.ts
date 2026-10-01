@@ -8,7 +8,7 @@ const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 export function withPreviewBar(html: string, orderId: string): string {
   if (!UUID.test(orderId)) throw new Error("withPreviewBar needs an order UUID.");
   const bar =
-    `<style>body{padding-bottom:96px !important}` +
+    `<style>body{padding-bottom:96px !important}.dock{display:none !important}` +
     `.w99bar{position:fixed;left:0;right:0;bottom:0;z-index:2147483647;display:flex;flex-wrap:wrap;gap:10px 18px;align-items:center;justify-content:center;padding:12px 16px calc(12px + env(safe-area-inset-bottom));background:#17152b;color:#fff;font:600 15px/1.3 system-ui,-apple-system,'Segoe UI',Roboto,sans-serif;box-shadow:0 -8px 30px rgba(0,0,0,.28)}` +
     `.w99bar-sub{opacity:.75;font-weight:500}` +
     `.w99bar a{background:#5b3fe8;color:#fff;text-decoration:none;padding:12px 22px;border-radius:999px;font-weight:800;white-space:nowrap}` +

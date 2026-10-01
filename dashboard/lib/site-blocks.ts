@@ -25,11 +25,11 @@ export interface SiteContent {
 }
 
 export const VARIANTS = {
-  logo: ["badge", "monogram", "mark", "tagline"],
+  logo: ["badge", "monogram", "tagline", "shield", "hex", "emblem", "arch", "duo", "ring", "stacked", "framed", "swoosh"],
   topbar: ["on", "off"],
   header: ["left", "center"],
   hero: ["split-right", "split-left", "full", "centered", "bold"],
-  services: ["cards", "list", "feature", "tiles"],
+  services: ["cards", "list", "feature", "tiles", "split", "bento"],
   values: ["dark", "accent", "light"],
   process: ["cards", "timeline", "steps"],
   band: ["ticker", "none"],
@@ -37,11 +37,17 @@ export const VARIANTS = {
   faq: ["accordion", "two-col"],
   cta: ["accent", "dark", "photo"],
   footer: ["simple", "columns"],
+  gallery: ["band", "none"],
+  order: ["classic", "story", "proof"],
 } as const;
 export type VariantKey = keyof typeof VARIANTS;
 export type Variants = { [K in VariantKey]: (typeof VARIANTS)[K][number] };
 
 export interface SiteDesign { palette: string; variants: Variants; seed: string }
+
+/* Layout choices added after the first release. Older saved designs lack them, so they fall back to the
+   original page (no mosaic, original section order). */
+export const VARIANT_DEFAULTS: Pick<Variants, "gallery" | "order"> = { gallery: "none", order: "classic" };
 
 /* ---------- validation ---------- */
 
@@ -143,7 +149,7 @@ function hashSeed(seed: string): () => number {
 }
 
 const BIAS: Record<string, Partial<{ [K in VariantKey]: readonly string[] }>> = {
-  photos: { hero: ["full", "split-right", "split-left"], about: ["photo-left", "photo-right"], cta: ["photo", "dark"] },
+  photos: { hero: ["full", "split-right", "split-left"], about: ["photo-left", "photo-right"], cta: ["photo", "dark"], gallery: ["band"], services: ["split", "cards", "bento"] },
   bolder: { hero: ["bold", "full", "split-left"], services: ["tiles", "cards"], values: ["accent", "dark"], cta: ["accent", "dark"] },
   softer: { hero: ["centered", "split-right"], services: ["cards", "list"], values: ["light"], cta: ["accent"] },
   darker: { values: ["dark", "light"], cta: ["dark", "photo"] },
@@ -168,7 +174,7 @@ export function chooseVariants(seed: string, o: { style?: string; photos: boolea
     topbar: pick("topbar"),
     header: pick("header"),
     hero: pick("hero", o.photos ? undefined : ["centered", "bold"]),
-    services: pick("services"),
+    services: pick("services", o.photos ? undefined : ["cards", "list", "feature", "tiles", "bento"]),
     values: pick("values"),
     process: pick("process"),
     band: pick("band"),
@@ -176,6 +182,8 @@ export function chooseVariants(seed: string, o: { style?: string; photos: boolea
     faq: pick("faq"),
     cta: pick("cta", o.photos ? undefined : ["accent", "dark"]),
     footer: pick("footer"),
+    gallery: pick("gallery", o.photos ? undefined : ["none"]),
+    order: pick("order"),
   };
 }
 

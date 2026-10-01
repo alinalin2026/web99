@@ -24,7 +24,7 @@ const keys = Object.keys(VARIANTS);
 const variants = (i) => Object.fromEntries(keys.map((k, j) => [k, VARIANTS[k][(i + j) % VARIANTS[k].length]]));
 
 test("every variant of every section renders a page that passes the quality gate", () => {
-  for (let i = 0; i < 10; i++) {
+  for (let i = 0; i < 13; i++) {
     for (const p of palettes) {
       const html = renderSite(content, { palette: p.id, variants: variants(i), seed: "t" }, photos);
       assert.deepEqual(siteProblems(html, { photos: true, palette: p }), [], `variant set ${i}, ${p.id}`);

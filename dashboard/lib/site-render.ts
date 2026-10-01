@@ -4,8 +4,10 @@
    combination sweep described in the project notes), and colours come only from a contrast-checked palette.
    Nothing the model wrote is ever interpreted as markup. */
 import { iconSvg } from "./icons";
+import { initials, logoHtml, LOGO_CSS } from "./logo";
 import { paletteById, type Palette } from "./palettes";
-import type { SiteContent, SiteDesign, Variants } from "./site-blocks";
+import { VARIANT_DEFAULTS, type SiteContent, type SiteDesign, type Variants } from "./site-blocks";
+import { EXTRA_CSS } from "./site-css-extra";
 
 export interface RenderPhoto { url: string; alt: string }
 export type RenderPhotos = Partial<Record<"hero" | "work" | "detail", RenderPhoto>>;
@@ -199,6 +201,8 @@ details p{padding:0 26px 24px;margin:0;color:var(--muted)}
 .ftr ul{list-style:none;margin:0;padding:0;display:grid;gap:9px}.ftr .logo{margin-bottom:14px}
 .ftr__copy{margin-top:34px;padding-top:20px;border-top:1px solid color-mix(in srgb,var(--dark-ink) 16%,transparent);font-size:.82rem}
 @media(max-width:860px){.ftr__cols{grid-template-columns:1fr}}
+${LOGO_CSS}
+${EXTRA_CSS}
 `;
 }
 
@@ -214,17 +218,10 @@ const tel = (n: string) => n.replace(/[^\d+]/g, "");
 
 const NAV: [string, string][] = [["#services", "Services"], ["#process", "How it works"], ["#about", "About"], ["#faq", "FAQ"], ["#contact", "Contact"]];
 
-const SKIP_WORDS = new Set(["the", "and", "of", "ltd", "limited", "co", "&", "a"]);
-export function initials(name: string): string {
-  const words = name.split(/\s+/).map((w) => w.replace(/[^\p{L}\p{N}]/gu, "")).filter((w) => w && !SKIP_WORDS.has(w.toLowerCase()));
-  const letters = (words.length > 1 ? words.slice(0, 2).map((w) => w[0]) : [words[0]?.[0] ?? name[0] ?? "W"]).join("");
-  return letters.toUpperCase();
-}
+export { initials };
 
 function logo(c: SiteContent, v: Variants): string {
-  const mark = v.logo === "monogram" ? esc(initials(c.brand.name)) : icon(c.brand.icon);
-  const tag = v.logo === "tagline" && c.brand.tagline ? `<small>${esc(c.brand.tagline)}</small>` : "";
-  return `<a class="logo logo--${v.logo}" href="#top"><span class="logo__mark">${mark}</span><span><span class="logo__name">${esc(c.brand.name)}</span>${tag}</span></a>`;
+  return logoHtml(c.brand, v.logo);
 }
 
 function topbar(c: SiteContent, v: Variants): string {
@@ -259,10 +256,10 @@ function hero(c: SiteContent, v: Variants, ph: RenderPhotos): string {
       html = `<section class="hero hero--full" id="top"><div class="hero__bg">${img(photo, "", true)}</div><div class="wrap"><div class="hero__text rise">${text}</div></div></section>`;
       break;
     case "centered":
-      html = `<section class="hero hero--centered" id="top"><div class="wrap"><div class="rise">${text}</div>${photo ? figure(photo, "hero__band", true) : ""}</div></section>`;
+      html = `<section class="hero hero--centered${photo ? "" : " hero--nophoto"}" id="top"><div class="wrap"><div class="rise">${text}</div>${photo ? figure(photo, "hero__band", true) : ""}</div></section>`;
       break;
     case "bold":
-      html = `<section class="hero hero--bold" id="top"><div class="wrap"><div class="hero__grid"><div class="hero__text rise">${text}</div>${media("")}</div></div></section>`;
+      html = `<section class="hero hero--bold${photo ? "" : " hero--nophoto"}" id="top"><div class="wrap"><div class="hero__grid"><div class="hero__text rise">${text}</div>${media("")}</div></div></section>`;
       break;
     case "split-left":
       html = `<section class="hero hero--flip" id="top"><div class="wrap"><div class="hero__grid">${media("")}<div class="hero__text rise">${text}</div></div></div></section>`;
@@ -273,19 +270,41 @@ function hero(c: SiteContent, v: Variants, ph: RenderPhotos): string {
   return html + strip;
 }
 
-function services(c: SiteContent, v: Variants): string {
+const swipe = () => `<p class="swipe" aria-hidden="true">Swipe for more ${icon("arrow-right")}</p>`;
+
+function services(c: SiteContent, v: Variants, ph: RenderPhotos): string {
   const s = c.services;
-  const h = head(s.eyebrow, s.title, s.intro, v.services === "cards" || v.services === "tiles");
-  switch (v.services) {
+  const photo = ph.detail ?? ph.work ?? ph.hero;
+  const kind = v.services === "split" && !photo ? "cards" : v.services;
+  const h = head(s.eyebrow, s.title, s.intro, kind === "cards" || kind === "tiles" || kind === "bento");
+  const card = (i: (typeof s.items)[number]) => `<div class="card">${badge(i.icon)}<h3>${esc(i.title)}</h3><p>${esc(i.text)}</p></div>`;
+  switch (kind) {
     case "list":
-      return `<section class="services--list" id="services"><div class="wrap">${h}<div class="grid">${s.items.map((i) => `<div class="row">${badge(i.icon)}<div><h3>${esc(i.title)}</h3><p>${esc(i.text)}</p></div></div>`).join("")}</div></div></section>`;
+      return `<section class="services--list" id="services"><div class="wrap">${h}${swipe()}<div class="grid">${s.items.map((i) => `<div class="row">${badge(i.icon)}<div><h3>${esc(i.title)}</h3><p>${esc(i.text)}</p></div></div>`).join("")}</div></div></section>`;
     case "feature":
-      return `<section class="services--feature" id="services"><div class="wrap"><div class="feature">${h}<div class="stack">${s.items.map((i) => `<div class="card">${badge(i.icon)}<div><h3>${esc(i.title)}</h3><p>${esc(i.text)}</p></div></div>`).join("")}</div></div></div></section>`;
+      return `<section class="services--feature" id="services"><div class="wrap"><div class="feature">${h}${swipe()}<div class="stack">${s.items.map((i) => `<div class="card">${badge(i.icon)}<div><h3>${esc(i.title)}</h3><p>${esc(i.text)}</p></div></div>`).join("")}</div></div></div></section>`;
     case "tiles":
-      return `<section class="services--tiles" id="services"><div class="wrap">${h}<div class="grid">${s.items.map((i) => `<div class="tile">${icon(i.icon)}<h3>${esc(i.title)}</h3><p>${esc(i.text)}</p></div>`).join("")}</div></div></section>`;
+      return `<section class="services--tiles" id="services"><div class="wrap">${h}${swipe()}<div class="grid">${s.items.map((i) => `<div class="tile">${icon(i.icon)}<h3>${esc(i.title)}</h3><p>${esc(i.text)}</p></div>`).join("")}</div></div></section>`;
+    case "split":
+      return `<section class="services--split" id="services"><div class="wrap"><div class="split"><div class="split__media">${figure(photo, "")}</div><div class="split__body">${h}${swipe()}<div class="rows">${s.items.map((i) => `<div class="row">${badge(i.icon)}<div><h3>${esc(i.title)}</h3><p>${esc(i.text)}</p></div></div>`).join("")}</div></div></div></div></section>`;
+    case "bento":
+      return `<section class="services--bento" id="services"><div class="wrap">${h}${swipe()}<div class="grid">${s.items.map(card).join("")}</div></div></section>`;
     default:
-      return `<section class="services--cards" id="services"><div class="wrap">${h}<div class="grid">${s.items.map((i) => `<div class="card">${badge(i.icon)}<h3>${esc(i.title)}</h3><p>${esc(i.text)}</p></div>`).join("")}</div></div></section>`;
+      return `<section class="services--cards" id="services"><div class="wrap">${h}${swipe()}<div class="grid">${s.items.map(card).join("")}</div></div></section>`;
   }
+}
+
+function gallery(v: Variants, ph: RenderPhotos): string {
+  if (v.gallery !== "band") return "";
+  const a = ph.detail, b = ph.hero, d = ph.work;
+  if (!a || !b || !d) return "";
+  return `<section class="gallery" aria-label="Photos"><div class="wrap"><div class="mosaic"><figure class="m1"><img src="${esc(a.url)}" alt="${esc(a.alt)}" loading="lazy" decoding="async"></figure><figure class="m2"><img src="${esc(b.url)}" alt="${esc(b.alt)}" loading="lazy" decoding="async"></figure><figure class="m3"><img src="${esc(d.url)}" alt="${esc(d.alt)}" loading="lazy" decoding="async"></figure></div></div></section>`;
+}
+
+function dock(c: SiteContent): string {
+  const phone = c.contact.phone;
+  const main = `<a class="dock__main" href="#contact">${esc(c.hero.primaryCta)}</a>`;
+  return `<div class="dock">${phone ? `<a class="dock__call" href="tel:${esc(tel(phone))}">${icon("phone")}Call</a>` : ""}${main}</div>`;
 }
 
 function values(c: SiteContent, v: Variants): string {
@@ -295,7 +314,8 @@ function values(c: SiteContent, v: Variants): string {
 
 function ticker(c: SiteContent, v: Variants): string {
   if (v.band !== "ticker") return "";
-  return `<div class="ticker" aria-hidden="true"><div class="wrap"><ul>${c.services.items.slice(0, 6).map((i) => `<li>${esc(i.title)}</li>`).join("")}</ul></div></div>`;
+  const lis = c.services.items.slice(0, 6).map((i) => `<li>${esc(i.title)}</li>`).join("");
+  return `<div class="ticker" aria-hidden="true"><div class="wrap"><div class="track"><ul>${lis}</ul><ul class="dup">${lis}</ul></div></div></div>`;
 }
 
 function process(c: SiteContent, v: Variants): string {
@@ -345,10 +365,23 @@ function footer(c: SiteContent, v: Variants): string {
 
 /* ---------- page ---------- */
 
+/* Three section orders so two sites rarely read the same way down the page. */
+function body(c: SiteContent, v: Variants, ph: RenderPhotos): string {
+  const parts = {
+    hero: hero(c, v, ph), services: services(c, v, ph), values: values(c, v), process: process(c, v), ticker: ticker(c, v),
+    about: about(c, v, ph), gallery: gallery(v, ph), faq: faq(c, v), cta: cta(c, v, ph),
+  };
+  const order: (keyof typeof parts)[] =
+    v.order === "story" ? ["hero", "about", "services", "gallery", "process", "values", "ticker", "faq", "cta"]
+    : v.order === "proof" ? ["hero", "values", "services", "ticker", "process", "about", "gallery", "faq", "cta"]
+    : ["hero", "services", "values", "process", "ticker", "about", "gallery", "faq", "cta"];
+  return order.map((k) => parts[k]).filter(Boolean).join("\n");
+}
+
 export function renderSite(content: SiteContent, design: SiteDesign, photos: RenderPhotos): string {
   const p = paletteById(design.palette);
   if (!p) throw new Error(`unknown palette ${design.palette}`);
-  const v = design.variants;
+  const v: Variants = { ...VARIANT_DEFAULTS, ...design.variants };
   const title = `${content.brand.name}${content.brand.tagline ? ` — ${content.brand.tagline}` : ""}`;
   return `<!doctype html>
 <html lang="en-IE"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>${esc(title)}</title><meta name="description" content="${esc(content.hero.sub)}">
@@ -357,15 +390,9 @@ export function renderSite(content: SiteContent, design: SiteDesign, photos: Ren
 <body data-palette="${esc(p.id)}" data-mood="${p.mode}">
 ${header(content, v)}
 <main>
-${hero(content, v, photos)}
-${services(content, v)}
-${values(content, v)}
-${process(content, v)}
-${ticker(content, v)}
-${about(content, v, photos)}
-${faq(content, v)}
-${cta(content, v, photos)}
+${body(content, v, photos)}
 </main>
 ${footer(content, v)}
+${dock(content)}
 </body></html>`;
 }

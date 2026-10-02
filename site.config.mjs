@@ -26,7 +26,7 @@ export const config = {
   /* --- WhatsApp -------------------------------------------------------- */
   /* TODO: REPLACE. Full international format, digits only, no + and no spaces.
      Irish mobile 087 123 4567  ->  353871234567                             */
-  whatsappNumber: "353000000000",
+  whatsappNumber: "353892184440",
   whatsappPrefill: "Hi, I saw Web99 and I'd like a website for my business.",
 
   /* --- Live counter (Section 7) ---------------------------------------- */
